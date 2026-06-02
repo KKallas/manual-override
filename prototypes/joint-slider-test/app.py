@@ -33,6 +33,10 @@ JOINT_LIMITS = {
     "j2": [-25.0, 85.0],
     "j3": [-25.0, 105.0],
 }
+# Per-joint following speed at 100% on the speed slider (deg/s). The live
+# follower slews toward the slider target capped at (ratio/100) * this value,
+# which is what makes dragging smooth instead of point-to-point.
+MAX_JOINT_VEL = 90.0
 
 # ---- single shared robot instance -----------------------------------------
 _robot = None
@@ -117,7 +121,7 @@ def disconnect():
 
 @app.route("/api/enable", methods=["POST"])
 def enable():
-    # Clear any latched error first, then enable. ClearError failing is not fatal.
+    # Clear any latched error first, then enable, then start smooth streaming.
     robot = _current()
     if robot is None or not robot.is_connected():
         return _fail("Not connected")
@@ -125,11 +129,21 @@ def enable():
         robot.clear_error()
     except DobotError:
         pass
-    return _command(lambda r: r.enable())
+    try:
+        errid, resp = robot.enable()
+    except DobotError as e:
+        return _fail(str(e), errid=e.errid)
+    if errid == 0:
+        robot.start_servo()  # begin ServoJ streaming, holding the current pose
+    return jsonify({"ok": errid == 0, "errid": errid, "resp": resp})
 
 
 @app.route("/api/disable", methods=["POST"])
 def disable():
+    robot = _current()
+    if robot is None or not robot.is_connected():
+        return _fail("Not connected")
+    robot.stop_servo()
     return _command(lambda r: r.disable())
 
 
@@ -151,24 +165,40 @@ def error_info():
 
 @app.route("/api/speed", methods=["POST"])
 def speed():
-    ratio = (request.json or {}).get("ratio", 50)
+    robot = _current()
+    if robot is None or not robot.is_connected():
+        return _fail("Not connected")
+    ratio = _clamp(int((request.json or {}).get("ratio", 50)), 1, 100)
+    # The follower speed is what governs smooth dragging; also set the
+    # controller's global SpeedFactor for any non-servo moves.
+    robot.set_max_velocity(ratio / 100.0 * MAX_JOINT_VEL)
     return _command(lambda r: r.speed_factor(ratio))
 
 
 @app.route("/api/stop", methods=["POST"])
 def stop():
-    """Soft stop — halt motion and clear the queue (ResetRobot)."""
-    return _command(lambda r: r.reset())
+    """Smooth stop / hold — freeze the follower at its current setpoint."""
+    robot = _current()
+    if robot is None or not robot.is_connected():
+        return _fail("Not connected")
+    robot.hold()
+    return _ok()
 
 
 @app.route("/api/estop", methods=["POST"])
 def estop():
-    """Emergency stop — cut servo power immediately."""
+    """Emergency stop — stop streaming and cut servo power immediately."""
+    robot = _current()
+    if robot is None or not robot.is_connected():
+        return _fail("Not connected")
+    robot.stop_servo()
     return _command(lambda r: r.emergency_stop())
 
 
 @app.route("/api/move", methods=["POST"])
 def move():
+    """Update the follower's target. Cheap (no socket round-trip); the servo
+    thread streams toward it at the velocity cap, which smooths the motion."""
     robot = _current()
     if robot is None or not robot.is_connected():
         return _fail("Not connected")
@@ -179,10 +209,8 @@ def move():
         j3 = _clamp(float(data["j3"]), *JOINT_LIMITS["j3"])
     except (KeyError, ValueError, TypeError):
         return _fail("Expected numeric j1, j2, j3")
-    # J4 is not slider-controlled in this prototype; hold it at its current
-    # actual angle so it does not snap to zero.
-    j4 = robot.get_state()["joints"][3]
-    return _command(lambda r: r.joint_move(j1, j2, j3, j4))
+    robot.set_target(j1, j2, j3)
+    return _ok()
 
 
 def main():

@@ -126,10 +126,12 @@
 
   <!-- Speed -->
   <section class="panel">
-    <h2>Global speed factor</h2>
+    <h2>Following speed</h2>
     <div class="joint">
       <div class="label"><span class="name">Speed</span><span class="val" id="speedVal">50%</span></div>
       <input type="range" id="speed" min="1" max="100" value="50" disabled />
+      <div class="hint">Caps how fast the arm slews toward the slider target.
+        Lower = smoother and safer for first tests.</div>
     </div>
   </section>
 
@@ -139,8 +141,9 @@
     <div id="joints"></div>
     <div class="row" style="margin-top:10px">
       <button id="btnSync" disabled>Sync sliders to robot</button>
-      <span class="hint">Each slider sets an absolute target angle (degrees) and
-        sends <code>JointMovJ</code>. J4 is held at its current angle.</span>
+      <span class="hint">Each slider sets a target angle (degrees); the server
+        streams <code>ServoJ</code> and slews toward it at the speed below, so
+        live dragging is smooth. J4 is held at its current angle.</span>
     </div>
   </section>
 
@@ -160,6 +163,7 @@ const JOINT_DEFS = [
 let limits = { j1:[-160,160], j2:[-25,85], j3:[-25,105] };
 let connected = false;
 let sliderEls = {};
+let lastServoError = null;
 
 // ---- helpers --------------------------------------------------------------
 function log(msg, cls="log-info") {
@@ -221,7 +225,7 @@ function buildJoints() {
 
 // ---- throttled move sending ----------------------------------------------
 let lastSent = 0, pending = null, timer = null;
-const MOVE_INTERVAL = 120; // ms
+const MOVE_INTERVAL = 60; // ms — cheap target updates; server slews smoothly
 
 function queueMove() {
   const now = Date.now();
@@ -288,6 +292,12 @@ async function poll() {
   document.getElementById("sError").textContent = s.error ? "ERROR" : "none";
   document.getElementById("sError").style.color = s.error ? "var(--err)" : "var(--muted)";
 
+  // servo follower errors (e.g. ServoJ unsupported by firmware)
+  if (s.servo_error && s.servo_error !== lastServoError) {
+    log("Servo follower stopped: " + s.servo_error, "log-err");
+  }
+  lastServoError = s.servo_error || null;
+
   // actual joint readouts
   if (Array.isArray(s.joints)) {
     JOINT_DEFS.forEach((def, i) => {
@@ -326,8 +336,10 @@ function wire() {
     report("disable", await api("/api/disable", {}));
   document.getElementById("btnClear").onclick = async () =>
     report("clear error", await api("/api/clear_error", {}));
-  document.getElementById("btnStop").onclick = async () =>
-    report("stop motion", await api("/api/stop", {}));
+  document.getElementById("btnStop").onclick = async () => {
+    report("stop / hold", await api("/api/stop", {}));
+    syncSliders();  // re-align sliders to where the arm actually stopped
+  };
   document.getElementById("btnEstop").onclick = doEstop;
   document.getElementById("btnSync").onclick = syncSliders;
 

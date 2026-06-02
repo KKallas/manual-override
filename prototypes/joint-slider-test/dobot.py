@@ -105,6 +105,14 @@ class DobotMG400:
         self._feed_thread = None
         self._running = False
 
+        # servo (smooth live following) state
+        self._servo_thread = None
+        self._servo_running = False
+        self._servo_lock = threading.Lock()
+        self._target = None      # desired joint vector [j1,j2,j3,j4]
+        self._setpoint = None    # current streamed setpoint (slew-limited)
+        self._max_vel = 45.0     # deg/s, per-joint velocity cap for following
+
         self._state = self._blank_state()
 
     # -- state ----------------------------------------------------------------
@@ -121,6 +129,8 @@ class DobotMG400:
             "digital_out": 0,
             "last_feedback": 0.0,
             "feedback_ok": False,
+            "servo_active": False,
+            "servo_error": None,
         }
 
     def get_state(self):
@@ -159,6 +169,7 @@ class DobotMG400:
 
     def close(self):
         """Stop the feedback thread and close every socket. Safe to call twice."""
+        self.stop_servo()
         self._running = False
         for sock in (self._feedback, self._motion, self._dashboard):
             if sock is not None:
@@ -258,6 +269,112 @@ class DobotMG400:
         raise on a controller error so out-of-range targets surface to the UI."""
         cmd = f"JointMovJ({j1:.3f},{j2:.3f},{j3:.3f},{j4:.3f})"
         return self._move(cmd, raise_on_error=False)
+
+    def servo_j(self, j1, j2, j3, j4, t=0.1):
+        """Stream one servo setpoint (degrees). ServoJ is meant to be called
+        repeatedly at a steady cadence; `t` is the time to reach this point."""
+        cmd = f"ServoJ({j1:.3f},{j2:.3f},{j3:.3f},{j4:.3f},t={t:.3f})"
+        return self._move(cmd, raise_on_error=False)
+
+    # -- smooth live following (servo streaming) ------------------------------
+    def set_max_velocity(self, deg_per_sec):
+        with self._servo_lock:
+            self._max_vel = max(1.0, float(deg_per_sec))
+
+    def set_target(self, j1, j2, j3, j4=None):
+        """Set the desired joint angles the follower slews toward. J4 is left at
+        its initialized (current) angle unless given."""
+        with self._servo_lock:
+            if self._target is None:
+                self._target = [0.0, 0.0, 0.0, 0.0]
+            self._target[0] = float(j1)
+            self._target[1] = float(j2)
+            self._target[2] = float(j3)
+            if j4 is not None:
+                self._target[3] = float(j4)
+
+    def hold(self):
+        """Smooth stop: snap the target to the current setpoint so the follower
+        freezes in place within one tick (no decel-to-stop lurch)."""
+        with self._servo_lock:
+            if self._setpoint is not None:
+                self._target = list(self._setpoint)
+
+    def start_servo(self):
+        """Begin streaming ServoJ, initialised to the current actual pose so the
+        first move doesn't jump. Restarts cleanly if already running."""
+        self.stop_servo()
+        # wait briefly for live feedback so we start from the real pose
+        deadline = time.time() + 1.0
+        while time.time() < deadline and not self.get_state()["feedback_ok"]:
+            time.sleep(0.02)
+        actual = [float(x) for x in self.get_state()["joints"]]
+        with self._servo_lock:
+            self._setpoint = list(actual)
+            self._target = list(actual)
+        self._servo_running = True
+        with self._state_lock:
+            self._state["servo_active"] = True
+            self._state["servo_error"] = None
+        self._servo_thread = threading.Thread(
+            target=self._servo_loop, name="dobot-servo", daemon=True
+        )
+        self._servo_thread.start()
+
+    def stop_servo(self):
+        self._servo_running = False
+        thread = self._servo_thread
+        if thread and thread.is_alive() and threading.current_thread() is not thread:
+            thread.join(timeout=1.0)
+        self._servo_thread = None
+        with self._state_lock:
+            self._state["servo_active"] = False
+
+    def _servo_loop(self):
+        interval = 0.08   # send rate (~12.5 Hz)
+        t_param = 0.10    # slightly longer than interval for overlap/smoothness
+        consecutive_errors = 0
+        next_t = time.monotonic()
+        while self._servo_running:
+            with self._servo_lock:
+                target = list(self._target) if self._target is not None else None
+                setpoint = list(self._setpoint) if self._setpoint is not None else None
+                max_step = self._max_vel * interval
+            if target is None or setpoint is None:
+                time.sleep(interval)
+                continue
+            # slew the setpoint toward the target, capped at max_step per joint
+            for i in range(4):
+                delta = target[i] - setpoint[i]
+                if delta > max_step:
+                    setpoint[i] += max_step
+                elif delta < -max_step:
+                    setpoint[i] -= max_step
+                else:
+                    setpoint[i] = target[i]
+            with self._servo_lock:
+                self._setpoint = list(setpoint)
+            errid, resp = self.servo_j(*setpoint, t=t_param)
+            if errid != 0:
+                consecutive_errors += 1
+                if consecutive_errors >= 3:
+                    with self._state_lock:
+                        self._state["servo_error"] = (
+                            f"ServoJ ErrorID {errid}: {resp}"
+                        )
+                    break
+            else:
+                consecutive_errors = 0
+            # pace the loop to a steady cadence
+            next_t += interval
+            sleep = next_t - time.monotonic()
+            if sleep > 0:
+                time.sleep(sleep)
+            else:
+                next_t = time.monotonic()
+        self._servo_running = False
+        with self._state_lock:
+            self._state["servo_active"] = False
 
     # -- response parsing helpers ---------------------------------------------
     @staticmethod
