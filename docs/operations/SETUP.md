@@ -19,6 +19,9 @@ Do this once per station (and again any time the frame, robots, or camera move).
    screen and both trays.
 3. Place each tool tray within its robot's reach.
 4. Install the hardware E-stop and mark the work zone.
+5. Network each MG400 and put it into **TCP/IP secondary development (API) mode**
+   so our software can control it — see
+   [dobot-api-mode.md](dobot-api-mode.md). Give the two robots distinct IPs.
 
 See [../hardware/HARDWARE.md](../hardware/HARDWARE.md) for the physical layout.
 
@@ -58,7 +61,9 @@ See [../hardware/HARDWARE.md](../hardware/HARDWARE.md) for the physical layout.
 ## 3. Start-up checklist (each session)
 
 1. Power on robots, screen, camera, and the compute machine.
-2. Confirm both robots are reachable over the network.
+2. Confirm both robots are reachable over the network and in **API mode**
+   (ping each, and check the API ports are open — see
+   [dobot-api-mode.md](dobot-api-mode.md)).
 3. Start the game server.
 4. Open the referee GUI; confirm:
    - both robots connected and homed,

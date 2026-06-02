@@ -91,7 +91,12 @@ an LLM reading the same frame is accurate but slow and resource-heavy.
 ### 2.4 Robot drivers
 
 One driver instance per MG400. The MG400 exposes a **TCP/IP control interface**
-(Dobot's TCP protocol / dashboard + motion ports). The driver:
+(Dobot's TCP protocol / dashboard + motion ports) once the controller is put into
+**TCP/IP secondary development ("API") mode** — see
+[operations/dobot-api-mode.md](operations/dobot-api-mode.md). A working reference
+implementation of this driver lives in
+[../prototypes/joint-slider-test/dobot.py](../prototypes/joint-slider-test/dobot.py).
+The driver:
 
 - Connects, enables, and homes the arm.
 - Accepts **joint-space** commands (for the slider UI in Class 1) and

@@ -20,6 +20,13 @@ channels end-to-end.
 - **`app.py`** — Flask REST server + serves the control page.
 - **`index.html`** — single-page slider UI with live status and a command log.
 
+## Before you run: put the robot in API mode
+
+The MG400 only serves the control ports once it's in **TCP/IP secondary
+development (API) mode**. Set that up first — including the network wiring (e.g.
+Mac host dongle at `192.168.1.50`, robot at `192.168.1.6`) — following
+[../../docs/operations/dobot-api-mode.md](../../docs/operations/dobot-api-mode.md).
+
 ## Run
 
 ```bash

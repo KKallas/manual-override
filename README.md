@@ -71,13 +71,19 @@ course:
 | Course curriculum | [docs/curriculum/](docs/curriculum/) | spec |
 | Hardware & drawings | [docs/hardware/](docs/hardware/) | spec |
 | Operating / setup guide | [docs/operations/SETUP.md](docs/operations/SETUP.md) | spec |
+| Dobot API-mode setup | [docs/operations/dobot-api-mode.md](docs/operations/dobot-api-mode.md) | done |
+| Joint-slider comms prototype | [prototypes/joint-slider-test/](prototypes/joint-slider-test/) | working |
 | Game server (Python) | `server/` *(planned)* | not started |
 | Referee GUI | `server/refgui/` *(planned)* | not started |
 | Client / agent bridge | `client/` *(planned)* | not started |
 
-> **Current state:** this is the planning/specification pass. The code layout is
-> described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) but the `server/` and
-> `client/` trees have not been implemented yet.
+> **Current state:** mostly specification, with the **first hardware prototype**
+> live — a [joint-slider test](prototypes/joint-slider-test/) that talks to a real
+> MG400 over all three TCP channels (control / motion / feedback) and drives the
+> base + first two joints smoothly, plus vacuum/blow control. The full `server/`
+> and `client/` trees described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+> are not built yet. To connect a robot, first follow
+> [docs/operations/dobot-api-mode.md](docs/operations/dobot-api-mode.md).
 
 ---
 
