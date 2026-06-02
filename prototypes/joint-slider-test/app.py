@@ -37,6 +37,9 @@ JOINT_LIMITS = {
 # follower slews toward the slider target capped at (ratio/100) * this value,
 # which is what makes dragging smooth instead of point-to-point.
 MAX_JOINT_VEL = 90.0
+# Controller digital output wired to the vacuum pump / suction cup kit. DO index
+# n maps to feedback digital-output bit (n - 1). Change to match your wiring.
+VACUUM_DO_INDEX = 1
 
 # ---- single shared robot instance -----------------------------------------
 _robot = None
@@ -81,15 +84,22 @@ def index():
 
 @app.route("/api/config")
 def config():
-    return jsonify({"joint_limits": JOINT_LIMITS, "default_ip": DEFAULT_IP})
+    return jsonify(
+        {
+            "joint_limits": JOINT_LIMITS,
+            "default_ip": DEFAULT_IP,
+            "vacuum_do_index": VACUUM_DO_INDEX,
+        }
+    )
 
 
 @app.route("/api/status")
 def status():
     robot = _current()
-    if robot is None:
-        return jsonify(DobotMG400._blank_state())
-    return jsonify(robot.get_state())
+    st = DobotMG400._blank_state() if robot is None else robot.get_state()
+    # Reflect the real pump state from the feedback digital-output bitmask.
+    st["vacuum_on"] = bool(st.get("digital_out", 0) & (1 << (VACUUM_DO_INDEX - 1)))
+    return jsonify(st)
 
 
 @app.route("/api/connect", methods=["POST"])
@@ -193,6 +203,13 @@ def estop():
         return _fail("Not connected")
     robot.stop_servo()
     return _command(lambda r: r.emergency_stop())
+
+
+@app.route("/api/vacuum", methods=["POST"])
+def vacuum():
+    """Turn the vacuum pump / suction cup on or off via its digital output."""
+    on = bool((request.json or {}).get("on", False))
+    return _command(lambda r: r.set_digital_output(VACUUM_DO_INDEX, on))
 
 
 @app.route("/api/move", methods=["POST"])

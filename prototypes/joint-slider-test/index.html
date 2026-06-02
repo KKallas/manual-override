@@ -147,6 +147,17 @@
     </div>
   </section>
 
+  <!-- End tool -->
+  <section class="panel">
+    <h2>End tool — vacuum pump</h2>
+    <div class="row">
+      <button id="btnVacuum" disabled>Vacuum: OFF</button>
+      <span id="vacPill" class="pill off"><span class="dot"></span><span id="vacText">off</span></span>
+      <span class="hint">Toggles the suction cup via its digital output
+        (<code>DOExecute</code>). State is read back from the robot.</span>
+    </div>
+  </section>
+
   <!-- Log -->
   <section class="panel">
     <h2>Command log</h2>
@@ -164,6 +175,7 @@ let limits = { j1:[-160,160], j2:[-25,85], j3:[-25,105] };
 let connected = false;
 let sliderEls = {};
 let lastServoError = null;
+let vacuumOn = false;
 
 // ---- helpers --------------------------------------------------------------
 function log(msg, cls="log-info") {
@@ -260,6 +272,7 @@ function setControlsEnabled(on) {
   document.getElementById("btnEstop").disabled = !on;
   document.getElementById("btnStop").disabled = !on;
   document.getElementById("btnSync").disabled = !on;
+  document.getElementById("btnVacuum").disabled = !on;
   document.getElementById("speed").disabled = !on;
   Object.values(sliderEls).forEach(el => el.disabled = !on);
   document.getElementById("btnConnect").disabled = on;
@@ -297,6 +310,14 @@ async function poll() {
     log("Servo follower stopped: " + s.servo_error, "log-err");
   }
   lastServoError = s.servo_error || null;
+
+  // vacuum pump state (read back from the robot's digital outputs)
+  vacuumOn = !!s.vacuum_on;
+  const vacBtn = document.getElementById("btnVacuum");
+  vacBtn.textContent = "Vacuum: " + (vacuumOn ? "ON" : "OFF");
+  vacBtn.className = vacuumOn ? "ok" : "";
+  document.getElementById("vacPill").className = "pill " + (vacuumOn ? "on" : "off");
+  document.getElementById("vacText").textContent = vacuumOn ? "on" : "off";
 
   // actual joint readouts
   if (Array.isArray(s.joints)) {
@@ -342,6 +363,10 @@ function wire() {
   };
   document.getElementById("btnEstop").onclick = doEstop;
   document.getElementById("btnSync").onclick = syncSliders;
+  document.getElementById("btnVacuum").onclick = async () => {
+    const next = !vacuumOn;
+    report("vacuum " + (next ? "on" : "off"), await api("/api/vacuum", { on: next }));
+  };
 
   const speed = document.getElementById("speed");
   let speedTimer = null;

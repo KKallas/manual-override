@@ -251,6 +251,18 @@ class DobotMG400:
         ratio = max(1, min(100, int(ratio)))
         return self._dash(f"SpeedFactor({ratio})")
 
+    def set_digital_output(self, index, status, immediate=True):
+        """Set a controller digital output (used for the vacuum pump / suction
+        cup kit). `immediate` uses DOExecute so it fires now rather than waiting
+        in the motion queue behind streamed ServoJ points."""
+        value = 1 if status else 0
+        cmd = (
+            f"DOExecute({int(index)},{value})"
+            if immediate
+            else f"DO({int(index)},{value})"
+        )
+        return self._dash(cmd, raise_on_error=False)
+
     def get_angle(self):
         """Query current joint angles via the dashboard (alternative to the
         feedback stream). Returns a list of floats."""
