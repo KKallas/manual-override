@@ -1,0 +1,44 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Node / web client ----
+node_modules/
+.npm/
+dist/
+.cache/
+*.log
+npm-debug.log*
+
+# ---- Secrets & local config ----
+.env
+.env.*
+!.env.example
+*.local
+secrets.*
+
+# ---- Camera calibration & captured data (large, regenerable) ----
+calibration/*.npz
+calibration/*.yaml
+captures/
+recordings/
+*.mp4
+*.avi
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
