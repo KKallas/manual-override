@@ -37,9 +37,12 @@ JOINT_LIMITS = {
 # follower slews toward the slider target capped at (ratio/100) * this value,
 # which is what makes dragging smooth instead of point-to-point.
 MAX_JOINT_VEL = 90.0
-# Controller digital output wired to the vacuum pump / suction cup kit. DO index
-# n maps to feedback digital-output bit (n - 1). Change to match your wiring.
-VACUUM_DO_INDEX = 1
+# Air pump / suction cup wiring. The standard kit uses two controller digital
+# outputs: one powers the pump, one is a direction valve (suck vs. blow). DO
+# index n maps to feedback digital-output bit (n - 1). Adjust to your wiring.
+PUMP_DO_INDEX = 1        # pump on/off
+VALVE_DO_INDEX = 2       # direction valve (set to None if you have no valve)
+VALVE_SUCK_LEVEL = 0     # the valve output level that produces suction (0 or 1)
 
 # ---- single shared robot instance -----------------------------------------
 _robot = None
@@ -88,9 +91,20 @@ def config():
         {
             "joint_limits": JOINT_LIMITS,
             "default_ip": DEFAULT_IP,
-            "vacuum_do_index": VACUUM_DO_INDEX,
+            "has_valve": VALVE_DO_INDEX is not None,
         }
     )
+
+
+def _pump_mode(do_bits):
+    """Derive the current pump mode from the feedback digital-output bitmask."""
+    pump_on = bool(do_bits & (1 << (PUMP_DO_INDEX - 1)))
+    if not pump_on:
+        return "off"
+    if VALVE_DO_INDEX is None:
+        return "on"
+    valve = 1 if (do_bits & (1 << (VALVE_DO_INDEX - 1))) else 0
+    return "suck" if valve == VALVE_SUCK_LEVEL else "blow"
 
 
 @app.route("/api/status")
@@ -98,7 +112,7 @@ def status():
     robot = _current()
     st = DobotMG400._blank_state() if robot is None else robot.get_state()
     # Reflect the real pump state from the feedback digital-output bitmask.
-    st["vacuum_on"] = bool(st.get("digital_out", 0) & (1 << (VACUUM_DO_INDEX - 1)))
+    st["pump_mode"] = _pump_mode(st.get("digital_out", 0))
     return jsonify(st)
 
 
@@ -205,11 +219,15 @@ def estop():
     return _command(lambda r: r.emergency_stop())
 
 
-@app.route("/api/vacuum", methods=["POST"])
-def vacuum():
-    """Turn the vacuum pump / suction cup on or off via its digital output."""
-    on = bool((request.json or {}).get("on", False))
-    return _command(lambda r: r.set_digital_output(VACUUM_DO_INDEX, on))
+@app.route("/api/pump", methods=["POST"])
+def pump():
+    """Set the air pump mode: 'suck' (vacuum/pull), 'blow' (push), or 'off'."""
+    mode = (request.json or {}).get("mode", "off")
+    if mode not in ("suck", "blow", "off"):
+        return _fail("mode must be 'suck', 'blow' or 'off'")
+    return _command(
+        lambda r: r.set_pump(mode, PUMP_DO_INDEX, VALVE_DO_INDEX, VALVE_SUCK_LEVEL)
+    )
 
 
 @app.route("/api/move", methods=["POST"])

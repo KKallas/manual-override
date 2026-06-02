@@ -263,6 +263,34 @@ class DobotMG400:
         )
         return self._dash(cmd, raise_on_error=False)
 
+    def set_pump(self, mode, pump_do, valve_do=None, suck_level=0):
+        """Drive the air pump in one of three modes: 'suck', 'blow', 'off'.
+
+        Suck/blow set the direction valve first, then power the pump; 'off'
+        cuts the pump. If valve_do is None, only the pump is toggled (no
+        direction control). Returns (errid, resp) like other commands.
+        """
+        mode = (mode or "").lower()
+        if mode == "off":
+            return self.set_digital_output(pump_do, 0)
+        if mode == "suck":
+            valve = suck_level
+        elif mode == "blow":
+            valve = 1 - suck_level
+        else:
+            raise DobotError(-1, f"unknown pump mode {mode!r}", "set_pump")
+
+        resp_parts = []
+        errid = 0
+        if valve_do is not None:
+            ev, rv = self.set_digital_output(valve_do, valve)
+            resp_parts.append(f"valve={rv}")
+            errid = ev or errid
+        ep, rp = self.set_digital_output(pump_do, 1)
+        resp_parts.append(f"pump={rp}")
+        errid = ep or errid
+        return errid, "; ".join(resp_parts)
+
     def get_angle(self):
         """Query current joint angles via the dashboard (alternative to the
         feedback stream). Returns a list of floats."""

@@ -149,12 +149,14 @@
 
   <!-- End tool -->
   <section class="panel">
-    <h2>End tool — vacuum pump</h2>
+    <h2>End tool — air pump</h2>
     <div class="row">
-      <button id="btnVacuum" disabled>Vacuum: OFF</button>
-      <span id="vacPill" class="pill off"><span class="dot"></span><span id="vacText">off</span></span>
-      <span class="hint">Toggles the suction cup via its digital output
-        (<code>DOExecute</code>). State is read back from the robot.</span>
+      <button id="btnSuck" disabled>⭳ Vacuum (pull)</button>
+      <button id="btnBlow" disabled>⭱ Blow (push)</button>
+      <button id="btnPumpOff" disabled>Off</button>
+      <span id="pumpPill" class="pill off"><span class="dot"></span><span id="pumpText">off</span></span>
+      <span class="hint">Suck = grip, Blow = release/push. Drives the pump &amp;
+        direction valve; state is read back from the robot.</span>
     </div>
   </section>
 
@@ -175,7 +177,7 @@ let limits = { j1:[-160,160], j2:[-25,85], j3:[-25,105] };
 let connected = false;
 let sliderEls = {};
 let lastServoError = null;
-let vacuumOn = false;
+let pumpMode = "off";
 
 // ---- helpers --------------------------------------------------------------
 function log(msg, cls="log-info") {
@@ -272,7 +274,9 @@ function setControlsEnabled(on) {
   document.getElementById("btnEstop").disabled = !on;
   document.getElementById("btnStop").disabled = !on;
   document.getElementById("btnSync").disabled = !on;
-  document.getElementById("btnVacuum").disabled = !on;
+  document.getElementById("btnSuck").disabled = !on;
+  document.getElementById("btnBlow").disabled = !on;
+  document.getElementById("btnPumpOff").disabled = !on;
   document.getElementById("speed").disabled = !on;
   Object.values(sliderEls).forEach(el => el.disabled = !on);
   document.getElementById("btnConnect").disabled = on;
@@ -311,13 +315,13 @@ async function poll() {
   }
   lastServoError = s.servo_error || null;
 
-  // vacuum pump state (read back from the robot's digital outputs)
-  vacuumOn = !!s.vacuum_on;
-  const vacBtn = document.getElementById("btnVacuum");
-  vacBtn.textContent = "Vacuum: " + (vacuumOn ? "ON" : "OFF");
-  vacBtn.className = vacuumOn ? "ok" : "";
-  document.getElementById("vacPill").className = "pill " + (vacuumOn ? "on" : "off");
-  document.getElementById("vacText").textContent = vacuumOn ? "on" : "off";
+  // air pump state (read back from the robot's digital outputs)
+  pumpMode = s.pump_mode || "off";
+  document.getElementById("btnSuck").className = pumpMode === "suck" ? "ok" : "";
+  document.getElementById("btnBlow").className = pumpMode === "blow" ? "stop" : "";
+  document.getElementById("pumpPill").className =
+    "pill " + (pumpMode === "off" ? "off" : "on");
+  document.getElementById("pumpText").textContent = pumpMode;
 
   // actual joint readouts
   if (Array.isArray(s.joints)) {
@@ -363,10 +367,12 @@ function wire() {
   };
   document.getElementById("btnEstop").onclick = doEstop;
   document.getElementById("btnSync").onclick = syncSliders;
-  document.getElementById("btnVacuum").onclick = async () => {
-    const next = !vacuumOn;
-    report("vacuum " + (next ? "on" : "off"), await api("/api/vacuum", { on: next }));
-  };
+  document.getElementById("btnSuck").onclick = async () =>
+    report("vacuum (pull)", await api("/api/pump", { mode: "suck" }));
+  document.getElementById("btnBlow").onclick = async () =>
+    report("blow (push)", await api("/api/pump", { mode: "blow" }));
+  document.getElementById("btnPumpOff").onclick = async () =>
+    report("pump off", await api("/api/pump", { mode: "off" }));
 
   const speed = document.getElementById("speed");
   let speedTimer = null;

@@ -12,7 +12,7 @@ channels end-to-end.
 
 | Channel | Port | Used for |
 |---------|------|----------|
-| Dashboard (control) | 29999 | Enable, Disable, Clear Error, Stop, Emergency Stop, Speed Factor, vacuum pump (`DOExecute`), error queries |
+| Dashboard (control) | 29999 | Enable, Disable, Clear Error, Stop, Emergency Stop, Speed Factor, air pump suck/blow (`DOExecute`), error queries |
 | Motion | 30003 | `ServoJ` — streamed setpoints for smooth live following (`JointMovJ` also available) |
 | Feedback | 30004 | 1440-byte real-time packet (~8 ms): robot mode + actual joint angles |
 
@@ -72,13 +72,26 @@ Tunables live in `dobot.py` (`_max_vel`, loop `interval`, `t_param`) and `app.py
   **Clear Error**.
 - Connection drops are detected by the feedback thread and reflected in the UI.
 
-## Vacuum pump
+## Air pump (vacuum / blow)
 
-The **End tool** panel toggles the suction cup on/off via a controller digital
-output (`DOExecute`, which fires immediately rather than queuing behind motion).
-The button reflects the **real** pump state, read back from the feedback packet's
-digital-output bits. The output index is `VACUUM_DO_INDEX` in `app.py` (default
-`1`) — change it to match how your pump kit is wired.
+The **End tool** panel has three controls — **Vacuum (pull)**, **Blow (push)**
+and **Off**. The standard suction-cup kit uses two controller digital outputs: a
+**pump** output (on/off) and a **direction valve** (suck vs. blow). Vacuum/Blow
+set the valve first, then power the pump (via `DOExecute`, which fires
+immediately rather than queuing behind motion); Off cuts the pump. The active
+mode is read back from the feedback packet's digital-output bits.
+
+Wiring is configured in `app.py`:
+
+| Constant | Default | Meaning |
+|----------|---------|---------|
+| `PUMP_DO_INDEX` | `1` | DO that powers the pump |
+| `VALVE_DO_INDEX` | `2` | DO for the direction valve (`None` if you have no valve) |
+| `VALVE_SUCK_LEVEL` | `0` | valve output level that produces suction |
+
+If Vacuum and Blow come out **swapped**, flip `VALVE_SUCK_LEVEL` between `0` and
+`1`. If your pump is on a different output, change `PUMP_DO_INDEX`. With no valve,
+set `VALVE_DO_INDEX = None` and only on/off is available.
 
 ## Safety
 
