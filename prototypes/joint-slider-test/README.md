@@ -75,23 +75,34 @@ Tunables live in `dobot.py` (`_max_vel`, loop `interval`, `t_param`) and `app.py
 ## Air pump (vacuum / blow)
 
 The **End tool** panel has three controls — **Vacuum (pull)**, **Blow (push)**
-and **Off**. The standard suction-cup kit uses two controller digital outputs: a
-**pump** output (on/off) and a **direction valve** (suck vs. blow). Vacuum/Blow
-set the valve first, then power the pump (via `DOExecute`, which fires
-immediately rather than queuing behind motion); Off cuts the pump. The active
-mode is read back from the feedback packet's digital-output bits.
+and **Off**.
+
+The **Mini Vacuum Pump Box** (I/O control mode) uses **two independent control
+lines**: one drives **suction**, one drives **blowing**. At most one may be
+energised at a time — *both high* is a conflicting state, and *both low* turns
+the pump off. So:
+
+- **Vacuum** → blow line low, suck line high
+- **Blow** → suck line low, blow line high
+- **Off** → **both** lines low
+
+The commands use `DOExecute` (immediate, so they don't queue behind streamed
+motion), and the active mode is read back from the feedback packet's
+digital-output bits.
+
+> Note: Dobot's general docs describe a "pump on/off + direction valve" scheme
+> for some controllers, but this pump box behaves as two direction lines as
+> above. If `Off` doesn't fully stop the pump, that's the tell-tale sign of the
+> single-line assumption — which this version no longer makes.
 
 Wiring is configured in `app.py`:
 
 | Constant | Default | Meaning |
 |----------|---------|---------|
-| `PUMP_DO_INDEX` | `1` | DO that powers the pump |
-| `VALVE_DO_INDEX` | `2` | DO for the direction valve (`None` if you have no valve) |
-| `VALVE_SUCK_LEVEL` | `0` | valve output level that produces suction |
+| `SUCK_DO_INDEX` | `2` | output that drives suction (vacuum / pull) |
+| `BLOW_DO_INDEX` | `1` | output that drives blowing (push / release) |
 
-If Vacuum and Blow come out **swapped**, flip `VALVE_SUCK_LEVEL` between `0` and
-`1`. If your pump is on a different output, change `PUMP_DO_INDEX`. With no valve,
-set `VALVE_DO_INDEX = None` and only on/off is available.
+If **Vacuum and Blow come out swapped**, just swap these two values.
 
 ## Safety
 

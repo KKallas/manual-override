@@ -263,33 +263,39 @@ class DobotMG400:
         )
         return self._dash(cmd, raise_on_error=False)
 
-    def set_pump(self, mode, pump_do, valve_do=None, suck_level=0):
-        """Drive the air pump in one of three modes: 'suck', 'blow', 'off'.
+    def set_pump(self, mode, suck_do, blow_do):
+        """Drive the air pump box (I/O mode) in one of three modes: 'suck',
+        'blow', 'off'.
 
-        Suck/blow set the direction valve first, then power the pump; 'off'
-        cuts the pump. If valve_do is None, only the pump is toggled (no
-        direction control). Returns (errid, resp) like other commands.
+        The Mini Vacuum Pump Box exposes two independent control lines — one
+        drives suction, one drives blowing. At most one may be energised at a
+        time (both high is a conflicting state); both low turns the pump off.
+        We therefore always drop the opposite line before raising the active
+        one, and 'off' pulls both low. Returns (errid, resp).
         """
         mode = (mode or "").lower()
-        if mode == "off":
-            return self.set_digital_output(pump_do, 0)
+        resp = []
+        errid = 0
+
+        def out(index, value, label):
+            nonlocal errid
+            e, r = self.set_digital_output(index, value)
+            resp.append(f"{label}={r}")
+            errid = e or errid
+
         if mode == "suck":
-            valve = suck_level
+            out(blow_do, 0, "blow")   # ensure blow is off first
+            out(suck_do, 1, "suck")
         elif mode == "blow":
-            valve = 1 - suck_level
+            out(suck_do, 0, "suck")   # ensure suck is off first
+            out(blow_do, 1, "blow")
+        elif mode == "off":
+            out(suck_do, 0, "suck")
+            out(blow_do, 0, "blow")
         else:
             raise DobotError(-1, f"unknown pump mode {mode!r}", "set_pump")
 
-        resp_parts = []
-        errid = 0
-        if valve_do is not None:
-            ev, rv = self.set_digital_output(valve_do, valve)
-            resp_parts.append(f"valve={rv}")
-            errid = ev or errid
-        ep, rp = self.set_digital_output(pump_do, 1)
-        resp_parts.append(f"pump={rp}")
-        errid = ep or errid
-        return errid, "; ".join(resp_parts)
+        return errid, "; ".join(resp)
 
     def get_angle(self):
         """Query current joint angles via the dashboard (alternative to the

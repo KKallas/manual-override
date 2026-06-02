@@ -37,12 +37,12 @@ JOINT_LIMITS = {
 # follower slews toward the slider target capped at (ratio/100) * this value,
 # which is what makes dragging smooth instead of point-to-point.
 MAX_JOINT_VEL = 90.0
-# Air pump / suction cup wiring. The standard kit uses two controller digital
-# outputs: one powers the pump, one is a direction valve (suck vs. blow). DO
-# index n maps to feedback digital-output bit (n - 1). Adjust to your wiring.
-PUMP_DO_INDEX = 1        # pump on/off
-VALVE_DO_INDEX = 2       # direction valve (set to None if you have no valve)
-VALVE_SUCK_LEVEL = 0     # the valve output level that produces suction (0 or 1)
+# Air pump box (I/O mode) wiring. The Mini Vacuum Pump Box uses two independent
+# control lines: one drives suction, one drives blowing. Energise at most one;
+# both low = pump off. DO index n maps to feedback digital-output bit (n - 1).
+# Swap these two values if Vacuum and Blow come out reversed for your wiring.
+SUCK_DO_INDEX = 2        # output that drives suction (vacuum / pull)
+BLOW_DO_INDEX = 1        # output that drives blowing (push / release)
 
 # ---- single shared robot instance -----------------------------------------
 _robot = None
@@ -87,24 +87,20 @@ def index():
 
 @app.route("/api/config")
 def config():
-    return jsonify(
-        {
-            "joint_limits": JOINT_LIMITS,
-            "default_ip": DEFAULT_IP,
-            "has_valve": VALVE_DO_INDEX is not None,
-        }
-    )
+    return jsonify({"joint_limits": JOINT_LIMITS, "default_ip": DEFAULT_IP})
 
 
 def _pump_mode(do_bits):
     """Derive the current pump mode from the feedback digital-output bitmask."""
-    pump_on = bool(do_bits & (1 << (PUMP_DO_INDEX - 1)))
-    if not pump_on:
-        return "off"
-    if VALVE_DO_INDEX is None:
-        return "on"
-    valve = 1 if (do_bits & (1 << (VALVE_DO_INDEX - 1))) else 0
-    return "suck" if valve == VALVE_SUCK_LEVEL else "blow"
+    suck = bool(do_bits & (1 << (SUCK_DO_INDEX - 1)))
+    blow = bool(do_bits & (1 << (BLOW_DO_INDEX - 1)))
+    if suck and blow:
+        return "conflict"  # both lines high — should not happen via this UI
+    if suck:
+        return "suck"
+    if blow:
+        return "blow"
+    return "off"
 
 
 @app.route("/api/status")
@@ -225,9 +221,7 @@ def pump():
     mode = (request.json or {}).get("mode", "off")
     if mode not in ("suck", "blow", "off"):
         return _fail("mode must be 'suck', 'blow' or 'off'")
-    return _command(
-        lambda r: r.set_pump(mode, PUMP_DO_INDEX, VALVE_DO_INDEX, VALVE_SUCK_LEVEL)
-    )
+    return _command(lambda r: r.set_pump(mode, SUCK_DO_INDEX, BLOW_DO_INDEX))
 
 
 @app.route("/api/move", methods=["POST"])

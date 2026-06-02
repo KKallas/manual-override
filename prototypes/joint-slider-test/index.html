@@ -319,8 +319,9 @@ async function poll() {
   pumpMode = s.pump_mode || "off";
   document.getElementById("btnSuck").className = pumpMode === "suck" ? "ok" : "";
   document.getElementById("btnBlow").className = pumpMode === "blow" ? "stop" : "";
-  document.getElementById("pumpPill").className =
-    "pill " + (pumpMode === "off" ? "off" : "on");
+  const pumpPillClass =
+    pumpMode === "off" ? "off" : (pumpMode === "conflict" ? "error" : "on");
+  document.getElementById("pumpPill").className = "pill " + pumpPillClass;
   document.getElementById("pumpText").textContent = pumpMode;
 
   // actual joint readouts
