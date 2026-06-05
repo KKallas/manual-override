@@ -30,19 +30,19 @@ So the two machines have different jobs:
 - **Mac host (our Python server)** — the actual API client during sessions.
 
 ```
-   ┌──────────────────────── Mac host (Apple Silicon) ────────────────────────┐
-   │                                                                            │
+   ┌──────────────────────── Mac host (Apple Silicon) ─────────────────────────┐
+   │                                                                           │
    │   Python server  ──────────────┐                                          │
-   │   (prototype / game server)     │ direct, 192.168.1.x                      │
-   │                                 ▼                                          │
-   │   USB-Ethernet dongle  en?  192.168.1.50  ───────cable────►  ┌──────────┐  │
-   │        ▲                                                     │  MG400   │  │
-   │        │ host NAT (UTM shared / emulated VLAN)               │ 192.168. │  │
-   │   ┌────┴───────────────┐                                     │  1.6     │  │
-   │   │  UTM: Windows 11    │  Dobot Studio Pro ─► enable API ───►└──────────┘  │
-   │   │  ARM64 VM           │                                                   │
-   │   └─────────────────────┘                                                  │
-   └────────────────────────────────────────────────────────────────────────────┘
+   │   (prototype / game server)    │ direct, 192.168.1.x                      │
+   │                                ▼                                          │
+   │   USB-Ethernet dongle  en?  192.168.1.50  ───────cable────►  ┌──────────┐ │
+   │        ▲                                                     │  MG400   │ │
+   │        │ host NAT (UTM shared / emulated VLAN)               │ 192.168. │ │
+   │   ┌────┴───────────────┐                                     │  1.6     │ │
+   │   │  UTM: Windows 11   │  Dobot Studio Pro ─► enable API ───►└──────────┘ │
+   │   │  ARM64 VM          │                                                  │
+   │   └────────────────────┘                                                  │
+   └───────────────────────────────────────────────────────────────────────────┘
 ```
 
 The VM reaches the robot **through the host** (NAT), so we keep UTM's network as
