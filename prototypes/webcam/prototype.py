@@ -48,8 +48,18 @@ DEFAULT_INDEX = 0
 PROBE_MAX = 6          # probe camera indices 0..PROBE_MAX-1 when listing
 JPEG_QUALITY = 80      # MJPEG frame quality (0-100)
 STREAM_FPS = 30        # cap on how fast the stream route pushes frames
-REQUEST_W = 1280       # resolution we ask the camera for (it may pick another)
-REQUEST_H = 720
+DEFAULT_W = 1920       # resolution we ask the camera for (it may pick another)
+DEFAULT_H = 1080
+# Resolutions offered in the GUI. A webcam reports the closest mode it supports;
+# the status panel shows what you actually got. Reaching 1080p+/4K usually needs
+# the MJPG capture codec (set below) — many UVC cams only expose high modes there.
+RESOLUTIONS = [
+    {"w": 640,  "h": 480,  "label": "640×480 (VGA)"},
+    {"w": 1280, "h": 720,  "label": "1280×720 (720p)"},
+    {"w": 1920, "h": 1080, "label": "1920×1080 (1080p)"},
+    {"w": 2560, "h": 1440, "label": "2560×1440 (1440p)"},
+    {"w": 3840, "h": 2160, "label": "3840×2160 (4K)"},
+]
 SETTINGS_PATH = os.path.join(HERE, "camera-settings.json")
 
 
@@ -64,8 +74,8 @@ def _backend():
 
 def _placeholder(text):
     """A grey 'no signal' frame, JPEG-encoded, for when no camera is open."""
-    img = np.full((REQUEST_H, REQUEST_W, 3), 18, np.uint8)
-    cv2.putText(img, text, (40, REQUEST_H // 2),
+    img = np.full((720, 1280, 3), 18, np.uint8)
+    cv2.putText(img, text, (40, 360),
                 cv2.FONT_HERSHEY_SIMPLEX, 1.0, (140, 150, 170), 2, cv2.LINE_AA)
     ok, buf = cv2.imencode(".jpg", img)
     return buf.tobytes() if ok else b""
@@ -84,16 +94,22 @@ class CameraManager:
         self._thread = None
         self._running = False
         self._latest = None        # latest JPEG bytes
-        self._w = 0
-        self._h = 0
+        self._w = 0                # actual capture width
+        self._h = 0                # actual capture height
+        self._req_w = 0            # requested width
+        self._req_h = 0            # requested height
         self._fps = 0.0            # measured capture fps (EMA)
         self._last_ts = 0.0
         self._error = None         # last open/read error, for the UI
         self._no_signal = _placeholder("No camera selected")
 
     # -- lifecycle ------------------------------------------------------------
-    def open(self, index):
-        """Open camera `index`, replacing any current one. Returns (ok, error)."""
+    def open(self, index, width=None, height=None):
+        """Open camera `index` at a requested resolution, replacing any current
+        one. The camera picks the closest mode it supports; status reports what
+        was actually achieved. Returns (ok, error)."""
+        width = int(width or DEFAULT_W)
+        height = int(height or DEFAULT_H)
         with self._lock:
             self._stop_locked()
             cap = cv2.VideoCapture(index, _backend())
@@ -101,14 +117,21 @@ class CameraManager:
                 cap.release()
                 self._error = f"could not open camera {index}"
                 return False, self._error
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, REQUEST_W)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, REQUEST_H)
+            # Request MJPG first: most UVC webcams only expose 1080p+/4K and
+            # higher frame rates through the MJPG codec, not raw (YUY2) frames.
+            try:
+                cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+            except (cv2.error, AttributeError):
+                pass
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
             try:
                 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # lower latency; not always honoured
             except cv2.error:
                 pass
             self._cap = cap
             self._index = index
+            self._req_w, self._req_h = width, height
             self._error = None
             self._latest = None
             self._fps = 0.0
@@ -118,7 +141,7 @@ class CameraManager:
                 target=self._grab_loop, name=f"webcam-grab-{index}", daemon=True
             )
             self._thread.start()
-        _save_settings(index)
+        _save_settings(index, width, height)
         return True, None
 
     def close(self):
@@ -190,6 +213,8 @@ class CameraManager:
                 "index": self._index,
                 "width": self._w,
                 "height": self._h,
+                "requested_width": self._req_w,
+                "requested_height": self._req_h,
                 "fps": round(self._fps, 1),
                 "error": self._error,
                 "backend": "AVFoundation" if sys.platform == "darwin"
@@ -250,18 +275,25 @@ def probe_cameras(max_index=PROBE_MAX):
 
 # ---- persisted selection ---------------------------------------------------
 def _load_settings():
+    """Return the remembered {index, width, height} dict, or None."""
     try:
         with open(SETTINGS_PATH) as f:
-            idx = json.load(f).get("index")
-            return int(idx) if idx is not None else None
+            data = json.load(f)
+        if data.get("index") is None:
+            return None
+        return {
+            "index": int(data["index"]),
+            "width": int(data.get("width") or DEFAULT_W),
+            "height": int(data.get("height") or DEFAULT_H),
+        }
     except (OSError, ValueError, TypeError):
         return None
 
 
-def _save_settings(index):
+def _save_settings(index, width, height):
     try:
         with open(SETTINGS_PATH, "w") as f:
-            json.dump({"index": index}, f)
+            json.dump({"index": index, "width": width, "height": height}, f)
     except OSError:
         pass
 
@@ -281,8 +313,13 @@ def view():
 # ---- API -------------------------------------------------------------------
 @bp.route("/api/cameras")
 def api_cameras():
-    """List available cameras (probed) plus the remembered selection."""
-    return jsonify({"cameras": probe_cameras(), "remembered": _load_settings()})
+    """List available cameras (probed), the resolution options, and the
+    remembered selection."""
+    return jsonify({
+        "cameras": probe_cameras(),
+        "resolutions": RESOLUTIONS,
+        "remembered": _load_settings(),
+    })
 
 
 @bp.route("/api/status")
@@ -294,13 +331,20 @@ def api_status():
 
 @bp.route("/api/select", methods=["POST"])
 def api_select():
-    """Open a camera by index (and remember it)."""
+    """Open a camera by index at an optional width/height (and remember both).
+    If width/height are omitted the remembered or default resolution is used."""
     data = request.get_json(silent=True) or {}
     try:
         index = int(data["index"])
     except (KeyError, ValueError, TypeError):
         return jsonify({"ok": False, "error": "expected integer 'index'"}), 400
-    ok, err = _mgr.open(index)
+    remembered = _load_settings() or {}
+    try:
+        width = int(data.get("width") or remembered.get("width") or DEFAULT_W)
+        height = int(data.get("height") or remembered.get("height") or DEFAULT_H)
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "width/height must be integers"}), 400
+    ok, err = _mgr.open(index, width, height)
     if not ok:
         return jsonify({"ok": False, "error": err}), 502
     return jsonify({"ok": True, "status": _mgr.status()})
@@ -320,6 +364,6 @@ def api_stream():
     if _mgr.active_index() is None:
         remembered = _load_settings()
         if remembered is not None:
-            _mgr.open(remembered)
+            _mgr.open(remembered["index"], remembered["width"], remembered["height"])
     return Response(_mgr.mjpeg(),
                     mimetype="multipart/x-mixed-replace; boundary=frame")

@@ -34,9 +34,19 @@ python hub.py                                # then open http://localhost:8000
 > If OpenCV isn't installed, the hub prints `FAILED to load prototype 'webcam'`
 > and keeps running the other prototypes — install the requirements to enable it.
 
-Open the **Webcam** tab, pick a camera from the dropdown, and the feed appears.
-The choice is remembered (`camera-settings.json`), so next time the feed comes up
-on its own.
+Open the **Webcam** tab, pick a camera and a **resolution** from the dropdowns,
+and the feed appears. Both choices are remembered (`camera-settings.json`), so
+next time the feed comes up on its own.
+
+### Resolution (up to 4K)
+
+The resolution dropdown offers up to **3840×2160 (4K)**. The camera reports the
+closest mode it actually supports, and the **Resolution** stat shows what you got
+— so if you pick 4K on a 1080p camera you'll see 1080p. Reaching 1080p+/4K relies
+on the **MJPG** capture codec, which the driver requests before setting the size
+(most UVC webcams only expose their high-res / high-fps modes through MJPG, not
+raw frames). Note that streaming and (later) per-frame ArUco work at 4K cost real
+CPU and bandwidth — 1080p is usually the better default for detection.
 
 > **macOS:** the first capture triggers a camera-permission prompt for whatever
 > runs `python` (Terminal / your IDE). Allow it, then Rescan. Capture uses the
@@ -81,4 +91,5 @@ Constants live at the top of `prototype.py`:
 | `PROBE_MAX` | `6` | how many indices `/api/cameras` probes |
 | `JPEG_QUALITY` | `80` | MJPEG frame quality (0–100) |
 | `STREAM_FPS` | `30` | cap on stream push rate |
-| `REQUEST_W` / `REQUEST_H` | `1280` / `720` | resolution requested (camera may pick another) |
+| `DEFAULT_W` / `DEFAULT_H` | `1920` / `1080` | resolution used when none is chosen/remembered |
+| `RESOLUTIONS` | VGA … 4K | options offered in the resolution dropdown |

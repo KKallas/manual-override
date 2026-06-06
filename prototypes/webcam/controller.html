@@ -68,9 +68,13 @@
       <button id="refresh" title="Re-scan for cameras">↻ Rescan</button>
       <button id="stop" title="Release the camera">Stop</button>
     </div>
-    <p class="note">Choose the camera to capture from. The selection is remembered,
-      so reopening this page brings the feed back automatically. If a camera is
-      missing, plug it in and press <b>Rescan</b>.</p>
+    <div class="row" style="margin-top:10px;">
+      <select id="resSel" title="Capture resolution"></select>
+    </div>
+    <p class="note">Choose the camera and capture resolution. The camera reports the
+      closest mode it supports — the <b>Resolution</b> stat below shows what you
+      actually got. High modes (1080p+/4K) use the MJPG codec. The selection is
+      remembered, so reopening this page brings the feed back automatically.</p>
   </div>
 
   <div class="panel">
@@ -95,6 +99,7 @@ const U = p => BASE + p.replace(/^\//, '');
 const el = id => document.getElementById(id);
 
 const camSel = el('cam');
+const resSel = el('resSel');
 let autoSelected = false;   // only auto-pick the remembered camera once
 
 function startStream() {
@@ -107,6 +112,16 @@ async function loadCameras() {
   try {
     data = await (await fetch(U('/api/cameras'))).json();
   } catch (_) { return; }
+
+  // resolution dropdown
+  const res = data.resolutions || [];
+  if (res.length && !resSel.options.length) {
+    resSel.innerHTML = res.map(r => `<option value="${r.w}x${r.h}">${r.label}</option>`).join('');
+    const rem = data.remembered;
+    if (rem && rem.width) resSel.value = `${rem.width}x${rem.height}`;
+  }
+
+  // camera dropdown
   const cams = data.cameras || [];
   if (!cams.length) {
     camSel.innerHTML = '<option value="">No cameras found</option>';
@@ -115,15 +130,20 @@ async function loadCameras() {
   const keep = camSel.value;
   camSel.innerHTML = cams.map(c => `<option value="${c.index}">${c.label}</option>`).join('');
   // restore a sensible selection: current value, else the remembered one
-  const want = keep || (data.remembered != null ? String(data.remembered) : '');
-  if (want && cams.some(c => String(c.index) === want)) camSel.value = want;
+  const wantIdx = keep || (data.remembered ? String(data.remembered.index) : '');
+  if (wantIdx && cams.some(c => String(c.index) === wantIdx)) camSel.value = wantIdx;
+}
+
+function chosenRes() {
+  const [w, h] = (resSel.value || '').split('x').map(Number);
+  return (w && h) ? { width: w, height: h } : {};
 }
 
 async function selectCamera(index) {
   try {
     const r = await (await fetch(U('/api/select'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ index: Number(index) }),
+      body: JSON.stringify({ index: Number(index), ...chosenRes() }),
     })).json();
     if (!r.ok) showAlert(r.error || 'could not open that camera');
     else hideAlert();
@@ -132,6 +152,7 @@ async function selectCamera(index) {
 }
 
 camSel.onchange = () => { if (camSel.value !== '') selectCamera(camSel.value); };
+resSel.onchange = () => { if (camSel.value !== '') selectCamera(camSel.value); };
 el('refresh').onclick = loadCameras;
 el('stop').onclick = async () => {
   try { await fetch(U('/api/stop'), { method: 'POST' }); } catch (_) {}
@@ -159,10 +180,11 @@ async function poll() {
   el('idx').textContent = (s.index != null) ? s.index : '—';
 
   // first poll: if nothing is open but we remember a camera, bring it up once
-  if (!autoSelected && !s.open && s.remembered != null) {
+  if (!autoSelected && !s.open && s.remembered) {
     autoSelected = true;
-    if (camSel.value === '') camSel.value = String(s.remembered);
-    selectCamera(s.remembered);
+    if (camSel.value === '') camSel.value = String(s.remembered.index);
+    if (s.remembered.width) resSel.value = `${s.remembered.width}x${s.remembered.height}`;
+    selectCamera(s.remembered.index);
   }
 }
 
