@@ -25,6 +25,15 @@ eases toward it every frame (frame-rate-independent exponential smoothing). So
 the playfield looks smooth even though the data only arrives a few times a
 second.
 
+### Everything persists across restarts
+
+Both the **areas** and the **view/effect settings** are written to disk
+(`areas.json` and `settings.json`) and reloaded on startup, so the playfield
+comes back exactly where you left it — deletes stick, edits stick. The seed
+presets only appear on a first-ever run (when no `areas.json` exists). Areas are
+flushed by a background thread that batches rapid changes, so a high-rate
+animation driving the store doesn't hammer the disk.
+
 ### View & effects live in the controller (and persist)
 
 Glow, depth-of-field and a **Blender-style camera transform** are edited in the
@@ -112,4 +121,5 @@ Numeric fields are clamped server-side (e.g. `x,z ∈ [-12,12]`, `size ∈
   mounted by the hub. See [../README.md](../README.md).
 - `controller.html` — default GUI: list editor + View & Effects panel
 - `screen.html` — Three.js 3D view (bloom + DOF), live poller, drag-to-move
+- `areas.json` — runtime-persisted areas (git-ignored)
 - `settings.json` — runtime-persisted view/effect state (git-ignored)

@@ -4,12 +4,14 @@ A tiny demo of **one prototype depending on another**. It has no rendering of
 its own — a server-side loop drives the **[Playfield Areas](../playfield-areas/)**
 module to animate a blue box:
 
-> spawn a blue box at depth **z = -10** → move it toward the camera to **z = 0**
-> → hold ~2 s → delete it → wait ~1 s → repeat.
+> spawn a blue box → tween **one chosen property** from a start value to an end
+> value → hold ~2 s → delete it → wait ~1 s → repeat.
 
-You watch it on the **Playfield** tab (its screen or controller), where the box
-appears and its `z` value changes live. This prototype's own controller just
-shows status and dependency health.
+A **dropdown** in this prototype's controller picks which property is tweened —
+**depth (z)**, **x**, **height (y)**, **size**, or **glow** — and the choice is
+saved to `config.json`, so it survives a restart. Changing it restarts the cycle
+immediately. You watch the result on the **Playfield** tab (screen or
+controller), where the box appears and the chosen value changes live.
 
 ## Run
 
@@ -54,5 +56,7 @@ cross-prototype access.
 
 ## Files
 
-- `prototype.py` — the animation loop + status API (Flask blueprint).
-- `controller.html` — status GUI (phase, live `z`, depth track, dependency alerts).
+- `prototype.py` — the animation loop + status/param API (Flask blueprint).
+- `controller.html` — GUI: tween-parameter dropdown, phase, live value, a
+  from→to track, and dependency alerts.
+- `config.json` — runtime-persisted choice of which property to tween (git-ignored).
