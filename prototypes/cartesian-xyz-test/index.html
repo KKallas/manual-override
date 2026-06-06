@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MG400 Cartesian XYZ Test</title>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#1a1d24; --line:#2a2f3a; --txt:#e6e9ef; --muted:#8a93a6;
+    --accent:#4f9dff; --ok:#36c46b; --warn:#f5a623; --err:#ff5462; --estop:#e02438;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:var(--bg); color:var(--txt); line-height:1.4; }
+  header { padding:14px 20px; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  header .sub { color:var(--muted); font-size:12px; }
+  main { max-width:880px; margin:0 auto; padding:20px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:16px 18px; margin-bottom:16px; }
+  .panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); margin:0 0 12px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  input[type=text] { background:#0c0e12; border:1px solid var(--line); color:var(--txt);
+    padding:8px 10px; border-radius:6px; font:inherit; width:150px; }
+  button { background:#232733; border:1px solid var(--line); color:var(--txt);
+    padding:8px 14px; border-radius:6px; font:inherit; cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.ok { background:var(--ok); border-color:var(--ok); color:#04210f; }
+  button.stop { background:var(--warn); border-color:var(--warn); color:#2a1c00; font-weight:600; }
+  button.estop { background:var(--estop); border-color:var(--estop); color:#fff;
+    font-weight:700; font-size:15px; padding:14px 22px; letter-spacing:.04em; }
+  .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px;
+    border-radius:999px; font-size:12px; font-weight:600; background:#232733; color:var(--muted); }
+  .pill .dot { width:8px; height:8px; border-radius:50%; background:var(--muted); }
+  .pill.on { color:var(--ok); } .pill.on .dot { background:var(--ok); }
+  .pill.off { color:var(--muted); }
+  .pill.error { color:var(--err); } .pill.error .dot { background:var(--err); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .stat { background:#13161c; border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  .stat .k { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .stat .v { font-size:20px; font-variant-numeric:tabular-nums; margin-top:2px; }
+  .axis { margin:18px 0; }
+  .axis .label { display:flex; justify-content:space-between; margin-bottom:6px; }
+  .axis .name { font-weight:600; }
+  .axis .val { font-variant-numeric:tabular-nums; color:var(--accent); }
+  .axis .actual { color:var(--muted); font-size:12px; }
+  input[type=range] { width:100%; accent-color:var(--accent); height:26px; }
+  .limits { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); }
+  .estop-bar { display:flex; gap:12px; align-items:center; }
+  #log { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;
+    background:#0c0e12; border:1px solid var(--line); border-radius:8px;
+    padding:10px; height:130px; overflow-y:auto; white-space:pre-wrap; }
+  .log-err{color:var(--err);} .log-ok{color:var(--ok);} .log-info{color:var(--muted);}
+  .hint { color:var(--muted); font-size:12px; margin-top:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>MG400 Cartesian XYZ Test</h1>
+  <span class="sub">Manual Override · TCP workspace prototype</span>
+  <span style="flex:1"></span>
+  <span id="connPill" class="pill off"><span class="dot"></span><span id="connText">Disconnected</span></span>
+  <span id="modePill" class="pill off"><span class="dot"></span><span id="modeText">—</span></span>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Connection</h2>
+    <div class="row">
+      <input type="text" id="ip" value="192.168.1.6" />
+      <button id="btnConnect" class="primary">Connect</button>
+      <button id="btnDisconnect" disabled>Disconnect</button>
+      <span style="flex:1"></span>
+      <button id="btnEnable" class="ok" disabled>Enable</button>
+      <button id="btnDisable" disabled>Disable</button>
+      <button id="btnClear" disabled>Clear Error</button>
+    </div>
+    <div class="hint">Robot must be in API mode — see
+      docs/operations/dobot-api-mode.md. Connect opens control 29999 · motion
+      30003 · feedback 30004.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Stop</h2>
+    <div class="estop-bar">
+      <button id="btnEstop" class="estop" disabled>■ EMERGENCY STOP</button>
+      <button id="btnStop" class="stop" disabled>Stop motion</button>
+      <span class="hint">E-STOP cuts servo power (recover: Clear Error → Enable).
+        “Stop motion” freezes the pose. Keyboard: <b>Esc</b> = E-STOP.</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Live status</h2>
+    <div class="grid">
+      <div class="stat"><div class="k">Feedback</div><div class="v" id="sFeed">—</div></div>
+      <div class="stat"><div class="k">Robot mode</div><div class="v" id="sMode">—</div></div>
+      <div class="stat"><div class="k">Servos</div><div class="v" id="sEnabled">—</div></div>
+      <div class="stat"><div class="k">Errors</div><div class="v" id="sError">—</div></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Following speed</h2>
+    <div class="axis">
+      <div class="label"><span class="name">Speed</span><span class="val" id="speedVal">30%</span></div>
+      <input type="range" id="speed" min="1" max="100" value="30" disabled />
+      <div class="hint">Caps linear (mm/s) and rotational (deg/s) following speed.
+        Start low for first Cartesian tests.</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>TCP pose — X / Y / Z (mm) &amp; R (deg)</h2>
+    <div id="axes"></div>
+    <div class="row" style="margin-top:10px">
+      <button id="btnSync" disabled>Sync sliders to robot</button>
+      <span class="hint" id="wsHint"></span>
+    </div>
+    <div class="hint">Targets are clamped to the reachable workspace (Z/R range
+      and an X/Y radius ring). The controller rejects anything still
+      unreachable — shown in the log.</div>
+  </section>
+
+  <section class="panel">
+    <h2>End tool — air pump</h2>
+    <div class="row">
+      <button id="btnSuck" disabled>⭳ Vacuum (pull)</button>
+      <button id="btnBlow" disabled>⭱ Blow (push)</button>
+      <button id="btnPumpOff" disabled>Off</button>
+      <span id="pumpPill" class="pill off"><span class="dot"></span><span id="pumpText">off</span></span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Command log</h2>
+    <div id="log"></div>
+  </section>
+</main>
+
+<script>
+const AXIS_DEFS = [
+  { id:"x", name:"X — left / right", unit:"mm", step:1 },
+  { id:"y", name:"Y — forward / back", unit:"mm", step:1 },
+  { id:"z", name:"Z — up / down", unit:"mm", step:1 },
+  { id:"r", name:"R — tool rotation", unit:"°", step:0.5 },
+];
+let ws = { x:[-450,450], y:[-450,450], z:[-150,230], r:[-160,160] };
+let radiusMin = 150, radiusMax = 440;
+let connected = false;
+let sliderEls = {};
+let lastServoError = null, pumpMode = "off";
+
+function log(msg, cls="log-info") {
+  const el = document.getElementById("log");
+  const line = document.createElement("div");
+  line.className = cls;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.appendChild(line); el.scrollTop = el.scrollHeight;
+}
+async function api(path, body) {
+  const opts = { method: body ? "POST" : "GET" };
+  if (body) { opts.headers = {"Content-Type":"application/json"}; opts.body = JSON.stringify(body); }
+  try { return await (await fetch(path, opts)).json(); }
+  catch (e) { log(`Network error on ${path}: ${e}`, "log-err"); return { ok:false, error:String(e) }; }
+}
+function report(name, res) {
+  if (res.ok) log(`${name} ✓`, "log-ok");
+  else log(`${name} ✗ ${res.error || ("ErrorID " + res.errid)}`, "log-err");
+  return res;
+}
+
+function buildAxes() {
+  const wrap = document.getElementById("axes");
+  wrap.innerHTML = "";
+  AXIS_DEFS.forEach(def => {
+    const [lo, hi] = ws[def.id];
+    const div = document.createElement("div");
+    div.className = "axis";
+    div.innerHTML = `
+      <div class="label">
+        <span class="name">${def.name}</span>
+        <span><span class="val" id="${def.id}Val">0 ${def.unit}</span>
+          <span class="actual" id="${def.id}Act"></span></span>
+      </div>
+      <input type="range" id="${def.id}" min="${lo}" max="${hi}" step="${def.step}" value="0" disabled />
+      <div class="limits"><span>${lo} ${def.unit}</span><span>${hi} ${def.unit}</span></div>`;
+    wrap.appendChild(div);
+  });
+  AXIS_DEFS.forEach(def => {
+    const el = document.getElementById(def.id);
+    sliderEls[def.id] = el;
+    el.addEventListener("input", () => {
+      document.getElementById(def.id + "Val").textContent =
+        parseFloat(el.value).toFixed(def.id === "r" ? 1 : 0) + " " + def.unit;
+      queueMove();
+    });
+  });
+  document.getElementById("wsHint").textContent =
+    `Reach ring ${radiusMin}–${radiusMax} mm; Z ${ws.z[0]}–${ws.z[1]} mm (approx).`;
+}
+
+let lastSent = 0, pending = null, timer = null;
+const MOVE_INTERVAL = 60;
+function queueMove() {
+  pending = {
+    x: parseFloat(sliderEls.x.value), y: parseFloat(sliderEls.y.value),
+    z: parseFloat(sliderEls.z.value), r: parseFloat(sliderEls.r.value),
+  };
+  const now = Date.now();
+  if (now - lastSent >= MOVE_INTERVAL) flushMove();
+  else if (!timer) timer = setTimeout(flushMove, MOVE_INTERVAL - (now - lastSent));
+}
+async function flushMove() {
+  if (timer) { clearTimeout(timer); timer = null; }
+  if (!pending || !connected) return;
+  const target = pending; pending = null; lastSent = Date.now();
+  const res = await api("/api/move", target);
+  if (!res.ok) log(`move ✗ ${res.error || ("ErrorID " + res.errid)}`, "log-err");
+}
+
+function setControlsEnabled(on) {
+  connected = on;
+  ["btnDisconnect","btnEnable","btnDisable","btnClear","btnEstop","btnStop",
+   "btnSync","btnSuck","btnBlow","btnPumpOff","speed"].forEach(id =>
+    document.getElementById(id).disabled = !on);
+  Object.values(sliderEls).forEach(el => el.disabled = !on);
+  document.getElementById("btnConnect").disabled = on;
+}
+
+async function poll() {
+  const s = await api("/api/status");
+  const connPill = document.getElementById("connPill");
+  connPill.className = "pill " + (s.connected ? "on" : "off");
+  document.getElementById("connText").textContent = s.connected ? "Connected" : "Disconnected";
+
+  document.getElementById("modeText").textContent = s.mode_name || "—";
+  document.getElementById("modePill").className =
+    "pill " + (s.error ? "error" : (s.enabled ? "on" : "off"));
+  if (s.connected !== connected) setControlsEnabled(s.connected);
+
+  document.getElementById("sFeed").textContent = s.feedback_ok ? "OK (8 ms)" : "—";
+  document.getElementById("sMode").textContent = (s.robot_mode ?? "—") + " · " + (s.mode_name || "");
+  document.getElementById("sEnabled").textContent = s.enabled ? "ON" : "off";
+  document.getElementById("sEnabled").style.color = s.enabled ? "var(--ok)" : "var(--muted)";
+  document.getElementById("sError").textContent = s.error ? "ERROR" : "none";
+  document.getElementById("sError").style.color = s.error ? "var(--err)" : "var(--muted)";
+
+  if (s.servo_error && s.servo_error !== lastServoError)
+    log("Servo follower stopped: " + s.servo_error, "log-err");
+  lastServoError = s.servo_error || null;
+
+  pumpMode = s.pump_mode || "off";
+  document.getElementById("btnSuck").className = pumpMode === "suck" ? "ok" : "";
+  document.getElementById("btnBlow").className = pumpMode === "blow" ? "stop" : "";
+  document.getElementById("pumpPill").className =
+    "pill " + (pumpMode === "off" ? "off" : (pumpMode === "conflict" ? "error" : "on"));
+  document.getElementById("pumpText").textContent = pumpMode;
+
+  if (Array.isArray(s.pose)) {
+    AXIS_DEFS.forEach((def, i) => {
+      const act = document.getElementById(def.id + "Act");
+      if (act) act.textContent = "actual " + s.pose[i].toFixed(def.id === "r" ? 1 : 0) + " " + def.unit;
+    });
+  }
+}
+
+function syncSliders() {
+  api("/api/status").then(s => {
+    if (!Array.isArray(s.pose)) return;
+    AXIS_DEFS.forEach((def, i) => {
+      const el = sliderEls[def.id];
+      const [lo, hi] = ws[def.id];
+      const v = Math.max(lo, Math.min(hi, s.pose[i]));
+      el.value = v;
+      document.getElementById(def.id + "Val").textContent =
+        v.toFixed(def.id === "r" ? 1 : 0) + " " + def.unit;
+    });
+    log("Sliders synced to current TCP pose", "log-info");
+  });
+}
+
+async function doEstop() {
+  log("EMERGENCY STOP", "log-err");
+  report("E-STOP", await api("/api/estop", {}));
+}
+
+function wire() {
+  document.getElementById("btnConnect").onclick = async () => {
+    const ip = document.getElementById("ip").value.trim();
+    log(`Connecting to ${ip} …`);
+    report("connect", await api("/api/connect", { ip }));
+  };
+  document.getElementById("btnDisconnect").onclick = async () =>
+    report("disconnect", await api("/api/disconnect", {}));
+  document.getElementById("btnEnable").onclick = async () => {
+    const res = report("enable", await api("/api/enable", {}));
+    if (res.ok) setTimeout(syncSliders, 300);  // align sliders to start pose
+  };
+  document.getElementById("btnDisable").onclick = async () =>
+    report("disable", await api("/api/disable", {}));
+  document.getElementById("btnClear").onclick = async () =>
+    report("clear error", await api("/api/clear_error", {}));
+  document.getElementById("btnStop").onclick = async () => {
+    report("stop / hold", await api("/api/stop", {})); syncSliders();
+  };
+  document.getElementById("btnEstop").onclick = doEstop;
+  document.getElementById("btnSync").onclick = syncSliders;
+  document.getElementById("btnSuck").onclick = async () =>
+    report("vacuum (pull)", await api("/api/pump", { mode:"suck" }));
+  document.getElementById("btnBlow").onclick = async () =>
+    report("blow (push)", await api("/api/pump", { mode:"blow" }));
+  document.getElementById("btnPumpOff").onclick = async () =>
+    report("pump off", await api("/api/pump", { mode:"off" }));
+
+  const speed = document.getElementById("speed");
+  let speedTimer = null;
+  speed.addEventListener("input", () => {
+    document.getElementById("speedVal").textContent = speed.value + "%";
+    clearTimeout(speedTimer);
+    speedTimer = setTimeout(async () =>
+      report("speed", await api("/api/speed", { ratio: parseInt(speed.value) })), 150);
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && connected) doEstop(); });
+}
+
+async function init() {
+  const cfg = await api("/api/config");
+  if (cfg.workspace) ws = cfg.workspace;
+  if (cfg.radius_min) radiusMin = cfg.radius_min;
+  if (cfg.radius_max) radiusMax = cfg.radius_max;
+  if (cfg.default_ip) document.getElementById("ip").value = cfg.default_ip;
+  buildAxes();
+  wire();
+  setControlsEnabled(false);
+  setInterval(poll, 200);
+  poll();
+  log("Ready. Put the robot in API mode, then Connect → Enable.", "log-info");
+}
+init();
+</script>
+</body>
+</html>
