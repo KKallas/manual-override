@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Webcam — Controller</title>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#1a1d24; --line:#2a2f3a; --txt:#e6e9ef;
+    --muted:#8a93a6; --accent:#4f9dff; --ok:#36c46b; --warn:#f5a623; --err:#ff5462;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background: var(--bg); color: var(--txt); line-height: 1.45; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  header a { color: var(--accent); }
+  #conn { color: var(--muted); font-size:12px; margin-left:auto; }
+  main { max-width: 860px; margin: 0 auto; padding: 20px; }
+  .panel { background: var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:16px 18px; margin-bottom:16px; }
+  .panel h2 { font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); margin:0 0 10px; }
+  .row { display:flex; gap:10px; align-items:center; }
+  select { flex:1; background:#0c0e12; color:var(--txt); border:1px solid var(--line);
+    border-radius:6px; padding:9px 10px; font:inherit; font-size:14px; cursor:pointer; }
+  select:focus { outline:none; border-color:var(--accent); }
+  button { background:#232733; border:1px solid var(--line); color:var(--txt);
+    padding:9px 14px; border-radius:6px; font:inherit; font-size:13px; cursor:pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color:#fff; }
+  button:hover { border-color: var(--accent); }
+  .note { color: var(--muted); font-size:13px; margin:10px 0 0; }
+  .video { position:relative; background:#000; border:1px solid var(--line);
+    border-radius:10px; overflow:hidden; aspect-ratio:16/9; display:flex;
+    align-items:center; justify-content:center; }
+  .video img { width:100%; height:100%; object-fit:contain; display:block; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr));
+    gap:10px; margin-top:14px; }
+  .stat { background:#13161c; border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  .stat .k { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .stat .v { font-size:20px; font-variant-numeric:tabular-nums; margin-top:3px; }
+  .pill { display:inline-flex; align-items:center; gap:7px; padding:5px 12px; border-radius:999px;
+    font-size:13px; font-weight:600; background:#232733; color:var(--muted); }
+  .pill .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); }
+  .pill.run { color:var(--ok); } .pill.run .dot { background:var(--ok); }
+  .pill.err { color:var(--err); } .pill.err .dot { background:var(--err); }
+  .pill.idle { color:var(--warn); } .pill.idle .dot { background:var(--warn); }
+  .alert { border-radius:10px; padding:12px 14px; margin-bottom:16px; border:1px solid;
+    background:#2a1216; border-color:#5a2630; color:#ffb3bb; font-size:13px; display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Webcam</h1>
+  <span class="sub">OpenCV live feed · pick the camera below ·
+    <a id="cleanLink" href="view" target="_blank">open clean view ↗</a></span>
+  <span id="conn"></span>
+</header>
+<main>
+  <div id="alert" class="alert"></div>
+
+  <div class="panel">
+    <h2>Camera</h2>
+    <div class="row">
+      <select id="cam"><option>Scanning…</option></select>
+      <button id="refresh" title="Re-scan for cameras">↻ Rescan</button>
+      <button id="stop" title="Release the camera">Stop</button>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <select id="resSel" title="Capture resolution"></select>
+    </div>
+    <p class="note">Choose the camera and capture resolution. The camera reports the
+      closest mode it supports — the <b>Resolution</b> stat below shows what you
+      actually got. High modes (1080p+/4K) use the MJPG codec. The selection is
+      remembered, so reopening this page brings the feed back automatically.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Live feed</h2>
+    <div class="video"><img id="feed" alt="camera feed" /></div>
+    <div class="grid">
+      <div class="stat"><div class="k">Status</div>
+        <div class="v"><span id="pill" class="pill idle"><span class="dot"></span><span id="pillTxt">…</span></span></div></div>
+      <div class="stat"><div class="k">Resolution</div><div class="v" id="res">—</div></div>
+      <div class="stat"><div class="k">FPS</div><div class="v" id="fps">—</div></div>
+      <div class="stat"><div class="k">Index</div><div class="v" id="idx">—</div></div>
+    </div>
+    <p class="note">Frames come from OpenCV on the server, served as MJPEG. This is
+      the camera for the perception stage — ArUco-marker reading builds on this feed.</p>
+  </div>
+</main>
+
+<script>
+// Own API is resolved relative to this page (works under the hub mount).
+const BASE = location.pathname.replace(/\/[^/]*$/, '/');
+const U = p => BASE + p.replace(/^\//, '');
+const el = id => document.getElementById(id);
+
+const camSel = el('cam');
+const resSel = el('resSel');
+let autoSelected = false;   // only auto-pick the remembered camera once
+
+function startStream() {
+  // cache-buster forces the <img> to (re)open the MJPEG connection
+  el('feed').src = U('/api/stream') + '?t=' + Date.now();
+}
+
+async function loadCameras() {
+  let data;
+  try {
+    data = await (await fetch(U('/api/cameras'))).json();
+  } catch (_) { return; }
+
+  // resolution dropdown
+  const res = data.resolutions || [];
+  if (res.length && !resSel.options.length) {
+    resSel.innerHTML = res.map(r => `<option value="${r.w}x${r.h}">${r.label}</option>`).join('');
+    const rem = data.remembered;
+    if (rem && rem.width) resSel.value = `${rem.width}x${rem.height}`;
+  }
+
+  // camera dropdown
+  const cams = data.cameras || [];
+  if (!cams.length) {
+    camSel.innerHTML = '<option value="">No cameras found</option>';
+    return;
+  }
+  const keep = camSel.value;
+  camSel.innerHTML = cams.map(c => `<option value="${c.index}">${c.label}</option>`).join('');
+  // restore a sensible selection: current value, else the remembered one
+  const wantIdx = keep || (data.remembered ? String(data.remembered.index) : '');
+  if (wantIdx && cams.some(c => String(c.index) === wantIdx)) camSel.value = wantIdx;
+}
+
+function chosenRes() {
+  const [w, h] = (resSel.value || '').split('x').map(Number);
+  return (w && h) ? { width: w, height: h } : {};
+}
+
+async function selectCamera(index) {
+  try {
+    const r = await (await fetch(U('/api/select'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ index: Number(index), ...chosenRes() }),
+    })).json();
+    if (!r.ok) showAlert(r.error || 'could not open that camera');
+    else hideAlert();
+  } catch (_) { showAlert('request failed'); }
+  startStream();
+}
+
+camSel.onchange = () => { if (camSel.value !== '') selectCamera(camSel.value); };
+resSel.onchange = () => { if (camSel.value !== '') selectCamera(camSel.value); };
+el('refresh').onclick = loadCameras;
+el('stop').onclick = async () => {
+  try { await fetch(U('/api/stop'), { method: 'POST' }); } catch (_) {}
+  startStream();
+};
+el('feed').onerror = () => setTimeout(startStream, 1000);
+
+function showAlert(msg) { const a = el('alert'); a.textContent = msg; a.style.display = 'block'; }
+function hideAlert() { el('alert').style.display = 'none'; }
+
+async function poll() {
+  let s;
+  try {
+    s = await (await fetch(U('/api/status'))).json();
+    el('conn').textContent = 'live';
+  } catch (_) { el('conn').textContent = 'offline'; return; }
+
+  const pill = el('pill'), txt = el('pillTxt');
+  if (s.error) { pill.className = 'pill err'; txt.textContent = s.error; }
+  else if (s.open) { pill.className = 'pill run'; txt.textContent = 'streaming'; }
+  else { pill.className = 'pill idle'; txt.textContent = 'no camera'; }
+
+  el('res').textContent = s.width ? `${s.width}×${s.height}` : '—';
+  el('fps').textContent = s.open ? (s.fps || 0).toFixed(0) : '—';
+  el('idx').textContent = (s.index != null) ? s.index : '—';
+
+  // first poll: if nothing is open but we remember a camera, bring it up once
+  if (!autoSelected && !s.open && s.remembered) {
+    autoSelected = true;
+    if (camSel.value === '') camSel.value = String(s.remembered.index);
+    if (s.remembered.width) resSel.value = `${s.remembered.width}x${s.remembered.height}`;
+    selectCamera(s.remembered.index);
+  }
+}
+
+(async () => {
+  await loadCameras();
+  startStream();          // shows remembered feed (server auto-opens) or 'no signal'
+  poll();
+  setInterval(poll, 1000);
+})();
+</script>
+</body>
+</html>

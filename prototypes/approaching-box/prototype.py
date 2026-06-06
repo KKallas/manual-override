@@ -91,6 +91,7 @@ _load_config()
 # ---- runtime state ---------------------------------------------------------
 _ctx = None
 _stop = threading.Event()
+_restart = threading.Event()   # set when the tween param changes -> restart the cycle now
 _thread = None
 _lock = threading.Lock()
 _status = {"running": False, "phase": "idle", "box_id": None, "value": None}
@@ -146,7 +147,7 @@ def _clean_stale(pf):
 def _gated_wait(secs):
     remaining = secs
     while remaining > 0:
-        if _stop.is_set():
+        if _stop.is_set() or _restart.is_set():
             return False
         ok, _err = _can_drive()
         if not ok:
@@ -161,8 +162,8 @@ def _animate(pf, bid, key, v0, v1, secs):
     """Tween area field `key` from v0 to v1 over `secs`. False if interrupted."""
     steps = max(1, int(secs * FPS))
     for i in range(1, steps + 1):
-        if _stop.is_set():
-            return False
+        if _stop.is_set() or _restart.is_set():
+            return False  # aborted (param changed / shutting down)
         ok, _err = _can_drive()
         if not ok:
             return False
@@ -186,6 +187,7 @@ def _loop():
         pf = _playfield()
         _clean_stale(pf)
 
+        _restart.clear()   # start a fresh cycle with the current param
         key = _config["param"] if _config["param"] in PARAMS else "z"
         p = PARAMS[key]
         fields = dict(DEFAULT_FIELDS)
@@ -255,4 +257,5 @@ def set_param():
         return jsonify({"ok": False, "error": "unknown param"}), 400
     _config["param"] = key
     _save_config()
+    _restart.set()   # abort the current cycle so the new param takes effect now
     return jsonify({"ok": True, "param": key})
