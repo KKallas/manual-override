@@ -17,7 +17,8 @@ channels end-to-end.
 | Feedback | 30004 | 1440-byte real-time packet (~8 ms): robot mode + actual joint angles |
 
 - **`dobot.py`** — thread-safe MG400 driver (sockets, command I/O, feedback parser).
-- **`app.py`** — Flask REST server + serves the control page.
+- **`prototype.py`** — Flask blueprint (REST API + serves the control page),
+  mounted by the prototype hub. See [../README.md](../README.md).
 - **`index.html`** — single-page slider UI with live status and a command log.
 
 ## Before you run: put the robot in API mode
@@ -29,14 +30,16 @@ Mac host dongle at `192.168.1.50`, robot at `192.168.1.6`) — following
 
 ## Run
 
+This prototype runs inside the **prototype hub** (it has no standalone server):
+
 ```bash
-cd prototypes/joint-slider-test
+cd prototypes
 pip install -r requirements.txt
-python app.py            # add --port 8080 to change the port
+python hub.py            # add --port 8080 to change the port
 ```
 
-Open **http://localhost:8000**, enter the robot IP (default `192.168.1.6`), and
-press **Connect**.
+Open **http://localhost:8000**, choose the **Joint Slider Test** tab, enter the
+robot IP (default `192.168.1.6`), and press **Connect**.
 
 ### Typical flow
 
@@ -62,8 +65,8 @@ decelerates to a full stop). Instead:
 - It's initialised to the current pose on Enable, so it never jumps on the first
   move.
 
-Tunables live in `dobot.py` (`_max_vel`, loop `interval`, `t_param`) and `app.py`
-(`MAX_JOINT_VEL`).
+Tunables live in `dobot.py` (`_max_vel`, loop `interval`, `t_param`) and
+`prototype.py` (`MAX_JOINT_VEL`).
 
 ## Stop & error handling
 
@@ -102,7 +105,7 @@ digital-output bits.
 > above. If `Off` doesn't fully stop the pump, that's the tell-tale sign of the
 > single-line assumption — which this version no longer makes.
 
-Wiring is configured in `app.py`:
+Wiring is configured in `prototype.py`:
 
 | Constant | Default | Meaning |
 |----------|---------|---------|
@@ -124,8 +127,8 @@ If **Vacuum and Blow come out swapped**, just swap these two values.
 - Smooth following relies on **`ServoJ`** being supported by your firmware (it is
   on the MG400). If a `ServoJ` call errors three times in a row, the follower
   stops and the reason is shown in the command log instead of failing silently.
-- Joint limits and the default IP live in `app.py` (`JOINT_LIMITS`, `DEFAULT_IP`)
-  and are served to the page via `/api/config` — edit them in one place.
+- Joint limits and the default IP live in `prototype.py` (`JOINT_LIMITS`,
+  `DEFAULT_IP`) and are served to the page via `/api/config` — edit them in one place.
 - The feedback struct offsets (mode @24, magic @48, joints @432) follow the
   documented Dobot 4-axis layout and are validated by the `0x0123456789ABCDEF`
   magic; if your firmware differs, the page falls back to showing no feedback

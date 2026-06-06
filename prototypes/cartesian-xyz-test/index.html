@@ -154,6 +154,11 @@ let radiusMin = 150, radiusMax = 440;
 let connected = false;
 let sliderEls = {};
 let lastServoError = null, pumpMode = "off";
+// id of the slider being dragged in THIS window (or null); cross-window sync
+// follows the server target but never clobbers the slider you're holding.
+let draggingId = null;
+window.addEventListener("pointerup", () => draggingId = null);
+window.addEventListener("keyup", () => draggingId = null);
 
 function log(msg, cls="log-info") {
   const el = document.getElementById("log");
@@ -162,10 +167,14 @@ function log(msg, cls="log-info") {
   line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
   el.appendChild(line); el.scrollTop = el.scrollHeight;
 }
+// Resolve API paths relative to this page's directory so the prototype works
+// wherever the hub mounts it (e.g. /p/cartesian-xyz-test/).
+const BASE = location.pathname.replace(/\/[^/]*$/, "/");
+
 async function api(path, body) {
   const opts = { method: body ? "POST" : "GET" };
   if (body) { opts.headers = {"Content-Type":"application/json"}; opts.body = JSON.stringify(body); }
-  try { return await (await fetch(path, opts)).json(); }
+  try { return await (await fetch(BASE + path.replace(/^\//, ""), opts)).json(); }
   catch (e) { log(`Network error on ${path}: ${e}`, "log-err"); return { ok:false, error:String(e) }; }
 }
 function report(name, res) {
@@ -199,6 +208,9 @@ function buildAxes() {
         parseFloat(el.value).toFixed(def.id === "r" ? 1 : 0) + " " + def.unit;
       queueMove();
     });
+    // mark which slider the user is dragging so cross-window sync doesn't fight it
+    el.addEventListener("pointerdown", () => draggingId = def.id);
+    el.addEventListener("keydown", () => draggingId = def.id);
   });
   document.getElementById("wsHint").textContent =
     `Reach ring ${radiusMin}–${radiusMax} mm; Z ${ws.z[0]}–${ws.z[1]} mm (approx).`;
@@ -265,6 +277,24 @@ async function poll() {
     AXIS_DEFS.forEach((def, i) => {
       const act = document.getElementById(def.id + "Act");
       if (act) act.textContent = "actual " + s.pose[i].toFixed(def.id === "r" ? 1 : 0) + " " + def.unit;
+    });
+  }
+
+  // Cross-window slider sync: follow the server's commanded target so several
+  // controller windows stay in lock-step. Skip the slider this window is
+  // actively dragging; deadband avoids float jitter (0.5 mm / 0.5° granularity).
+  if (Array.isArray(s.target)) {
+    AXIS_DEFS.forEach((def, i) => {
+      if (draggingId === def.id) return;
+      const el = sliderEls[def.id];
+      const v = s.target[i];
+      if (typeof v !== "number") return;
+      if (Math.abs(parseFloat(el.value) - v) > 0.25) {
+        const [lo, hi] = ws[def.id];
+        el.value = Math.max(lo, Math.min(hi, v));
+        document.getElementById(def.id + "Val").textContent =
+          parseFloat(el.value).toFixed(def.id === "r" ? 1 : 0) + " " + def.unit;
+      }
     });
   }
 }

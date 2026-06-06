@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Manual Override — Prototypes</title>
+<style>
+  :root {
+    --bg:#0b0d12; --panel:#14171e; --line:#262b36; --txt:#e6e9ef;
+    --muted:#8a93a6; --accent:#4f9dff; --err:#ff5462;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background: var(--bg); color: var(--txt);
+    font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  body { display: grid; grid-template-rows: auto auto 1fr; height: 100vh; }
+  header { padding: 12px 18px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 12px; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  header .right { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+  /* tab strip — one tab per prototype */
+  #tabs { display: flex; gap: 6px; padding: 8px 14px 0; border-bottom: 1px solid var(--line);
+    overflow-x: auto; }
+  .tab { padding: 7px 10px 7px 14px; border: 1px solid var(--line); border-bottom: none;
+    border-radius: 8px 8px 0 0; background: #0f1218; color: var(--muted);
+    cursor: pointer; white-space: nowrap; font-size: 13px;
+    display: flex; align-items: center; gap: 10px; }
+  .tab:hover .name { color: var(--txt); }
+  .tab.active { background: var(--panel); color: var(--txt); border-color: var(--accent); }
+  .tab.disabled { opacity: .5; }
+  .tab.disabled .name { text-decoration: line-through; }
+
+  /* little enable/disable switch living in each tab */
+  .sw { position: relative; width: 30px; height: 16px; flex: 0 0 auto; }
+  .sw input { opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .sw .track { position: absolute; inset: 0; background: #39404e; border-radius: 999px;
+    transition: background .15s; pointer-events: none; }
+  .sw .thumb { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px;
+    background: #cfd5e0; border-radius: 50%; transition: left .15s; pointer-events: none; }
+  .sw input:checked + .track { background: var(--accent); }
+  .sw input:checked + .track + .thumb { left: 16px; }
+
+  /* content area */
+  #content { display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+  #toolbar { display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+    border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  #toolbar .desc { color: var(--muted); font-size: 12px; flex: 1; min-width: 200px; }
+  button, a.btn { background:#222734; border:1px solid var(--line); color: var(--txt);
+    padding: 6px 12px; border-radius: 6px; font: inherit; font-size: 13px; cursor: pointer;
+    text-decoration: none; display: inline-block; }
+  button:hover, a.btn:hover { border-color: var(--accent); }
+  a.btn.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #frameWrap { position: relative; min-height: 0; }
+  iframe { width: 100%; height: 100%; border: 0; background: var(--bg); display: block; }
+  #empty, #disabledMsg { padding: 40px; color: var(--muted); height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #empty code { color: var(--accent); }
+  button.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Manual Override — Prototypes</h1>
+  <span class="sub">one server, every prototype</span>
+  <span class="right" id="count"></span>
+</header>
+
+<div id="tabs"></div>
+
+<div id="content">
+  <div id="toolbar">
+    <span class="desc" id="desc"></span>
+    <span id="pageLinks"></span>
+    <button id="reload" title="Reload the embedded GUI">↻ Reload</button>
+    <a class="btn" id="openTab" target="_blank">Open in new tab ↗</a>
+  </div>
+  <div id="frameWrap">
+    <iframe id="frame" title="prototype"></iframe>
+    <div id="disabledMsg" style="display:none">
+      <div>This prototype is <b>disabled</b>.</div>
+      <button id="enableHere" class="accent" style="margin-top:12px">Enable</button>
+    </div>
+    <div id="empty" style="display:none">
+      No prototypes found. Add a folder with a <code>prototype.py</code> and restart the hub.
+    </div>
+  </div>
+</div>
+
+<script>
+const tabsEl = document.getElementById('tabs');
+const frame = document.getElementById('frame');
+const descEl = document.getElementById('desc');
+const pageLinksEl = document.getElementById('pageLinks');
+const openTab = document.getElementById('openTab');
+const toolbar = document.getElementById('toolbar');
+const reloadBtn = document.getElementById('reload');
+const disabledMsg = document.getElementById('disabledMsg');
+const enableHere = document.getElementById('enableHere');
+let protos = [];
+let active = null;
+
+// ---- enable / disable (persisted server-side) ------------------------------
+async function setEnabled(slug, enabled) {
+  const p = protos.find(x => x.slug === slug);
+  if (p) p.enabled = enabled;        // optimistic
+  renderTabs();
+  if (active && active.slug === slug) selectProto(p);
+  try {
+    await fetch(`api/prototypes/${slug}/enabled`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+  } catch (_) { /* will reconcile on next load */ }
+}
+enableHere.onclick = () => { if (active) setEnabled(active.slug, true); };
+
+// ---- tabs ------------------------------------------------------------------
+function renderTabs() {
+  tabsEl.innerHTML = '';
+  for (const p of protos) {
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (p.enabled ? '' : ' disabled') + (active && active.slug === p.slug ? ' active' : '');
+    tab.dataset.slug = p.slug;
+
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = p.name;
+    name.onclick = () => { localStorage.setItem('lastProto', p.slug); selectProto(p); };
+
+    const sw = document.createElement('label');
+    sw.className = 'sw';
+    sw.title = p.enabled ? 'Disable' : 'Enable';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = p.enabled;
+    cb.onclick = e => { e.stopPropagation(); setEnabled(p.slug, cb.checked); };
+    const track = document.createElement('span'); track.className = 'track';
+    const thumb = document.createElement('span'); thumb.className = 'thumb';
+    sw.append(cb, track, thumb);
+
+    tab.append(name, sw);
+    tabsEl.appendChild(tab);
+  }
+}
+
+// ---- selected prototype view ----------------------------------------------
+function selectProto(p) {
+  active = p;
+  for (const el of tabsEl.children) el.classList.toggle('active', el.dataset.slug === p.slug);
+  descEl.textContent = (p.description || '') + (p.enabled ? '' : '  ·  (disabled)');
+
+  if (!p.enabled) {
+    // don't load the GUI — stop its polling — and offer to re-enable
+    frame.src = 'about:blank';
+    frame.style.display = 'none';
+    disabledMsg.style.display = 'flex';
+    pageLinksEl.innerHTML = '';
+    reloadBtn.style.display = 'none';
+    openTab.style.display = 'none';
+    return;
+  }
+  frame.style.display = 'block';
+  disabledMsg.style.display = 'none';
+  reloadBtn.style.display = '';
+  openTab.style.display = '';
+
+  openTab.href = p.default_url;
+  frame.src = p.default_url;     // embed the default GUI (the controller)
+
+  // extra page links (e.g. "Open clean playfield ↗")
+  pageLinksEl.innerHTML = '';
+  for (const page of p.pages) {
+    if (page.url === p.default_url) continue;       // already the embedded one
+    const a = document.createElement('a');
+    a.className = 'btn';
+    a.textContent = page.label;
+    a.href = page.url;
+    if (page.newtab) a.target = '_blank';
+    else a.onclick = e => { e.preventDefault(); frame.src = page.url; openTab.href = page.url; };
+    pageLinksEl.appendChild(a);
+  }
+}
+
+reloadBtn.onclick = () => { frame.src = frame.src; };
+
+async function load() {
+  try {
+    protos = await (await fetch('api/prototypes')).json();
+  } catch (_) { protos = []; }
+  document.getElementById('count').textContent =
+    protos.length ? `${protos.length} prototype${protos.length > 1 ? 's' : ''}` : '';
+  if (!protos.length) {
+    toolbar.style.display = 'none';
+    frame.style.display = 'none';
+    document.getElementById('empty').style.display = 'flex';
+    return;
+  }
+  renderTabs();
+  // restore last-viewed tab across reloads; prefer an enabled one
+  const remembered = protos.find(p => p.slug === localStorage.getItem('lastProto'));
+  const want = remembered || protos.find(p => p.enabled) || protos[0];
+  selectProto(want);
+}
+
+load();
+</script>
+</body>
+</html>

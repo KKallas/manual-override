@@ -1,27 +1,39 @@
 """
-Cartesian (TCP / XYZ) test web server for the Dobot MG400.
+Cartesian (TCP / XYZ) test prototype — a Flask blueprint mounted by the hub.
 
 Sliders drive the tool pose in workspace coordinates (X, Y, Z in mm, R in deg)
 rather than joint angles. The server streams ServoP setpoints toward the target
 with velocity limiting, so live dragging is smooth.
 
-Run:
-    pip install -r requirements.txt
-    python app.py            # then open http://localhost:8001
+This module is loaded by hub.py and registered under /p/cartesian-xyz-test. It
+has no app.run() of its own — it only runs inside the hub server. It needs the
+robot reachable on the network to do anything; without it, the GUI still loads
+and the API simply reports "Not connected".
 
 Put the robot in API mode first — see ../../docs/operations/dobot-api-mode.md.
 Safety: keep the hardware E-stop within reach; start with a low speed.
 """
 
-import argparse
 import math
+import os
+import sys
 import threading
 
-from flask import Flask, jsonify, request, send_file
+from flask import Blueprint, jsonify, request, send_from_directory
 
-from dobot import DobotMG400, DobotError
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)  # so the sibling dobot.py driver imports cleanly
+from dobot import DobotMG400, DobotError  # noqa: E402
 
-app = Flask(__name__)
+MANIFEST = {
+    "name": "Cartesian XYZ Test",
+    "description": "Drive the MG400 tool pose in workspace coordinates (X/Y/Z mm, "
+                   "R deg) via streamed ServoP. Requires the robot on the network; "
+                   "the GUI loads regardless.",
+    "default_page": "",   # index.html lives at the prototype root
+    "pages": [{"path": "", "label": "Controller"}],
+}
+bp = Blueprint("cartesian_xyz_test", __name__)
 
 # ---- configuration --------------------------------------------------------
 DEFAULT_IP = "192.168.1.6"
@@ -100,13 +112,13 @@ def _command(fn):
         return _fail(str(e))
 
 
-# ---- routes ---------------------------------------------------------------
-@app.route("/")
+# ---- pages ----------------------------------------------------------------
+@bp.route("/")
 def index():
-    return send_file("index.html")
+    return send_from_directory(HERE, "index.html")
 
 
-@app.route("/api/config")
+@bp.route("/api/config")
 def config():
     return jsonify(
         {
@@ -130,15 +142,17 @@ def _pump_mode(do_bits):
     return "off"
 
 
-@app.route("/api/status")
+@bp.route("/api/status")
 def status():
     robot = _current()
     st = DobotMG400._blank_state() if robot is None else robot.get_state()
     st["pump_mode"] = _pump_mode(st.get("digital_out", 0))
+    # The commanded target lets other open windows sync their sliders to it.
+    st["target"] = None if robot is None else robot.get_target()
     return jsonify(st)
 
 
-@app.route("/api/connect", methods=["POST"])
+@bp.route("/api/connect", methods=["POST"])
 def connect():
     global _robot
     ip = (request.json or {}).get("ip", DEFAULT_IP)
@@ -155,7 +169,7 @@ def connect():
     return _ok(ip=ip)
 
 
-@app.route("/api/disconnect", methods=["POST"])
+@bp.route("/api/disconnect", methods=["POST"])
 def disconnect():
     global _robot
     with _robot_lock:
@@ -165,7 +179,7 @@ def disconnect():
     return _ok()
 
 
-@app.route("/api/enable", methods=["POST"])
+@bp.route("/api/enable", methods=["POST"])
 def enable():
     robot = _current()
     if robot is None or not robot.is_connected():
@@ -183,7 +197,7 @@ def enable():
     return jsonify({"ok": errid == 0, "errid": errid, "resp": resp})
 
 
-@app.route("/api/disable", methods=["POST"])
+@bp.route("/api/disable", methods=["POST"])
 def disable():
     robot = _current()
     if robot is None or not robot.is_connected():
@@ -192,12 +206,12 @@ def disable():
     return _command(lambda r: r.disable())
 
 
-@app.route("/api/clear_error", methods=["POST"])
+@bp.route("/api/clear_error", methods=["POST"])
 def clear_error():
     return _command(lambda r: r.clear_error())
 
 
-@app.route("/api/speed", methods=["POST"])
+@bp.route("/api/speed", methods=["POST"])
 def speed():
     robot = _current()
     if robot is None or not robot.is_connected():
@@ -208,7 +222,7 @@ def speed():
     return _command(lambda r: r.speed_factor(ratio))
 
 
-@app.route("/api/stop", methods=["POST"])
+@bp.route("/api/stop", methods=["POST"])
 def stop():
     robot = _current()
     if robot is None or not robot.is_connected():
@@ -217,7 +231,7 @@ def stop():
     return _ok()
 
 
-@app.route("/api/estop", methods=["POST"])
+@bp.route("/api/estop", methods=["POST"])
 def estop():
     robot = _current()
     if robot is None or not robot.is_connected():
@@ -226,7 +240,7 @@ def estop():
     return _command(lambda r: r.emergency_stop())
 
 
-@app.route("/api/pump", methods=["POST"])
+@bp.route("/api/pump", methods=["POST"])
 def pump():
     mode = (request.json or {}).get("mode", "off")
     if mode not in ("suck", "blow", "off"):
@@ -234,7 +248,7 @@ def pump():
     return _command(lambda r: r.set_pump(mode, SUCK_DO_INDEX, BLOW_DO_INDEX))
 
 
-@app.route("/api/move", methods=["POST"])
+@bp.route("/api/move", methods=["POST"])
 def move():
     """Update the Cartesian target pose. Clamped to the reachable workspace; the
     follower streams ServoP toward it at the velocity cap."""
@@ -253,16 +267,3 @@ def move():
     robot.set_target_pose(x, y, z, r)
     return _ok(clamped={"x": round(x, 2), "y": round(y, 2),
                         "z": round(z, 2), "r": round(r, 2)})
-
-
-def main():
-    parser = argparse.ArgumentParser(description="MG400 Cartesian XYZ test server")
-    parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=8001)
-    args = parser.parse_args()
-    print(f"Serving on http://localhost:{args.port}  (default robot IP {DEFAULT_IP})")
-    app.run(host=args.host, port=args.port, threaded=True)
-
-
-if __name__ == "__main__":
-    main()

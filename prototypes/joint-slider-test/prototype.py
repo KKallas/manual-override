@@ -1,46 +1,48 @@
 """
-Joint-slider test web server for the Dobot MG400.
+Joint-slider test prototype — a Flask blueprint mounted by the prototype hub.
 
-A tiny Flask app that exposes the MG400 driver over a REST API and serves a
-single-page HTML control panel (index.html). This is the FIRST prototype: its
-job is to verify the three communication layers (control / motion / feedback)
-end-to-end with real hardware, using sliders to rotate J1, J2 and J3.
+Exposes the MG400 driver over a REST API and serves a single-page control panel
+(index.html). This is the FIRST hardware prototype: its job is to verify the
+three communication layers (control / motion / feedback) end-to-end, using
+sliders to rotate J1, J2 and J3, plus vacuum/blow on the air pump.
 
-Run:
-    pip install -r requirements.txt
-    python app.py            # then open http://localhost:8000
+This module is loaded by hub.py and registered under /p/joint-slider-test. It
+has no app.run() of its own — it only runs inside the hub server. It needs the
+robot reachable on the network to do anything; without it, the GUI still loads
+and the API simply reports "Not connected".
 
 Safety: keep the hardware E-stop within reach. The web E-STOP button cuts servo
 power; recovery is Clear Error -> Enable.
 """
 
-import argparse
+import os
+import sys
 import threading
 
-from flask import Flask, jsonify, request, send_file
+from flask import Blueprint, jsonify, request, send_from_directory
 
-from dobot import DobotMG400, DobotError
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)  # so the sibling dobot.py driver imports cleanly
+from dobot import DobotMG400, DobotError  # noqa: E402
 
-app = Flask(__name__)
+MANIFEST = {
+    "name": "Joint Slider Test",
+    "description": "Drive an MG400's base + first two joints over TCP, with "
+                   "vacuum/blow on the air pump. Requires the robot on the "
+                   "network; the GUI loads regardless.",
+    "default_page": "",   # index.html lives at the prototype root
+    "pages": [{"path": "", "label": "Controller"}],
+}
+bp = Blueprint("joint_slider_test", __name__)
 
 # ---- configuration --------------------------------------------------------
 DEFAULT_IP = "192.168.1.6"  # MG400 factory-default IP
-# Conservative joint ranges (degrees). The controller enforces the true limits
-# and its working-envelope constraints; out-of-range targets are surfaced as
-# errors rather than silently clamped away.
 JOINT_LIMITS = {
     "j1": [-160.0, 160.0],
     "j2": [-25.0, 85.0],
     "j3": [-25.0, 105.0],
 }
-# Per-joint following speed at 100% on the speed slider (deg/s). The live
-# follower slews toward the slider target capped at (ratio/100) * this value,
-# which is what makes dragging smooth instead of point-to-point.
 MAX_JOINT_VEL = 90.0
-# Air pump box (I/O mode) wiring. The Mini Vacuum Pump Box uses two independent
-# control lines: one drives suction, one drives blowing. Energise at most one;
-# both low = pump off. DO index n maps to feedback digital-output bit (n - 1).
-# Swap these two values if Vacuum and Blow come out reversed for your wiring.
 SUCK_DO_INDEX = 2        # output that drives suction (vacuum / pull)
 BLOW_DO_INDEX = 1        # output that drives blowing (push / release)
 
@@ -79,13 +81,13 @@ def _command(fn):
         return _fail(str(e))
 
 
-# ---- routes ---------------------------------------------------------------
-@app.route("/")
+# ---- pages ----------------------------------------------------------------
+@bp.route("/")
 def index():
-    return send_file("index.html")
+    return send_from_directory(HERE, "index.html")
 
 
-@app.route("/api/config")
+@bp.route("/api/config")
 def config():
     return jsonify({"joint_limits": JOINT_LIMITS, "default_ip": DEFAULT_IP})
 
@@ -95,7 +97,7 @@ def _pump_mode(do_bits):
     suck = bool(do_bits & (1 << (SUCK_DO_INDEX - 1)))
     blow = bool(do_bits & (1 << (BLOW_DO_INDEX - 1)))
     if suck and blow:
-        return "conflict"  # both lines high — should not happen via this UI
+        return "conflict"
     if suck:
         return "suck"
     if blow:
@@ -103,16 +105,17 @@ def _pump_mode(do_bits):
     return "off"
 
 
-@app.route("/api/status")
+@bp.route("/api/status")
 def status():
     robot = _current()
     st = DobotMG400._blank_state() if robot is None else robot.get_state()
-    # Reflect the real pump state from the feedback digital-output bitmask.
     st["pump_mode"] = _pump_mode(st.get("digital_out", 0))
+    # The commanded target lets other open windows sync their sliders to it.
+    st["target"] = None if robot is None else robot.get_target()
     return jsonify(st)
 
 
-@app.route("/api/connect", methods=["POST"])
+@bp.route("/api/connect", methods=["POST"])
 def connect():
     global _robot
     ip = (request.json or {}).get("ip", DEFAULT_IP)
@@ -129,7 +132,7 @@ def connect():
     return _ok(ip=ip)
 
 
-@app.route("/api/disconnect", methods=["POST"])
+@bp.route("/api/disconnect", methods=["POST"])
 def disconnect():
     global _robot
     with _robot_lock:
@@ -139,9 +142,8 @@ def disconnect():
     return _ok()
 
 
-@app.route("/api/enable", methods=["POST"])
+@bp.route("/api/enable", methods=["POST"])
 def enable():
-    # Clear any latched error first, then enable, then start smooth streaming.
     robot = _current()
     if robot is None or not robot.is_connected():
         return _fail("Not connected")
@@ -154,11 +156,11 @@ def enable():
     except DobotError as e:
         return _fail(str(e), errid=e.errid)
     if errid == 0:
-        robot.start_servo()  # begin ServoJ streaming, holding the current pose
+        robot.start_servo()
     return jsonify({"ok": errid == 0, "errid": errid, "resp": resp})
 
 
-@app.route("/api/disable", methods=["POST"])
+@bp.route("/api/disable", methods=["POST"])
 def disable():
     robot = _current()
     if robot is None or not robot.is_connected():
@@ -167,12 +169,12 @@ def disable():
     return _command(lambda r: r.disable())
 
 
-@app.route("/api/clear_error", methods=["POST"])
+@bp.route("/api/clear_error", methods=["POST"])
 def clear_error():
     return _command(lambda r: r.clear_error())
 
 
-@app.route("/api/error_info")
+@bp.route("/api/error_info")
 def error_info():
     robot = _current()
     if robot is None or not robot.is_connected():
@@ -183,19 +185,17 @@ def error_info():
         return _fail(str(e))
 
 
-@app.route("/api/speed", methods=["POST"])
+@bp.route("/api/speed", methods=["POST"])
 def speed():
     robot = _current()
     if robot is None or not robot.is_connected():
         return _fail("Not connected")
     ratio = _clamp(int((request.json or {}).get("ratio", 50)), 1, 100)
-    # The follower speed is what governs smooth dragging; also set the
-    # controller's global SpeedFactor for any non-servo moves.
     robot.set_max_velocity(ratio / 100.0 * MAX_JOINT_VEL)
     return _command(lambda r: r.speed_factor(ratio))
 
 
-@app.route("/api/stop", methods=["POST"])
+@bp.route("/api/stop", methods=["POST"])
 def stop():
     """Smooth stop / hold — freeze the follower at its current setpoint."""
     robot = _current()
@@ -205,7 +205,7 @@ def stop():
     return _ok()
 
 
-@app.route("/api/estop", methods=["POST"])
+@bp.route("/api/estop", methods=["POST"])
 def estop():
     """Emergency stop — stop streaming and cut servo power immediately."""
     robot = _current()
@@ -215,7 +215,7 @@ def estop():
     return _command(lambda r: r.emergency_stop())
 
 
-@app.route("/api/pump", methods=["POST"])
+@bp.route("/api/pump", methods=["POST"])
 def pump():
     """Set the air pump mode: 'suck' (vacuum/pull), 'blow' (push), or 'off'."""
     mode = (request.json or {}).get("mode", "off")
@@ -224,7 +224,7 @@ def pump():
     return _command(lambda r: r.set_pump(mode, SUCK_DO_INDEX, BLOW_DO_INDEX))
 
 
-@app.route("/api/move", methods=["POST"])
+@bp.route("/api/move", methods=["POST"])
 def move():
     """Update the follower's target. Cheap (no socket round-trip); the servo
     thread streams toward it at the velocity cap, which smooths the motion."""
@@ -240,17 +240,3 @@ def move():
         return _fail("Expected numeric j1, j2, j3")
     robot.set_target(j1, j2, j3)
     return _ok()
-
-
-def main():
-    parser = argparse.ArgumentParser(description="MG400 joint-slider test server")
-    parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=8000)
-    args = parser.parse_args()
-    print(f"Serving on http://localhost:{args.port}  (default robot IP {DEFAULT_IP})")
-    # threaded=True so status polling and command posts don't block each other.
-    app.run(host=args.host, port=args.port, threaded=True)
-
-
-if __name__ == "__main__":
-    main()

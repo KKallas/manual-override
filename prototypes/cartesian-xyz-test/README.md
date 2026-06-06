@@ -19,7 +19,8 @@ This is the "think in planes" follow-on: joint control first, then Cartesian.
 - **`dobot.py`** — driver with a Cartesian follower: streams `ServoP` toward the
   target pose while velocity-limiting (separate linear mm/s and rotational deg/s
   caps).
-- **`app.py`** — REST server; clamps targets to the reachable workspace.
+- **`prototype.py`** — Flask blueprint (REST API + serves the page); clamps
+  targets to the reachable workspace. Mounted by the hub — see [../README.md](../README.md).
 - **`index.html`** — X / Y / Z / R sliders, live pose readout, pump, stop/e-stop.
 
 ## Before you run
@@ -29,15 +30,17 @@ Put the robot in **API mode** and set up networking first — see
 
 ## Run
 
+This prototype runs inside the **prototype hub** (it has no standalone server):
+
 ```bash
-cd prototypes/cartesian-xyz-test
+cd prototypes
 pip install -r requirements.txt
-python app.py            # serves on http://localhost:8001 (joint demo uses 8000)
+python hub.py            # then open http://localhost:8000
 ```
 
-Open <http://localhost:8001>, enter the robot IP, then **Connect → Enable**. On
-Enable the sliders auto-sync to the current pose so the first move doesn't jump.
-Drag **X / Y / Z / R** and the tool follows smoothly.
+In the hub, choose the **Cartesian XYZ Test** tab, enter the robot IP, then
+**Connect → Enable**. On Enable the sliders auto-sync to the current pose so the
+first move doesn't jump. Drag **X / Y / Z / R** and the tool follows smoothly.
 
 ## Smooth following (same model as the joint demo)
 
@@ -56,7 +59,7 @@ The MG400's reachable area is an **annulus, not a box**, so targets are clamped:
 
 Anything still unreachable (e.g. a singular pose) is rejected by the controller
 as a `ServoP` error; after three in a row the follower stops and the reason is
-shown in the command log. Limits live in `app.py`:
+shown in the command log. Limits live in `prototype.py`:
 
 | Constant | Default | Meaning |
 |----------|---------|---------|
