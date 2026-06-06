@@ -190,11 +190,15 @@ function log(msg, cls="log-info") {
   el.scrollTop = el.scrollHeight;
 }
 
+// Resolve API paths relative to this page's directory so the prototype works
+// wherever the hub mounts it (e.g. /p/joint-slider-test/).
+const BASE = location.pathname.replace(/\/[^/]*$/, "/");
+
 async function api(path, body) {
   const opts = { method: body ? "POST" : "GET" };
   if (body) { opts.headers = { "Content-Type": "application/json" }; opts.body = JSON.stringify(body); }
   try {
-    const r = await fetch(path, opts);
+    const r = await fetch(BASE + path.replace(/^\//, ""), opts);
     return await r.json();
   } catch (e) {
     log(`Network error on ${path}: ${e}`, "log-err");
@@ -234,8 +238,17 @@ function buildJoints() {
         parseFloat(el.value).toFixed(1) + "°";
       queueMove();
     });
+    // mark which slider the user is dragging so cross-window sync doesn't fight it
+    el.addEventListener("pointerdown", () => draggingId = def.id);
+    el.addEventListener("keydown", () => draggingId = def.id);
   });
 }
+
+// The id of the slider currently being dragged in THIS window (or null). Other
+// windows' edits flow in through poll(); we just don't clobber the live one.
+let draggingId = null;
+window.addEventListener("pointerup", () => draggingId = null);
+window.addEventListener("keyup", () => draggingId = null);
 
 // ---- throttled move sending ----------------------------------------------
 let lastSent = 0, pending = null, timer = null;
@@ -329,6 +342,23 @@ async function poll() {
     JOINT_DEFS.forEach((def, i) => {
       const act = document.getElementById(def.id + "Act");
       if (act) act.textContent = "actual " + s.joints[i].toFixed(1) + "°";
+    });
+  }
+
+  // Cross-window slider sync: follow the server's commanded target so several
+  // controller windows stay in lock-step. Skip the slider this window is
+  // actively dragging, and use a small deadband to avoid float jitter.
+  if (Array.isArray(s.target)) {
+    JOINT_DEFS.forEach((def, i) => {
+      if (draggingId === def.id) return;
+      const el = sliderEls[def.id];
+      const v = s.target[i];
+      if (typeof v !== "number") return;
+      if (Math.abs(parseFloat(el.value) - v) > 0.05) {
+        const [lo, hi] = limits[def.id];
+        el.value = Math.max(lo, Math.min(hi, v));
+        document.getElementById(def.id + "Val").textContent = parseFloat(el.value).toFixed(1) + "°";
+      }
     });
   }
 }

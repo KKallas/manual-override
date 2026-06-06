@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Approaching Box — Controller</title>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#1a1d24; --line:#2a2f3a; --txt:#e6e9ef;
+    --muted:#8a93a6; --accent:#4f9dff; --blue:#3b82f6; --ok:#36c46b;
+    --warn:#f5a623; --err:#ff5462;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background: var(--bg); color: var(--txt); line-height: 1.45; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  header a { color: var(--accent); }
+  main { max-width: 720px; margin: 0 auto; padding: 20px; }
+  .panel { background: var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:16px 18px; margin-bottom:16px; }
+  .panel h2 { font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); margin:0 0 10px; }
+  select { width:100%; background:#0c0e12; color:var(--txt); border:1px solid var(--line);
+    border-radius:6px; padding:9px 10px; font:inherit; font-size:14px; cursor:pointer; }
+  select:focus { outline:none; border-color:var(--accent); }
+  .pill { display:inline-flex; align-items:center; gap:7px; padding:5px 12px; border-radius:999px;
+    font-size:13px; font-weight:600; background:#232733; color:var(--muted); }
+  .pill .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); }
+  .pill.run { color:var(--ok); } .pill.run .dot { background:var(--ok); }
+  .pill.err { color:var(--err); } .pill.err .dot { background:var(--err); }
+  .pill.idle { color:var(--warn); } .pill.idle .dot { background:var(--warn); }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:14px; }
+  .stat { background:#13161c; border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  .stat .k { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .stat .v { font-size:22px; font-variant-numeric:tabular-nums; margin-top:3px; }
+  .track { position:relative; height:14px; border-radius:7px; margin-top:16px;
+    background: linear-gradient(90deg,#0c0e12,#1c2330); border:1px solid var(--line); }
+  .track .marker { position:absolute; top:-3px; width:18px; height:18px; border-radius:4px;
+    background:var(--blue); box-shadow:0 0 12px var(--blue); transform:translateX(-50%);
+    transition: left .12s linear; }
+  .ends { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-top:6px; }
+  .note { color: var(--muted); font-size:13px; }
+  .alert { border-radius:10px; padding:14px 16px; margin-bottom:16px; border:1px solid; }
+  .alert.err { background:#2a1216; border-color:#5a2630; color:#ffb3bb; }
+  .alert h3 { margin:0 0 6px; font-size:14px; }
+  button { background:#232733; border:1px solid var(--line); color:var(--txt);
+    padding:8px 14px; border-radius:6px; font:inherit; font-size:13px; cursor:pointer; margin-top:8px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color:#fff; }
+  button:hover { border-color: var(--accent); }
+  #conn { color: var(--muted); font-size:12px; margin-left:auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Approaching Box</h1>
+  <span class="sub">drives the Playfield module · watch on the
+    <a href="/p/playfield-areas/screen" target="_blank">playfield screen ↗</a></span>
+  <span id="conn"></span>
+</header>
+<main>
+  <div id="alert"></div>
+
+  <div class="panel">
+    <h2>Tween parameter</h2>
+    <select id="param"></select>
+    <p class="note">Which property of the box the animation changes each cycle. Saved across restarts.</p>
+  </div>
+
+  <div class="panel">
+    <span id="statusPill" class="pill idle"><span class="dot"></span><span id="statusText">…</span></span>
+    <div class="grid">
+      <div class="stat"><div class="k">Phase</div><div class="v" id="phase">—</div></div>
+      <div class="stat"><div class="k" id="valueKey">Value</div><div class="v" id="value">—</div></div>
+      <div class="stat"><div class="k">Box id</div><div class="v" id="box">—</div></div>
+    </div>
+    <div class="track"><div class="marker" id="marker" style="left:0%"></div></div>
+    <div class="ends"><span id="endFrom">from</span><span id="endTo">to</span></div>
+    <p class="note">The box appears, the chosen value tweens from start to end, holds, vanishes,
+      and repeats. The animation runs on the server, so it keeps going even on another tab.</p>
+  </div>
+</main>
+
+<script>
+// Own API is resolved relative to this page (works under the hub mount).
+const BASE = location.pathname.replace(/\/[^/]*$/, '/');
+const U = p => BASE + p.replace(/^\//, '');
+const el = id => document.getElementById(id);
+
+const MESSAGES = {
+  not_installed: {
+    title: "Playfield module isn't installed",
+    body: "This prototype needs the <b>Playfield Areas</b> prototype to render its box. "
+        + "Add the <code>playfield-areas</code> folder and restart the hub.",
+    action: null,
+  },
+  playfield_disabled: {
+    title: "Playfield module is disabled",
+    body: "The <b>Playfield Areas</b> prototype is turned off, so there's nowhere to draw the box. "
+        + "Enable it to start the animation.",
+    action: { label: "Enable Playfield", fn: enablePlayfield },
+  },
+  disabled: {
+    title: "This prototype is disabled",
+    body: "Approaching Box is turned off, so nothing is running. Enable it from its tab switch.",
+    action: null,
+  },
+};
+let currentPlayfieldSlug = 'playfield-areas';
+
+async function enablePlayfield() {
+  try {
+    await fetch(`/api/prototypes/${currentPlayfieldSlug}/enabled`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: true }),
+    });
+  } catch (_) {}
+}
+
+// the dropdown
+const paramSel = el('param');
+let paramBuilt = false;
+paramSel.onchange = async () => {
+  try {
+    await fetch(U('/api/param'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ param: paramSel.value }),
+    });
+  } catch (_) {}
+};
+
+function renderAlert(error) {
+  const box = el('alert');
+  if (!error || !MESSAGES[error]) { box.innerHTML = ''; return; }
+  const m = MESSAGES[error];
+  box.innerHTML = `<div class="alert err"><h3>${m.title}</h3><div>${m.body}</div></div>`;
+  if (m.action) {
+    const b = document.createElement('button');
+    b.className = 'primary';
+    b.textContent = m.action.label;
+    b.onclick = m.action.fn;
+    box.querySelector('.alert').appendChild(b);
+  }
+}
+
+async function poll() {
+  let s;
+  try {
+    s = await (await fetch(U('/api/status'))).json();
+    el('conn').textContent = 'live';
+  } catch (_) {
+    el('conn').textContent = 'offline';
+    return;
+  }
+  currentPlayfieldSlug = s.playfield_slug || 'playfield-areas';
+  renderAlert(s.error);
+
+  // build the dropdown once, then keep it in sync (unless the user has it open)
+  if (Array.isArray(s.params) && !paramBuilt) {
+    paramSel.innerHTML = s.params.map(p => `<option value="${p.key}">${p.label}</option>`).join('');
+    paramBuilt = true;
+  }
+  if (document.activeElement !== paramSel && s.param) paramSel.value = s.param;
+
+  const pill = el('statusPill'), txt = el('statusText');
+  if (s.error) { pill.className = 'pill err'; txt.textContent = s.error.replace(/_/g, ' '); }
+  else if (s.running) { pill.className = 'pill run'; txt.textContent = 'running'; }
+  else { pill.className = 'pill idle'; txt.textContent = 'idle'; }
+
+  el('phase').textContent = s.phase || '—';
+  el('valueKey').textContent = s.param ? `value (${s.param})` : 'value';
+  el('value').textContent = (typeof s.value === 'number') ? s.value.toFixed(2) : '—';
+  el('box').textContent = s.box_id || '—';
+
+  // position the marker along the from..to track
+  const from = s.from, to = s.to;
+  el('endFrom').textContent = `${s.param} = ${from}`;
+  el('endTo').textContent = `${to}`;
+  const v = (typeof s.value === 'number') ? s.value : from;
+  const frac = (to === from) ? 0 : Math.max(0, Math.min(1, (v - from) / (to - from)));
+  el('marker').style.left = (frac * 100) + '%';
+  el('marker').style.opacity = s.box_id ? '1' : '0.15';
+}
+
+poll();
+setInterval(poll, 250);
+</script>
+</body>
+</html>

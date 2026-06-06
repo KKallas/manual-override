@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Playfield — Screen</title>
+<style>
+  :root { --txt:#e6e9ef; --muted:#8a93a6; --panel:rgba(20,23,30,.82); --line:#2a2f3a; --accent:#4f9dff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #05070b; color: var(--txt);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+  #hud {
+    position: fixed; top: 12px; left: 12px; z-index: 10; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+    backdrop-filter: blur(8px); font-size: 12px; max-width: 260px;
+  }
+  #hud h1 { font-size: 13px; margin: 0 0 6px; font-weight: 600; }
+  #hud .muted { color: var(--muted); line-height: 1.5; }
+  #hud .sel { margin-top: 8px; color: var(--accent); font-weight: 600; min-height: 16px; }
+  #hud a { color: var(--accent); }
+  #conn { position: fixed; top: 12px; right: 12px; z-index: 10; font-size: 11px; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
+  #conn.ok { color: #36c46b; } #conn.err { color: #ff5462; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="hud">
+  <h1>Playfield — Screen</h1>
+  <div class="muted">
+    Drag to orbit · scroll to zoom · <b>click</b> an area to select and drag the
+    gizmo to move it. Glow, depth-of-field and camera presets live in the
+    <a href="controller">controller</a>.
+  </div>
+  <div class="sel" id="sel">No selection</div>
+</div>
+<div id="conn">connecting…</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// All requests are relative to this page's directory, so the prototype works
+// wherever the hub mounts it (e.g. /p/playfield-areas/).
+const BASE = location.pathname.replace(/\/[^/]*$/, '/');
+const U = p => BASE + p.replace(/^\//, '');
+const DEG = Math.PI / 180, RAD = 180 / Math.PI;
+
+// ---- scene -----------------------------------------------------------------
+const app = document.getElementById('app');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05070b);
+scene.fog = new THREE.FogExp2(0x05070b, 0.02);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
+camera.position.set(0, 9, 13);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+app.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0x33405a, 0.7));
+const key = new THREE.DirectionalLight(0xbcd0ff, 0.9);
+key.position.set(6, 12, 8);
+scene.add(key);
+
+const grid = new THREE.GridHelper(24, 24, 0x213049, 0x131a26);
+scene.add(grid);
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(24, 24),
+  new THREE.MeshStandardMaterial({ color: 0x080b11, roughness: 1, metalness: 0 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -0.01;
+scene.add(floor);
+
+// ---- post-processing: bloom (glow) + bokeh (depth of field) ----------------
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 1.1, 0.5, 0.0);
+composer.addPass(bloom);
+const bokeh = new BokehPass(scene, camera, { focus: 13.0, aperture: 0.0012, maxblur: 0.012 });
+composer.addPass(bokeh);
+composer.addPass(new OutputPass());
+
+// ---- controls --------------------------------------------------------------
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+orbit.target.set(0, 0.5, 0);
+
+const gizmo = new TransformControls(camera, renderer.domElement);
+gizmo.setMode('translate');
+gizmo.addEventListener('dragging-changed', e => { orbit.enabled = !e.value; });
+scene.add(gizmo);
+
+// ---- area meshes, keyed by id ---------------------------------------------
+// Each mesh stores a `target` (the latest server values). The render loop eases
+// the mesh toward its target every frame, so the low-rate poll looks smooth.
+const meshes = new Map();
+let selectedId = null;
+
+function makeMesh(area) {
+  const geo = new THREE.BoxGeometry(1, 0.18, 1);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.1 });
+  const mesh = new THREE.Mesh(geo, mat);
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 })
+  );
+  mesh.add(edges);
+  mesh.userData.edges = edges;
+  mesh.userData.id = area.id;
+  scene.add(mesh);
+  return mesh;
+}
+
+function setTarget(mesh, area) {
+  mesh.userData.area = area;
+  mesh.userData.target = {
+    x: area.x, y: area.y + 0.09, z: area.z,
+    size: area.size, glow: area.glow, color: new THREE.Color(area.color),
+  };
+  // drop below the playfield (negative height) -> hide it (also un-raycastable)
+  mesh.visible = area.y >= 0;
+  if (!mesh.visible && selectedId === area.id) deselect();
+  if (!mesh.userData.inited) { snapToTarget(mesh); mesh.userData.inited = true; }
+}
+
+function snapToTarget(mesh) {
+  const t = mesh.userData.target;
+  mesh.position.set(t.x, t.y, t.z);
+  mesh.scale.set(t.size, 1, t.size);
+  mesh.material.color.copy(t.color);
+  mesh.material.emissive.copy(t.color);
+  mesh.material.emissiveIntensity = t.glow;
+  mesh.userData.edges.material.color.copy(t.color);
+}
+
+function syncAreas(areas) {
+  const seen = new Set();
+  for (const area of areas) {
+    seen.add(area.id);
+    let mesh = meshes.get(area.id);
+    if (!mesh) { mesh = makeMesh(area); meshes.set(area.id, mesh); }
+    // don't fight the user while they're dragging this one
+    if (gizmo.dragging && selectedId === area.id) { mesh.userData.area = area; continue; }
+    setTarget(mesh, area);
+  }
+  for (const [id, mesh] of meshes) {
+    if (!seen.has(id)) {
+      if (selectedId === id) deselect();
+      scene.remove(mesh);
+      mesh.geometry.dispose();
+      mesh.material.dispose();
+      meshes.delete(id);
+    }
+  }
+}
+
+// per-frame easing toward each target (frame-rate independent)
+function interpolate(dt) {
+  const k = 1 - Math.exp(-dt * 10);     // ~10 = responsiveness; higher = snappier
+  for (const mesh of meshes.values()) {
+    const t = mesh.userData.target;
+    if (!t) continue;
+    if (gizmo.dragging && selectedId === mesh.userData.id) continue;
+    mesh.position.x += (t.x - mesh.position.x) * k;
+    mesh.position.y += (t.y - mesh.position.y) * k;
+    mesh.position.z += (t.z - mesh.position.z) * k;
+    const s = mesh.scale.x + (t.size - mesh.scale.x) * k;
+    mesh.scale.set(s, 1, s);
+    mesh.material.emissiveIntensity += (t.glow - mesh.material.emissiveIntensity) * k;
+    mesh.material.color.lerp(t.color, k);
+    mesh.material.emissive.lerp(t.color, k);
+    mesh.userData.edges.material.color.lerp(t.color, k);
+  }
+}
+
+// ---- selection + drag-to-move ---------------------------------------------
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const selEl = document.getElementById('sel');
+const round = v => Math.round(v * 100) / 100;
+
+function select(mesh) {
+  selectedId = mesh.userData.id;
+  gizmo.attach(mesh);
+  const a = mesh.userData.area || {};
+  selEl.textContent = `Selected: ${a.name || selectedId}`;
+}
+function deselect() {
+  selectedId = null;
+  gizmo.detach();
+  selEl.textContent = 'No selection';
+}
+
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (gizmo.dragging) return;
+  pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects([...meshes.values()], false);
+  if (hits.length) select(hits[0].object);
+  else if (!e.shiftKey) deselect();
+});
+
+gizmo.addEventListener('dragging-changed', async e => {
+  if (e.value || !selectedId) return;          // only on drag-end
+  const mesh = meshes.get(selectedId);
+  if (!mesh) return;
+  const body = { x: round(mesh.position.x), y: round(mesh.position.y - 0.09), z: round(mesh.position.z) };
+  try {
+    await fetch(U(`/api/areas/${selectedId}`), {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+  } catch (_) { /* poller will resync */ }
+});
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') deselect();
+  if (e.key === 'r') gizmo.setMode('rotate');
+  if (e.key === 's') gizmo.setMode('scale');
+  if (e.key === 't') gizmo.setMode('translate');
+});
+
+// ---- camera transform (Blender-style: location + rotation euler + fov) -----
+// The persisted settings are the camera's transform. Editing them in the
+// controller drives the camera here; orbiting with the mouse writes location +
+// rotation X/Y back. Rotation Z is roll, applied as a post-step each frame so
+// it survives OrbitControls (which always levels to up = +Y).
+let roll = 0;                 // radians, from rotation.z
+let lastRx = 0, lastRy = 0;   // radians, pre-roll euler captured during orbit
+
+// Forward (look) direction for a given pitch (rx) and yaw (ry), no roll.
+function forwardFrom(rx, ry) {
+  return new THREE.Vector3(
+    -Math.sin(ry) * Math.cos(rx),
+    Math.sin(rx),
+    -Math.cos(ry) * Math.cos(rx),
+  );
+}
+
+function applyTransform(s) {
+  if (Math.abs(camera.fov - s.fov) > 0.01) { camera.fov = s.fov; camera.updateProjectionMatrix(); }
+  // Reproduce the transform through OrbitControls: place the pivot in front of
+  // the camera along the requested look direction, keeping the current radius.
+  const radius = Math.max(0.5, camera.position.distanceTo(orbit.target));
+  camera.position.set(s.cam.x, s.cam.y, s.cam.z);
+  const rx = s.rot.x * DEG, ry = s.rot.y * DEG;
+  orbit.target.copy(camera.position).addScaledVector(forwardFrom(rx, ry), radius);
+  camera.up.set(0, 1, 0);
+  roll = s.rot.z * DEG;
+  lastRx = rx; lastRy = ry;
+  orbit.update();
+}
+
+function applySettings(s) {
+  bloom.strength = s.bloom;
+  bokeh.materialBokeh.uniforms.aperture.value = s.dof * 0.001;
+  if (Math.abs(camera.fov - s.fov) > 0.01) { camera.fov = s.fov; camera.updateProjectionMatrix(); }
+  if (orbiting) { roll = s.rot.z * DEG; return; }  // don't fight an active drag
+  // Adopt location/rotation only when they meaningfully differ (restores a saved
+  // view, lets the controller drive the camera, ignores the echo of our saves).
+  const want = new THREE.Vector3(s.cam.x, s.cam.y, s.cam.z);
+  const rotDiff = Math.abs(lastRx * RAD - s.rot.x) + Math.abs(lastRy * RAD - s.rot.y)
+                + Math.abs(roll * RAD - s.rot.z);
+  if (camera.position.distanceTo(want) > 0.05 || rotDiff > 0.5) {
+    suppressCamSaveUntil = perfNow() + 600;       // don't re-save what we just set
+    applyTransform(s);
+  } else {
+    roll = s.rot.z * DEG;
+  }
+}
+
+const perfNow = () => performance.now();
+let orbiting = false;
+let suppressCamSaveUntil = 0;
+let camSaveTimer = null;
+
+orbit.addEventListener('start', () => { orbiting = true; });
+orbit.addEventListener('end', () => { orbiting = false; scheduleCamSave(); });
+orbit.addEventListener('change', () => {
+  // fires inside orbit.update(), before this frame's roll is applied — so the
+  // camera euler here is the clean pre-roll pitch/yaw we want to persist.
+  lastRx = camera.rotation.x; lastRy = camera.rotation.y;
+  scheduleCamSave();
+});
+
+function scheduleCamSave() {
+  if (perfNow() < suppressCamSaveUntil) return;
+  clearTimeout(camSaveTimer);
+  camSaveTimer = setTimeout(saveCamera, 400);   // after movement settles
+}
+async function saveCamera() {
+  const body = {
+    cam: { x: round(camera.position.x), y: round(camera.position.y), z: round(camera.position.z) },
+    rot: { x: round(lastRx * RAD), y: round(lastRy * RAD), z: round(roll * RAD) },
+    fov: round(camera.fov),
+  };
+  try {
+    await fetch(U('/api/settings'), {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+  } catch (_) { /* keep last good local view */ }
+}
+
+// ---- fixed-rate polling (~6.7 fps) ----------------------------------------
+const connEl = document.getElementById('conn');
+let lastRev = -1, lastSrev = -1;
+async function poll() {
+  try {
+    const res = await fetch(U('/api/state'));
+    const data = await res.json();
+    connEl.textContent = `live · ${data.areas.length} areas`;
+    connEl.className = 'ok';
+    if (data.rev !== lastRev) { lastRev = data.rev; syncAreas(data.areas); }
+    if (data.srev !== lastSrev) { lastSrev = data.srev; applySettings(data.settings); }
+  } catch (_) {
+    connEl.textContent = 'offline'; connEl.className = 'err';
+  }
+}
+poll();
+setInterval(poll, 150);
+
+// ---- render loop (smooth, every frame) ------------------------------------
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.1);
+  interpolate(dt);
+  orbit.update();
+  if (roll) camera.rotateZ(roll);   // apply roll on top (OrbitControls levels each frame)
+  composer.render();
+}
+animate();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

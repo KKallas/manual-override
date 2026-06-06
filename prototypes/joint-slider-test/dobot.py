@@ -125,6 +125,7 @@ class DobotMG400:
             "enabled": False,
             "error": False,
             "joints": [0.0, 0.0, 0.0, 0.0],
+            "target": None,
             "digital_in": 0,
             "digital_out": 0,
             "last_feedback": 0.0,
@@ -136,6 +137,13 @@ class DobotMG400:
     def get_state(self):
         with self._state_lock:
             return dict(self._state)
+
+    def get_target(self):
+        """The commanded joint target the follower is slewing toward, or None
+        before the servo loop is initialised. Exposing it lets several control
+        windows sync their sliders to the same setpoint."""
+        with self._servo_lock:
+            return list(self._target) if self._target is not None else None
 
     def is_connected(self):
         with self._state_lock:

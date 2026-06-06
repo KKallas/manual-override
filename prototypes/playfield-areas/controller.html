@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Playfield — Controller</title>
+<style>
+  :root {
+    --bg:#0f1115; --panel:#1a1d24; --line:#2a2f3a; --txt:#e6e9ef;
+    --muted:#8a93a6; --accent:#4f9dff; --ok:#36c46b; --err:#ff5462;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background: var(--bg); color: var(--txt); line-height: 1.4; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  header a { color: var(--accent); }
+  main { max-width: 920px; margin: 0 auto; padding: 20px; }
+  .bar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  button { background:#232733; border:1px solid var(--line); color:var(--txt);
+    padding:8px 14px; border-radius:6px; font:inherit; cursor:pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color:#fff; }
+  button.del { background:#2a1216; border-color:#5a2630; color:#ff8a96; padding:6px 10px; }
+  button.del:hover { border-color: var(--err); }
+  .panel { background: var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:14px 16px; margin-bottom:16px; }
+  .panel h2 { font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); margin:0 0 12px; display:flex; justify-content:space-between; align-items:center; }
+  .area { background: var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:14px 16px; margin-bottom:12px; }
+  .area .top { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .swatch { width:18px; height:18px; border-radius:5px; border:1px solid #0008; flex:0 0 auto; }
+  .area .name { font-weight:600; font-size:15px; background:transparent; border:none;
+    color:var(--txt); font-family:inherit; flex:1; padding:2px 4px; border-radius:4px; }
+  .area .name:focus { outline:1px solid var(--line); background:#0c0e12; }
+  .area .id { color:var(--muted); font-size:11px; font-family:ui-monospace,Menlo,monospace; }
+  .fields { display:grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .f { display:flex; flex-direction:column; gap:4px; }
+  .f label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;
+    display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .f .val { color:var(--accent); font-variant-numeric:tabular-nums; }
+  .f .num { width:66px; background:#0c0e12; border:1px solid var(--line); color:var(--accent);
+    border-radius:4px; padding:2px 6px; font:inherit; font-size:12px; text-align:right;
+    font-variant-numeric:tabular-nums; -moz-appearance:textfield; }
+  .f .num:focus { outline:none; border-color:var(--accent); }
+  .f input[type=range] { width:100%; accent-color: var(--accent); }
+  .f input[type=color] { width:100%; height:30px; background:transparent; border:1px solid var(--line);
+    border-radius:6px; padding:2px; cursor:pointer; }
+  #status { color: var(--muted); font-size:12px; margin-left:auto; }
+  #status.err { color: var(--err); }
+  .empty { color: var(--muted); text-align:center; padding:40px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Playfield — Controller</h1>
+  <span class="sub">edit areas &amp; the view · changes appear on the <a href="screen" target="_blank">screen</a></span>
+</header>
+<main>
+  <!-- View & Effects: glow, depth-of-field, camera. Persisted to disk. -->
+  <section class="panel" id="view">
+    <h2><span>View &amp; Effects</span><button id="resetView">Reset view</button></h2>
+    <div class="fields" id="viewFields"></div>
+  </section>
+
+  <div class="bar">
+    <button class="primary" id="add">+ New area</button>
+    <button id="refresh">Refresh</button>
+    <span id="status">…</span>
+  </div>
+  <div id="list"></div>
+</main>
+
+<script>
+// All requests are relative to this page's directory, so the prototype works
+// wherever the hub mounts it (e.g. /p/playfield-areas/). U('/api/x') -> that dir + api/x.
+const BASE = location.pathname.replace(/\/[^/]*$/, '/');
+const U = p => BASE + p.replace(/^\//, '');
+
+const listEl = document.getElementById('list');
+const statusEl = document.getElementById('status');
+
+function status(msg, err = false) {
+  statusEl.textContent = msg;
+  statusEl.className = err ? 'err' : '';
+}
+
+// While a control is being dragged we hold off re-rendering from the poll, so
+// the cursor never gets yanked off the thumb. `editing` guards the area list,
+// `editingView` guards the View & Effects panel.
+let editing = null;
+let editingView = false;
+
+// Debounced PATCH helper shared by both panels.
+const timers = {};
+function patch(url, body, key, immediate = false) {
+  const fire = async () => {
+    try {
+      const res = await fetch(U(url), {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!data.ok) status(data.error || 'error', true);
+    } catch (_) { status('offline', true); }
+  };
+  clearTimeout(timers[key]);
+  if (immediate) fire(); else timers[key] = setTimeout(fire, 60);
+}
+const setArea = (id, body, now) => patch(`/api/areas/${id}`, body, `area:${id}`, now);
+const setView = (body) => patch('/api/settings', body, 'view');
+
+// ---- View & Effects panel (built once; values updated from poll) -----------
+const VIEW_FIELDS = [
+  { path: 'cam.x', label: 'location x',          min: -40,  max: 40,  step: 0.5 },
+  { path: 'cam.y', label: 'location y',          min: -40,  max: 40,  step: 0.5 },
+  { path: 'cam.z', label: 'location z',          min: -40,  max: 40,  step: 0.5 },
+  { path: 'rot.x', label: 'rotation x°',         min: -180, max: 180, step: 1 },
+  { path: 'rot.y', label: 'rotation y°',         min: -180, max: 180, step: 1 },
+  { path: 'rot.z', label: 'rotation z° (roll)',  min: -180, max: 180, step: 1 },
+  { path: 'fov',   label: 'fov°',                min: 10,   max: 120, step: 1 },
+  { path: 'bloom', label: 'glow',                min: 0,    max: 2.5, step: 0.05 },
+  { path: 'dof',   label: 'depth of field',      min: 0,    max: 3,   step: 0.05 },
+];
+const viewInputs = {};   // path -> { range, val }
+
+function getPath(obj, path) {
+  return path.split('.').reduce((o, k) => (o == null ? o : o[k]), obj);
+}
+function bodyForPath(path, value) {
+  // 'cam.x' -> {cam:{x:value}};  'bloom' -> {bloom:value}
+  const parts = path.split('.');
+  if (parts.length === 1) return { [parts[0]]: value };
+  return { [parts[0]]: { [parts[1]]: value } };
+}
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+function buildViewPanel() {
+  const wrap = document.getElementById('viewFields');
+  for (const f of VIEW_FIELDS) {
+    const cell = document.createElement('div');
+    cell.className = 'f';
+
+    // label + a type-in number box (kept in sync with the slider)
+    const lab = document.createElement('label');
+    const num = document.createElement('input');
+    num.type = 'number';
+    num.className = 'num';
+    num.min = f.min; num.max = f.max; num.step = f.step;
+    lab.append(document.createTextNode(f.label), num);
+
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = f.min; range.max = f.max; range.step = f.step;
+
+    range.oninput = () => {
+      num.value = (+range.value);
+      setView(bodyForPath(f.path, +range.value));
+    };
+    range.onpointerdown = () => editingView = true;
+    range.onpointerup = () => editingView = false;
+
+    // typing an exact value: clamp, mirror to the slider, push to the server
+    num.onfocus = () => editingView = true;
+    num.onblur = () => editingView = false;
+    num.onchange = () => {
+      const v = clamp(parseFloat(num.value), f.min, f.max);
+      if (Number.isNaN(v)) return;
+      num.value = v;
+      range.value = v;
+      setView(bodyForPath(f.path, v));
+    };
+
+    cell.append(lab, range);
+    wrap.appendChild(cell);
+    viewInputs[f.path] = { range, num };
+  }
+}
+
+function updateViewPanel(settings) {
+  if (editingView) return;
+  for (const f of VIEW_FIELDS) {
+    const v = +getPath(settings, f.path);
+    viewInputs[f.path].range.value = v;
+    viewInputs[f.path].num.value = Math.round(v * 100) / 100;
+  }
+}
+
+document.getElementById('resetView').onclick = () =>
+  setView({ bloom: 1.1, dof: 1.2, fov: 50, cam: { x: 0, y: 9, z: 13 }, rot: { x: -33, y: 0, z: 0 } });
+
+// ---- area list -------------------------------------------------------------
+const FIELDS = [
+  { key: 'x',    min: -12, max: 12, step: 0.1 },
+  { key: 'z',    min: -12, max: 12, step: 0.1 },
+  { key: 'y',    min: -6,  max: 6,  step: 0.1, label: 'y (height)' },
+  { key: 'size', min: 0.2, max: 6,  step: 0.1 },
+  { key: 'glow', min: 0,   max: 4,  step: 0.05 },
+];
+
+function render(areas) {
+  if (!areas.length) { listEl.innerHTML = '<div class="empty">No areas. Click “+ New area”.</div>'; return; }
+  listEl.innerHTML = '';
+  for (const a of areas) listEl.appendChild(card(a));
+}
+
+function card(a) {
+  const el = document.createElement('div');
+  el.className = 'area';
+
+  const top = document.createElement('div');
+  top.className = 'top';
+  const sw = document.createElement('span');
+  sw.className = 'swatch';
+  sw.style.background = a.color;
+  const name = document.createElement('input');
+  name.className = 'name';
+  name.value = a.name;
+  name.onchange = () => setArea(a.id, { name: name.value }, true);
+  const id = document.createElement('span');
+  id.className = 'id';
+  id.textContent = a.id;
+  const del = document.createElement('button');
+  del.className = 'del';
+  del.textContent = 'Delete';
+  del.onclick = async () => { await fetch(U(`/api/areas/${a.id}`), { method: 'DELETE' }); poll(true); };
+  top.append(sw, name, id, del);
+  el.appendChild(top);
+
+  const fields = document.createElement('div');
+  fields.className = 'fields';
+
+  const cf = document.createElement('div');
+  cf.className = 'f';
+  cf.innerHTML = '<label>color</label>';
+  const color = document.createElement('input');
+  color.type = 'color';
+  color.value = a.color;
+  color.oninput = () => { sw.style.background = color.value; setArea(a.id, { color: color.value }); };
+  color.onpointerdown = () => editing = a.id;
+  color.onchange = () => editing = null;
+  cf.appendChild(color);
+  fields.appendChild(cf);
+
+  for (const f of FIELDS) {
+    const wrap = document.createElement('div');
+    wrap.className = 'f';
+    const lab = document.createElement('label');
+    const num = document.createElement('input');
+    num.type = 'number'; num.className = 'num';
+    num.min = f.min; num.max = f.max; num.step = f.step;
+    num.value = (+a[f.key]);
+    lab.append(document.createTextNode(f.label || f.key), num);
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = f.min; range.max = f.max; range.step = f.step;
+    range.value = a[f.key];
+    range.oninput = () => { num.value = (+range.value); setArea(a.id, { [f.key]: +range.value }); };
+    range.onpointerdown = () => editing = a.id;
+    range.onpointerup = () => editing = null;
+    num.onfocus = () => editing = a.id;
+    num.onblur = () => editing = null;
+    num.onchange = () => {
+      const v = clamp(parseFloat(num.value), f.min, f.max);
+      if (Number.isNaN(v)) return;
+      num.value = v; range.value = v;
+      setArea(a.id, { [f.key]: v });
+    };
+    wrap.append(lab, range);
+    fields.appendChild(wrap);
+  }
+
+  el.appendChild(fields);
+  return el;
+}
+
+// ---- polling ---------------------------------------------------------------
+let lastRev = -1, lastSrev = -1;
+async function poll(force = false) {
+  try {
+    const res = await fetch(U('/api/state'));
+    const data = await res.json();
+    status(`${data.areas.length} areas · live`);
+    if ((force || data.rev !== lastRev) && editing === null) { lastRev = data.rev; render(data.areas); }
+    if (force || data.srev !== lastSrev) { lastSrev = data.srev; updateViewPanel(data.settings); }
+  } catch (_) { status('offline', true); }
+}
+
+document.getElementById('add').onclick = async () => {
+  await fetch(U('/api/areas'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  poll(true);
+};
+document.getElementById('refresh').onclick = () => poll(true);
+
+buildViewPanel();
+poll(true);
+setInterval(poll, 400);
+</script>
+</body>
+</html>
