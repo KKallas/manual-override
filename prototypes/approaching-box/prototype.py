@@ -28,6 +28,8 @@ import threading
 
 from flask import Blueprint, jsonify, request, send_from_directory
 
+import live   # shared push helper (prototypes/live.py)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 MANIFEST = {
@@ -97,10 +99,16 @@ _lock = threading.Lock()
 _status = {"running": False, "phase": "idle", "box_id": None, "value": None}
 _stale_cleaned = False
 
+# Live push: the tween updates _status ~30x/s; bump on each so the controller's
+# readout follows in real time. A short keep-alive interval also lets clients
+# notice hub enable/disable changes (which don't go through _update).
+_live = live.LiveState()
+
 
 def _update(**kw):
     with _lock:
         _status.update(kw)
+    _live.bump()
 
 
 def _can_drive():
@@ -229,8 +237,7 @@ def controller():
     return send_from_directory(HERE, "controller.html")
 
 
-@bp.route("/api/status")
-def status():
+def _status_dict():
     """Live status: dependency state, animation phase, and the chosen tween."""
     with _lock:
         st = dict(_status)
@@ -246,7 +253,19 @@ def status():
     st["from"] = p["from"]
     st["to"] = p["to"]
     st["params"] = [{"key": k, "label": v["label"]} for k, v in PARAMS.items()]
-    return jsonify(st)
+    return st
+
+
+@bp.route("/api/status")
+def status():
+    return jsonify(_status_dict())
+
+
+@bp.route("/api/events")
+def events():
+    """Push status on every tween step (via _live.bump), and re-check every 0.5s
+    so hub enable/disable of this prototype or the playfield is reflected too."""
+    return _live.stream(_status_dict, interval=0.5)
 
 
 @bp.route("/api/param", methods=["POST"])

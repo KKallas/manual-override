@@ -1,11 +1,39 @@
 # Webcam (prototype)
 
 The **eyes** for Manual Override's perception stage. It opens a webcam with
-**OpenCV**, shows the live video in its config screen, and lets you pick which
-camera to use from a dropdown. For now it just captures and displays frames;
-**ArUco-marker reading** (missions 2.1 / 2.2) builds on this same feed later.
+**OpenCV**, shows the live video in its config screen, lets you pick which camera
+to use, and **detects + tracks ArUco markers** (DICT_4X4_50) in the feed. The
+tracked tags are published for other prototypes to consume.
 
 This is a UI/perception prototype — no robot involved.
+
+## ArUco tag tracking
+
+Every frame, markers are detected (downscaled for speed) and run through a
+**debounced tracker**:
+
+- a marker must be seen continuously for **> 1 s** before it's **added** to the
+  list (a one-frame false positive never appears), and
+- once tracked it stays until it's been **missing > 3 s**, then it's **removed**.
+
+Each tracked tag reports `id`, `x`/`y` (pixels), `nx`/`ny` (normalised 0–1),
+`rotation` (degrees), and `missing` (seconds since last seen). The live feed
+outlines markers — **green** once tracked, **amber** while still qualifying — and
+the controller lists the tags.
+
+### Use it from another prototype
+
+The list is available two ways:
+
+- **REST:** `GET /api/tags` → `{ tags: [{id, x, y, nx, ny, rotation, missing}], … }`
+- **In-process** (through the hub's [`hub_init` context](../README.md)):
+
+  ```python
+  cam = ctx.get_prototype("webcam")
+  if cam and ctx.is_prototype_enabled("webcam"):
+      for tag in cam.get_tags():
+          ...  # {id, x, y, nx, ny, rotation, missing}
+  ```
 
 ## What it implements
 

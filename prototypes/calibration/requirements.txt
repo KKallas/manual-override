@@ -1,0 +1,5 @@
+Flask>=3.0
+# Homography (camera→robot mapping). Optional — the UI + capture work without it,
+# but the mapping and pick-and-place need it.
+opencv-python>=4.8
+numpy>=1.24

@@ -49,6 +49,15 @@
   .pill.idle { color:var(--warn); } .pill.idle .dot { background:var(--warn); }
   .alert { border-radius:10px; padding:12px 14px; margin-bottom:16px; border:1px solid;
     background:#2a1216; border-color:#5a2630; color:#ffb3bb; font-size:13px; display:none; }
+  .muted { color:var(--muted); font-weight:400; }
+  table { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; }
+  th { text-align:right; color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase;
+    letter-spacing:.04em; padding:6px 10px; border-bottom:1px solid var(--line); }
+  th:first-child, td:first-child { text-align:left; }
+  td { text-align:right; padding:6px 10px; border-bottom:1px solid #1b1f27; }
+  tbody tr:hover { background:#13161c; }
+  td.tagid { color:var(--accent); font-weight:600; }
+  code { color:var(--accent); }
 </style>
 </head>
 <body>
@@ -70,6 +79,9 @@
     </div>
     <div class="row" style="margin-top:10px;">
       <select id="resSel" title="Capture resolution"></select>
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--muted); font-size:13px;">
+        <input type="checkbox" id="rotate" style="accent-color:var(--accent)"> Rotate 180°
+      </label>
     </div>
     <p class="note">Choose the camera and capture resolution. The camera reports the
       closest mode it supports — the <b>Resolution</b> stat below shows what you
@@ -87,8 +99,20 @@
       <div class="stat"><div class="k">FPS</div><div class="v" id="fps">—</div></div>
       <div class="stat"><div class="k">Index</div><div class="v" id="idx">—</div></div>
     </div>
-    <p class="note">Frames come from OpenCV on the server, served as MJPEG. This is
-      the camera for the perception stage — ArUco-marker reading builds on this feed.</p>
+    <p class="note">Frames come from OpenCV on the server, served as MJPEG. ArUco
+      markers (DICT_4X4_50) are detected and outlined live — green once tracked,
+      amber while still qualifying.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Tracked tags <span id="tagCount" class="muted"></span></h2>
+    <table id="tagTable">
+      <thead><tr><th>id</th><th>x</th><th>y</th><th>nx</th><th>ny</th><th>rotation</th><th>missing</th></tr></thead>
+      <tbody id="tagRows"></tbody>
+    </table>
+    <p class="note" id="tagEmpty">No tags yet. A marker must be seen for &gt; 1 s before it's
+      added; it's dropped 3 s after it goes missing. Available to other prototypes at
+      <code>/api/tags</code>.</p>
   </div>
 </main>
 
@@ -159,27 +183,36 @@ el('stop').onclick = async () => {
   startStream();
 };
 el('feed').onerror = () => setTimeout(startStream, 1000);
+el('rotate').onchange = async () => {
+  try {
+    await fetch(U('/api/rotate'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ on: el('rotate').checked }) });
+  } catch (_) {}
+};
 
 function showAlert(msg) { const a = el('alert'); a.textContent = msg; a.style.display = 'block'; }
 function hideAlert() { el('alert').style.display = 'none'; }
 
-async function poll() {
+async function poll() {   // one-shot pull, used after a local action (select camera)
   let s;
-  try {
-    s = await (await fetch(U('/api/status'))).json();
-    el('conn').textContent = 'live';
-  } catch (_) { el('conn').textContent = 'offline'; return; }
+  try { s = await (await fetch(U('/api/status'))).json(); el('conn').textContent = 'live'; }
+  catch (_) { el('conn').textContent = 'offline'; return; }
+  applyStatus(s);
+}
 
+function applyStatus(s) {
+  el('conn').textContent = 'live';
   const pill = el('pill'), txt = el('pillTxt');
   if (s.error) { pill.className = 'pill err'; txt.textContent = s.error; }
   else if (s.open) { pill.className = 'pill run'; txt.textContent = 'streaming'; }
   else { pill.className = 'pill idle'; txt.textContent = 'no camera'; }
 
+  if (el('rotate') !== document.activeElement) el('rotate').checked = !!s.rotate180;
   el('res').textContent = s.width ? `${s.width}×${s.height}` : '—';
   el('fps').textContent = s.open ? (s.fps || 0).toFixed(0) : '—';
   el('idx').textContent = (s.index != null) ? s.index : '—';
 
-  // first poll: if nothing is open but we remember a camera, bring it up once
+  // first update: if nothing is open but we remember a camera, bring it up once
   if (!autoSelected && !s.open && s.remembered) {
     autoSelected = true;
     if (camSel.value === '') camSel.value = String(s.remembered.index);
@@ -188,11 +221,29 @@ async function poll() {
   }
 }
 
+function applyTags(tags) {
+  el('tagCount').textContent = tags.length ? `· ${tags.length}` : '';
+  el('tagEmpty').style.display = tags.length ? 'none' : '';
+  el('tagRows').innerHTML = tags.map(t =>
+    `<tr><td class="tagid">#${t.id}</td><td>${t.x}</td><td>${t.y}</td>`
+    + `<td>${t.nx}</td><td>${t.ny}</td><td>${t.rotation}°</td>`
+    + `<td>${t.missing > 0 ? t.missing.toFixed(1) + 's' : '—'}</td></tr>`).join('');
+}
+
 (async () => {
   await loadCameras();
   startStream();          // shows remembered feed (server auto-opens) or 'no signal'
-  poll();
-  setInterval(poll, 1000);
+  poll();                 // initial status paint
+  // One SSE stream carries both the status panel and the tracked-tag table.
+  const es = new EventSource(U('/api/events'));   // auto-reconnects
+  es.onmessage = e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.status) { el('conn').textContent = 'live'; applyStatus(d.status); }
+      if (d.tags) applyTags(d.tags);
+    } catch (_) {}
+  };
+  es.onerror = () => { el('conn').textContent = 'offline'; };
 })();
 </script>
 </body>

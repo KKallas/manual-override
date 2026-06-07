@@ -9,9 +9,10 @@ prototype's GUI live, so you can see and drive it from a single page.
 prototypes/
 ├── hub.py              # the server: discovers + mounts every prototype
 ├── dashboard.html      # the hub UI (tabs + embedded GUI)
+├── live.py             # shared helper: push state to pages over SSE (no polling)
 ├── requirements.txt    # Flask (the hub's only dependency)
 ├── README.md           # ← you are here
-├── joint-slider-test/  # a prototype
+├── joint-angles-test/  # a prototype
 │   ├── prototype.py    #   MANIFEST + Flask blueprint  (required)
 │   ├── index.html      #   its GUI
 │   └── dobot.py        #   helper module
@@ -34,7 +35,7 @@ tab. Adding or removing a prototype requires a hub restart (blueprints mount at
 startup).
 
 **Enable / disable.** Each tab has a switch. Turning a prototype off dims its
-tab and stops loading its GUI (so it stops polling) — handy for parking
+tab and stops loading its GUI (so it drops its live stream) — handy for parking
 prototypes you're not using. The choice is **saved** to `hub-settings.json` and
 restored on the next start. Disabling is a dashboard-level convenience; the
 prototype's API stays mounted either way.
@@ -92,9 +93,14 @@ def index():
 def controller():
     return send_from_directory(HERE, "controller.html")
 
-@bp.route("/api/state")        # served at /p/<slug>/api/state
+@bp.route("/api/state")        # served at /p/<slug>/api/state — one-shot snapshot
 def state():
     return jsonify({"hello": "world"})
+
+# For live state, add a push stream too — see "Live updates" below:
+# @bp.route("/api/events")     # SSE; pages open an EventSource on it
+# def events():
+#     return _live.stream(_snapshot)
 ```
 
 Serve HTML with `send_from_directory(HERE, "...")`. Define your API under
@@ -237,22 +243,100 @@ write-up.
 2. Add `prototype.py` with a `MANIFEST` and a `bp` blueprint (copy the skeleton
    above).
 3. Add your GUI HTML; fetch with the base-relative `U()` helper; link to your
-   own pages relatively.
+   own pages relatively; stream live state with an `EventSource` on `/api/events`
+   (see [Live updates](#live-updates--push-dont-poll)) instead of polling.
 4. (Optional) `requirements.txt`, a `README.md`, a `.gitignore` for any
    persisted state.
 5. Restart `python hub.py` — your tab appears automatically.
 
-## Live updates
+## Live updates — push, don't poll
 
-The hub embeds your GUI in an iframe; **your page keeps itself current by
-polling its own API** (see the existing prototypes: a `setInterval` fetch of
-`/api/state` with a `rev` counter to skip redundant work). The toolbar's
-**↻ Reload** button force-refreshes the embedded GUI if you need it.
+**Your page keeps itself current by streaming from the server, not by polling.**
+The shared helper [`live.py`](live.py) gives you a Server-Sent Events (SSE)
+channel in a few lines; pages open one `EventSource` and the server pushes a
+fresh snapshot whenever state changes. This is what makes a dragged control track
+the 3D view live, and a server-driven variable move the controls smoothly instead
+of stepping. (The old polling model lagged by the poll interval and made driven
+variables jump.)
+
+There are **two shapes of live state**, and the helper handles both:
+
+| Your state is…                                   | How it changes        | Use                                   |
+|--------------------------------------------------|-----------------------|----------------------------------------|
+| **Event-driven** — mutated by discrete actions (areas, settings, a tween) | you know exactly when | `bump()` on every mutation; long keep-alive `interval` |
+| **Sampled** — read continuously from hardware/video (a robot pose, camera fps, tracked tags) | no discrete event | no `bump()`; a short `interval` (e.g. `0.2`) |
+
+Identical consecutive snapshots are coalesced into a keep-alive, so an
+event-driven store stays quiet when idle and a sampled source only emits frames
+that differ.
+
+### Server side
+
+```python
+import live
+_live = live.LiveState()
+
+def _snapshot():                      # a no-arg callable returning a JSON-able dict
+    with _lock:                       # may take your own data lock
+        return {"rev": _rev, "items": list(_store.values())}
+
+# EVENT-DRIVEN: bump on every mutation; the stream wakes instantly.
+def _touch():
+    global _rev
+    _rev += 1
+    _live.bump()
+
+@bp.route("/api/events")
+def events():
+    return _live.stream(_snapshot)              # long keep-alive; every change bumps
+
+# …or SAMPLED: no bump, re-snapshot ~5x/s (only frames that differ are sent).
+@bp.route("/api/events")
+def events():
+    return _live.stream(_snapshot, interval=0.2)
+```
+
+Keep a plain `GET /api/state` (or `/api/status`) returning the same snapshot too:
+it's the cheap one-shot a page fetches for its first paint and after a local edit.
+
+### Page side
+
+Replace `setInterval(poll, …)` with an `EventSource`, and split your old `poll()`
+into a one-shot fetch plus an `apply(data)` that renders. `EventSource`
+auto-reconnects if the connection drops.
+
+```js
+function applyState(data) { /* render from data — see below */ }
+async function refresh() { applyState(await (await fetch(U('/api/state'))).json()); }
+
+refresh();                                   // instant first paint
+const es = new EventSource(U('/api/events'));  // live pushes; auto-reconnects
+es.onmessage = e => { try { applyState(JSON.parse(e.data)); } catch (_) {} };
+es.onerror = () => { /* show 'offline' */ };
+```
+
+> **Heads-up:** `/api/stream` is *not* a convention — the webcam already uses that
+> name for its MJPEG video. Use **`/api/events`** for the SSE state channel.
 
 ## Conventions worth copying
 
-- A monotonically increasing `rev` returned by your state endpoint lets clients
-  poll cheaply and skip work when nothing changed.
-- Clamp/validate inputs server-side so a slider drag can't wedge your state.
-- A low-rate poll (5–10 fps) plus client-side interpolation looks smooth without
-  a chatty server — see `playfield-areas/screen.html`.
+These three rules are what keep updates smooth in both directions:
+
+- **Update controls in place; never rebuild the DOM on each frame.** A driven
+  variable can push 30×/s — rebuilding `innerHTML` thrashes the page and kills
+  focus. Build inputs once, then set their values, **skipping any input that's
+  focused or mid-drag** (track a per-input flag on `pointerdown`/`pointerup`).
+  See `playfield-areas/controller.html` (`syncList`/`updateCard`).
+- **Throttle slider writes — don't debounce them.** A debounce *swallows* the
+  intermediate values of a drag and only sends the final one, so the other view
+  jumps. A throttle (fire on the leading edge, then at most every ~50 ms, plus a
+  trailing send) streams the drag so the other view tracks it live. See the
+  `patch()` helper in `playfield-areas/controller.html`; `cartesian-xyz-test`'s
+  `queueMove`/`flushMove` is the same idea.
+- **Clamp/validate inputs server-side** so a fast slider drag can't wedge your
+  state with an out-of-range value.
+
+For a 3D / canvas view, also ease each value toward its latest target every frame
+(frame-rate-independent interpolation) so motion stays smooth *between* pushes —
+see `playfield-areas/screen.html` (`interpolate`). A `rev`/`srev` counter in your
+snapshot still lets a client skip redundant re-renders when nothing changed.

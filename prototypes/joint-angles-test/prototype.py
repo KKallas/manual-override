@@ -1,21 +1,21 @@
 """
-Cartesian (TCP / XYZ) test prototype — a Flask blueprint mounted by the hub.
+Joint Angles test prototype — a Flask blueprint mounted by the hub.
 
-Sliders drive the tool pose in workspace coordinates (X, Y, Z in mm, R in deg)
-rather than joint angles. The server streams ServoP setpoints toward the target
-with velocity limiting, so live dragging is smooth.
+Sliders drive the MG400's joint angles (J1, J2, J3, J4 in degrees) directly. The
+server streams ServoJ setpoints toward the target with an acceleration-limited
+(trapezoidal) velocity profile, so live dragging eases in and out smoothly without
+overshoot.
 
-This module is loaded by hub.py and registered under /p/cartesian-xyz-test. It
-has no app.run() of its own — it only runs inside the hub server. It needs the
-robot reachable on the network to do anything; without it, the GUI still loads
-and the API simply reports "Not connected".
+This module is loaded by hub.py and registered under /p/joint-angles-test. It has
+no app.run() of its own — it only runs inside the hub server. It needs the robot
+reachable on the network to do anything; without it, the GUI still loads and the
+API simply reports "Not connected".
 
 Put the robot in API mode first — see ../../docs/operations/dobot-api-mode.md.
 Safety: keep the hardware E-stop within reach; start with a low speed.
 """
 
 import json
-import math
 import os
 import sys
 import threading
@@ -27,51 +27,47 @@ import live   # shared push helper (prototypes/live.py)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)  # so the sibling driver imports cleanly
-from dobot_cartesian import DobotMG400, DobotError  # noqa: E402  (unique name; modules share one namespace)
+from dobot_joint import DobotMG400, DobotError  # noqa: E402  (unique name; modules share one namespace)
 
 MANIFEST = {
-    "name": "Cartesian XYZ Test",
-    "description": "Drive the MG400 tool pose in workspace coordinates (X/Y/Z mm, "
-                   "R deg) via streamed ServoP. Requires the robot on the network; "
-                   "the GUI loads regardless.",
+    "name": "Joint Angles Test",
+    "description": "Drive the MG400's joint angles (J1–J4, deg) via streamed "
+                   "ServoJ with eased start/stop. Requires the robot on the "
+                   "network; the GUI loads regardless.",
     "default_page": "",   # index.html lives at the prototype root
     "pages": [{"path": "", "label": "Controller"}],
 }
-bp = Blueprint("cartesian_xyz_test", __name__)
+bp = Blueprint("joint_angles_test", __name__)
 
 # ---- configuration --------------------------------------------------------
 DEFAULT_IP = "192.168.1.6"
 
-# Approximate MG400 workspace. The arm's reachable area is an ANNULUS (a ring),
-# not a box, so X/Y are additionally clamped to a min/max radius from the base
-# axis. These are conservative starting values — the controller enforces the true
-# workspace and rejects anything unreachable (surfaced as a ServoP error). Verify
-# and tighten on your hardware.
-WORKSPACE = {
-    "x": [-450.0, 450.0],
-    "y": [-450.0, 450.0],
-    "z": [-150.0, 230.0],
-    "r": [-160.0, 160.0],
+# Per-joint angle limits (degrees). Conservative starting values — the controller
+# enforces them and the robot rejects anything still unreachable (surfaced as a
+# ServoJ error). Verify and tighten on your hardware.
+JOINT_LIMITS = {
+    "j1": [-160.0, 160.0],   # base rotation
+    "j2": [-25.0, 85.0],     # arm joint 1
+    "j3": [-25.0, 105.0],    # arm joint 2
+    "j4": [-160.0, 160.0],   # end rotation (R)
 }
-RADIUS_MIN = 150.0   # mm — inside this the arm can't reach (too folded)
-RADIUS_MAX = 440.0   # mm — max horizontal reach
+JOINTS = ["j1", "j2", "j3", "j4"]
 
 # Following speed at 100% on the speed slider.
-MAX_LIN_VEL = 200.0  # mm/s
-MAX_ANG_VEL = 90.0   # deg/s
+MAX_VEL = 120.0  # deg/s
 # Follower easing: time to ramp from rest to the speed cap (and to brake to a
 # stop). Acceleration = speed-cap / ramp-time. Larger ramp = gentler start/stop
 # and a longer braking distance → removes the overshoot a hard velocity step
 # causes. Exposed live as the "Smoothness" control.
 RAMP_SECS = 0.35
 
-# Air pump box (two-line suck/blow model — see joint prototype).
+# Air pump box (two-line suck/blow model — see the Cartesian prototype).
 SUCK_DO_INDEX = 2
 BLOW_DO_INDEX = 1
 
 _robot = None
 _robot_lock = threading.Lock()
-# Sampled state (live pose/feedback from the arm), so the stream re-snapshots on
+# Sampled state (live joint feedback from the arm), so the stream re-snapshots on
 # a short interval rather than on a bump. See prototypes/live.py.
 _live = live.LiveState()
 
@@ -86,16 +82,17 @@ def _apply_motion(robot):
     acceleration caps (acceleration = speed-cap / ramp-time)."""
     frac = _speed_ratio / 100.0
     secs = max(0.05, _ramp_secs)
-    robot.set_max_velocity(frac * MAX_LIN_VEL, frac * MAX_ANG_VEL)
-    robot.set_max_accel(frac * MAX_LIN_VEL / secs, frac * MAX_ANG_VEL / secs)
+    robot.set_max_velocity(frac * MAX_VEL)
+    robot.set_max_accel(frac * MAX_VEL / secs)
+
 
 # Saved locations: a FIXED set of NUM_SLOTS numbered slots (1..N), so the recall
 # API (/api/recall/<n>) is always a valid call even when a slot is empty. Each
-# slot has an editable label + pose; persisted so they survive restarts.
+# slot has an editable label + joint pose; persisted so they survive restarts.
 NUM_SLOTS = 10
 LOCATIONS_PATH = os.path.join(HERE, "locations.json")
 _loc_lock = threading.Lock()
-_slots = [{"name": "", "x": 0.0, "y": 0.0, "z": 0.0, "r": 0.0, "set": False}
+_slots = [{"name": "", "j1": 0.0, "j2": 0.0, "j3": 0.0, "j4": 0.0, "set": False}
           for _ in range(NUM_SLOTS)]
 
 
@@ -103,7 +100,7 @@ def _slot_public(i):
     """Slot i (0-based) as sent to clients; `slot` is the 1-based number."""
     s = _slots[i]
     return {"slot": i + 1, "name": s["name"], "set": s["set"],
-            "x": s["x"], "y": s["y"], "z": s["z"], "r": s["r"]}
+            "j1": s["j1"], "j2": s["j2"], "j3": s["j3"], "j4": s["j4"]}
 
 
 def _load_locations():
@@ -119,8 +116,8 @@ def _load_locations():
         try:
             _slots[i] = {
                 "name": str(s.get("name", ""))[:40],
-                "x": float(s.get("x", 0)), "y": float(s.get("y", 0)),
-                "z": float(s.get("z", 0)), "r": float(s.get("r", 0)),
+                "j1": float(s.get("j1", 0)), "j2": float(s.get("j2", 0)),
+                "j3": float(s.get("j3", 0)), "j4": float(s.get("j4", 0)),
                 "set": bool(s.get("set", False)),
             }
         except (TypeError, ValueError):
@@ -146,29 +143,17 @@ def _clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
 
-def _clamp_pose(x, y, z, r):
-    """Clamp a target pose into the (approximate) reachable workspace: Z and R to
-    their ranges, and X/Y to the reachable annulus, then to the X/Y box."""
-    z = _clamp(z, *WORKSPACE["z"])
-    r = _clamp(r, *WORKSPACE["r"])
-    radius = math.hypot(x, y)
-    if radius == 0.0:
-        x, y = RADIUS_MIN, 0.0  # base axis is unreachable; nudge outward
-    elif radius > RADIUS_MAX:
-        s = RADIUS_MAX / radius
-        x, y = x * s, y * s
-    elif radius < RADIUS_MIN:
-        s = RADIUS_MIN / radius
-        x, y = x * s, y * s
-    x = _clamp(x, *WORKSPACE["x"])
-    y = _clamp(y, *WORKSPACE["y"])
-    return x, y, z, r
+def _clamp_joints(j1, j2, j3, j4):
+    """Clamp a joint target to each joint's limit."""
+    return (
+        _clamp(j1, *JOINT_LIMITS["j1"]),
+        _clamp(j2, *JOINT_LIMITS["j2"]),
+        _clamp(j3, *JOINT_LIMITS["j3"]),
+        _clamp(j4, *JOINT_LIMITS["j4"]),
+    )
 
 
 # ---- programmatic API (for other prototypes via the hub) -------------------
-# Lets e.g. the calibration prototype drive this same arm in workspace XYZ. The
-# arm must already be Connected + Enabled from this prototype's tab (that starts
-# the ServoP follower these calls stream to).
 def robot_ready():
     """True if the arm is connected and enabled (follower running)."""
     r = _robot
@@ -177,36 +162,13 @@ def robot_ready():
     return bool(r.get_state().get("enabled"))
 
 
-def current_pose():
-    """Live [x, y, z, r] from the feedback stream, or None if not connected."""
+def current_joints():
+    """Live [j1, j2, j3, j4] from the feedback stream, or None if not connected."""
     r = _robot
     if r is None or not r.is_connected():
         return None
-    pose = r.get_state().get("pose")
-    return list(pose) if pose else None
-
-
-def move_to(x, y, z, r=None, wait=True, timeout=12.0, tol=2.0):
-    """Move the tool to a workspace pose via the ServoP follower, clamped into the
-    reachable workspace. If `wait`, poll the live pose until within `tol` mm on
-    XYZ or `timeout`. Returns (ok, reason)."""
-    robot = _robot
-    if robot is None or not robot.is_connected():
-        return False, "robot not connected"
-    if r is None:
-        cur = current_pose()
-        r = cur[3] if cur else 0.0
-    x, y, z, r = _clamp_pose(float(x), float(y), float(z), float(r))
-    robot.set_target_pose(x, y, z, r)
-    if not wait:
-        return True, None
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        cur = current_pose()
-        if cur and abs(cur[0] - x) <= tol and abs(cur[1] - y) <= tol and abs(cur[2] - z) <= tol:
-            return True, None
-        time.sleep(0.03)
-    return False, "move timed out"
+    joints = r.get_state().get("joints")
+    return list(joints) if joints else None
 
 
 def pump(mode):
@@ -252,14 +214,7 @@ def index():
 
 @bp.route("/api/config")
 def config():
-    return jsonify(
-        {
-            "workspace": WORKSPACE,
-            "radius_min": RADIUS_MIN,
-            "radius_max": RADIUS_MAX,
-            "default_ip": DEFAULT_IP,
-        }
-    )
+    return jsonify({"joint_limits": JOINT_LIMITS, "default_ip": DEFAULT_IP})
 
 
 def _pump_mode(do_bits):
@@ -294,7 +249,7 @@ def status():
 
 @bp.route("/api/events")
 def events():
-    """Push the live arm status (pose, mode, pump, target) ~5x/s while it changes."""
+    """Push the live arm status (joints, mode, pump, target) ~5x/s while it changes."""
     return _live.stream(_status_dict, interval=0.2)
 
 
@@ -406,7 +361,7 @@ def estop():
 
 
 @bp.route("/api/pump", methods=["POST"])
-def pump():
+def route_pump():
     mode = (request.json or {}).get("mode", "off")
     if mode not in ("suck", "blow", "off"):
         return _fail("mode must be 'suck', 'blow' or 'off'")
@@ -415,23 +370,23 @@ def pump():
 
 @bp.route("/api/move", methods=["POST"])
 def move():
-    """Update the Cartesian target pose. Clamped to the reachable workspace; the
-    follower streams ServoP toward it at the velocity cap."""
+    """Update the target joint angles. Clamped to the joint limits; the follower
+    streams ServoJ toward them with the eased velocity profile."""
     robot = _current()
     if robot is None or not robot.is_connected():
         return _fail("Not connected")
     data = request.json or {}
     try:
-        x = float(data["x"])
-        y = float(data["y"])
-        z = float(data["z"])
-        r = float(data.get("r", robot.get_state()["pose"][3]))
-    except (KeyError, ValueError, TypeError):
-        return _fail("Expected numeric x, y, z (r optional)")
-    x, y, z, r = _clamp_pose(x, y, z, r)
-    robot.set_target_pose(x, y, z, r)
-    return _ok(clamped={"x": round(x, 2), "y": round(y, 2),
-                        "z": round(z, 2), "r": round(r, 2)})
+        j1 = float(data["j1"])
+        j2 = float(data["j2"])
+        j3 = float(data["j3"])
+        j4 = float(data.get("j4", robot.get_state()["joints"][3]))
+    except (KeyError, ValueError, TypeError, IndexError):
+        return _fail("Expected numeric j1, j2, j3 (j4 optional)")
+    j1, j2, j3, j4 = _clamp_joints(j1, j2, j3, j4)
+    robot.set_target(j1, j2, j3, j4)
+    return _ok(clamped={"j1": round(j1, 2), "j2": round(j2, 2),
+                        "j3": round(j3, 2), "j4": round(j4, 2)})
 
 
 # ---- saved locations: NUM_SLOTS fixed slots (edit / set / recall) ----------
@@ -443,9 +398,9 @@ def list_locations():
 
 @bp.route("/api/locations/<int:n>", methods=["POST", "PATCH"])
 def set_location(n):
-    """Edit slot n: set its label (`name`) and/or its pose (`pose`). Passing a
-    pose marks the slot filled and clamps it to the reachable workspace; the
-    controller sends its current slider pose for the 'Set' button."""
+    """Edit slot n: set its label (`name`) and/or its joint `pose`. Passing a pose
+    marks the slot filled and clamps it to the joint limits; the controller sends
+    its current slider angles for the 'Set' button."""
     if not (1 <= n <= NUM_SLOTS):
         return _fail("slot out of range")
     data = request.json or {}
@@ -456,11 +411,13 @@ def set_location(n):
         pose = data.get("pose")
         if isinstance(pose, dict):
             try:
-                x, y, z, r = float(pose["x"]), float(pose["y"]), float(pose["z"]), float(pose.get("r", 0))
+                j1, j2, j3, j4 = (float(pose["j1"]), float(pose["j2"]),
+                                  float(pose["j3"]), float(pose.get("j4", 0)))
             except (KeyError, TypeError, ValueError):
                 return _fail("bad pose")
-            x, y, z, r = _clamp_pose(x, y, z, r)
-            s["x"], s["y"], s["z"], s["r"] = round(x, 2), round(y, 2), round(z, 2), round(r, 2)
+            j1, j2, j3, j4 = _clamp_joints(j1, j2, j3, j4)
+            s["j1"], s["j2"], s["j3"], s["j4"] = (round(j1, 2), round(j2, 2),
+                                                  round(j3, 2), round(j4, 2))
             s["set"] = True
         _save_locations()
         out = _slot_public(n - 1)
@@ -474,7 +431,7 @@ def clear_location(n):
     if not (1 <= n <= NUM_SLOTS):
         return _fail("slot out of range")
     with _loc_lock:
-        _slots[n - 1] = {"name": "", "x": 0.0, "y": 0.0, "z": 0.0, "r": 0.0, "set": False}
+        _slots[n - 1] = {"name": "", "j1": 0.0, "j2": 0.0, "j3": 0.0, "j4": 0.0, "set": False}
         _save_locations()
     _live.bump()
     return _ok()
@@ -493,7 +450,7 @@ def recall_location(n):
         s = _slots[n - 1]
         if not s["set"]:
             return _fail(f"slot {n} is empty")
-        x, y, z, r = _clamp_pose(s["x"], s["y"], s["z"], s["r"])
+        j1, j2, j3, j4 = _clamp_joints(s["j1"], s["j2"], s["j3"], s["j4"])
         out = _slot_public(n - 1)
-    robot.set_target_pose(x, y, z, r)
+    robot.set_target(j1, j2, j3, j4)
     return _ok(slot=out)

@@ -46,6 +46,24 @@
     border-radius:4px; padding:2px 6px; font:inherit; font-size:12px; text-align:right;
     font-variant-numeric:tabular-nums; -moz-appearance:textfield; }
   .f .num:focus { outline:none; border-color:var(--accent); }
+  .display { display:flex; flex-wrap:wrap; gap:16px; margin-top:12px;
+    padding-top:12px; border-top:1px solid var(--line); }
+  .display label { display:inline-flex; align-items:center; gap:6px; font-size:12px;
+    color:var(--muted); cursor:pointer; text-transform:uppercase; letter-spacing:.05em; }
+  .display input { accent-color: var(--accent); cursor:pointer; margin:0; }
+  .links { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:12px;
+    padding-top:12px; border-top:1px solid var(--line); }
+  .chip { display:inline-flex; align-items:center; gap:6px; background:#13161c; border:1px solid var(--line);
+    border-radius:999px; padding:3px 6px 3px 9px; font-size:12px; }
+  .chip .cdot { width:9px; height:9px; border-radius:50%; }
+  .chip .x { background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:15px;
+    line-height:1; padding:0 2px; }
+  .chip .x:hover { color:var(--err); }
+  .linkSel { background:#0c0e12; border:1px solid var(--line); color:var(--txt); border-radius:6px;
+    padding:5px 8px; font:inherit; font-size:12px; }
+  .links .addlink { background:#232733; border:1px solid var(--line); color:var(--txt);
+    padding:5px 10px; border-radius:6px; font:inherit; font-size:12px; cursor:pointer; }
+  .links .addlink:hover { border-color:var(--accent); }
   .f input[type=range] { width:100%; accent-color: var(--accent); }
   .f input[type=color] { width:100%; height:30px; background:transparent; border:1px solid var(--line);
     border-radius:6px; padding:2px; cursor:pointer; }
@@ -88,31 +106,48 @@ function status(msg, err = false) {
   statusEl.className = err ? 'err' : '';
 }
 
-// While a control is being dragged we hold off re-rendering from the poll, so
-// the cursor never gets yanked off the thumb. `editing` guards the area list,
-// `editingView` guards the View & Effects panel.
-let editing = null;
+// The View & Effects panel holds off updating its inputs while you edit them
+// (`editingView`). The area list updates each input in place and guards each one
+// individually (focus / mid-drag), so it needs no panel-wide flag.
 let editingView = false;
 
-// Debounced PATCH helper shared by both panels.
-const timers = {};
-function patch(url, body, key, immediate = false) {
-  const fire = async () => {
-    try {
-      const res = await fetch(U(url), {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!data.ok) status(data.error || 'error', true);
-    } catch (_) { status('offline', true); }
-  };
-  clearTimeout(timers[key]);
-  if (immediate) fire(); else timers[key] = setTimeout(fire, 60);
+const perfNow = () => performance.now();
+const round2 = v => Math.round(v * 100) / 100;
+
+// PATCH helper shared by both panels. Writes are THROTTLED, not debounced: a
+// drag streams to the server at a steady rate (leading edge + trailing edge)
+// instead of being swallowed until you let go — so the screen tracks the slider
+// live instead of jumping to the final value. `immediate` (typed-in / one-shot
+// edits) bypasses the throttle and sends right away.
+const THROTTLE_MS = 50;
+const wstate = {};   // key -> { last, timer, url, body }
+function send(url, body) {
+  return fetch(U(url), {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  }).then(r => r.json()).then(d => { if (!d.ok) status(d.error || 'error', true); })
+    .catch(() => status('offline', true));
 }
-const setArea = (id, body, now) => patch(`/api/areas/${id}`, body, `area:${id}`, now);
+function patch(url, body, key, immediate = false) {
+  const st = wstate[key] || (wstate[key] = { last: 0, timer: null, url: null, body: null });
+  if (immediate) {
+    clearTimeout(st.timer); st.timer = null; st.body = null; st.last = perfNow();
+    send(url, body); return;
+  }
+  st.url = url; st.body = body;
+  const wait = THROTTLE_MS - (perfNow() - st.last);
+  if (wait <= 0) {                       // enough time has passed: send now (leading edge)
+    st.last = perfNow(); st.body = null; send(url, body);
+  } else if (!st.timer) {                // otherwise send the latest value when the window elapses
+    st.timer = setTimeout(() => {
+      st.timer = null; st.last = perfNow();
+      if (st.body) { const u = st.url, b = st.body; st.body = null; send(u, b); }
+    }, wait);
+  }
+}
+const setArea = (id, body, immediate) => patch(`/api/areas/${id}`, body, `area:${id}`, immediate);
 const setView = (body) => patch('/api/settings', body, 'view');
 
-// ---- View & Effects panel (built once; values updated from poll) -----------
+// ---- View & Effects panel (built once; values updated from the live stream)
 const VIEW_FIELDS = [
   { path: 'cam.x', label: 'location x',          min: -40,  max: 40,  step: 0.5 },
   { path: 'cam.y', label: 'location y',          min: -40,  max: 40,  step: 0.5 },
@@ -194,20 +229,65 @@ document.getElementById('resetView').onclick = () =>
 
 // ---- area list -------------------------------------------------------------
 const FIELDS = [
-  { key: 'x',    min: -12, max: 12, step: 0.1 },
-  { key: 'z',    min: -12, max: 12, step: 0.1 },
-  { key: 'y',    min: -6,  max: 6,  step: 0.1, label: 'y (height)' },
-  { key: 'size', min: 0.2, max: 6,  step: 0.1 },
-  { key: 'glow', min: 0,   max: 4,  step: 0.05 },
+  { key: 'x',      min: -12, max: 12, step: 0.1 },
+  { key: 'z',      min: -12, max: 12, step: 0.1 },
+  { key: 'y',      min: -6,  max: 6,  step: 0.1, label: 'y (height)' },
+  { key: 'size',   min: 0.2, max: 6,  step: 0.1 },
+  { key: 'glow',   min: 0,   max: 4,  step: 0.05 },
+  { key: 'marker', min: 0,   max: 49, step: 1,   label: 'marker id' },
 ];
 
-function render(areas) {
-  if (!areas.length) { listEl.innerHTML = '<div class="empty">No areas. Click “+ New area”.</div>'; return; }
-  listEl.innerHTML = '';
-  for (const a of areas) listEl.appendChild(card(a));
+// per-area component visibility on the clean screen (checkboxes)
+const DISPLAY = [
+  { key: 'show_area',  label: 'area' },
+  { key: 'show_aruco', label: 'aruco' },
+  { key: 'show_links', label: 'lines' },
+];
+
+// Cards are built once and then updated IN PLACE on every push — never rebuilt
+// from scratch. That's what lets a 30 fps driven variable (e.g. the Approaching
+// Box tween) move a slider smoothly instead of stepping, and it keeps focus,
+// the colour picker and the link dropdown alive while the stream flows past.
+const cards = new Map();     // id -> card record
+let listEmpty = false;
+let lastMetaSig = '';        // ids + names + colours; changes only on add/remove/rename/recolour
+
+function metaSig(areas) {
+  return areas.map(a => a.id + ':' + a.name + ':' + a.color).join('|');
 }
 
-function card(a) {
+function syncList(areas) {
+  // drop cards for areas that are gone
+  const ids = new Set(areas.map(a => a.id));
+  for (const [id, rec] of cards) {
+    if (!ids.has(id)) { rec.el.remove(); cards.delete(id); }
+  }
+  if (!areas.length) {
+    if (!listEmpty) { listEl.innerHTML = '<div class="empty">No areas. Click “+ New area”.</div>'; listEmpty = true; }
+    lastMetaSig = '';
+    return;
+  }
+  if (listEmpty) { listEl.innerHTML = ''; listEmpty = false; }
+
+  // Rebuild link chips/pickers only when membership/names/colours move — NOT on a
+  // tween (which only changes numeric fields), so the dropdown stays usable.
+  const sig = metaSig(areas);
+  const metaChanged = sig !== lastMetaSig;
+  lastMetaSig = sig;
+
+  let prev = null;
+  for (const a of areas) {
+    let rec = cards.get(a.id);
+    if (!rec) { rec = buildCard(a); cards.set(a.id, rec); }
+    updateCard(rec, a, metaChanged);
+    // keep DOM order in step with the server's order
+    const want = prev ? prev.nextSibling : listEl.firstChild;
+    if (want !== rec.el) listEl.insertBefore(rec.el, want);
+    prev = rec.el;
+  }
+}
+
+function buildCard(a) {
   const el = document.createElement('div');
   el.className = 'area';
 
@@ -219,19 +299,17 @@ function card(a) {
   const name = document.createElement('input');
   name.className = 'name';
   name.value = a.name;
-  name.onchange = () => setArea(a.id, { name: name.value }, true);
   const id = document.createElement('span');
   id.className = 'id';
   id.textContent = a.id;
   const del = document.createElement('button');
   del.className = 'del';
   del.textContent = 'Delete';
-  del.onclick = async () => { await fetch(U(`/api/areas/${a.id}`), { method: 'DELETE' }); poll(true); };
   top.append(sw, name, id, del);
   el.appendChild(top);
 
-  const fields = document.createElement('div');
-  fields.className = 'fields';
+  const fieldsWrap = document.createElement('div');
+  fieldsWrap.className = 'fields';
 
   const cf = document.createElement('div');
   cf.className = 'f';
@@ -239,12 +317,10 @@ function card(a) {
   const color = document.createElement('input');
   color.type = 'color';
   color.value = a.color;
-  color.oninput = () => { sw.style.background = color.value; setArea(a.id, { color: color.value }); };
-  color.onpointerdown = () => editing = a.id;
-  color.onchange = () => editing = null;
   cf.appendChild(color);
-  fields.appendChild(cf);
+  fieldsWrap.appendChild(cf);
 
+  const fields = {};
   for (const f of FIELDS) {
     const wrap = document.createElement('div');
     wrap.className = 'f';
@@ -258,46 +334,145 @@ function card(a) {
     range.type = 'range';
     range.min = f.min; range.max = f.max; range.step = f.step;
     range.value = a[f.key];
-    range.oninput = () => { num.value = (+range.value); setArea(a.id, { [f.key]: +range.value }); };
-    range.onpointerdown = () => editing = a.id;
-    range.onpointerup = () => editing = null;
-    num.onfocus = () => editing = a.id;
-    num.onblur = () => editing = null;
+    range.oninput = () => { num.value = round2(+range.value); setArea(a.id, { [f.key]: +range.value }); };
+    range.onpointerdown = () => { range.dataset.drag = '1'; };
+    range.onpointerup = () => { range.dataset.drag = ''; };
     num.onchange = () => {
       const v = clamp(parseFloat(num.value), f.min, f.max);
       if (Number.isNaN(v)) return;
       num.value = v; range.value = v;
-      setArea(a.id, { [f.key]: v });
+      setArea(a.id, { [f.key]: v }, true);
     };
     wrap.append(lab, range);
-    fields.appendChild(wrap);
+    fieldsWrap.appendChild(wrap);
+    fields[f.key] = { range, num };
   }
+  el.appendChild(fieldsWrap);
 
-  el.appendChild(fields);
-  return el;
+  // per-component visibility toggles — written immediately, persisted per area
+  const dispWrap = document.createElement('div');
+  dispWrap.className = 'display';
+  const disp = {};
+  for (const d of DISPLAY) {
+    const lab = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = a[d.key] !== false;
+    cb.onchange = () => setArea(a.id, { [d.key]: cb.checked }, true);
+    lab.append(cb, document.createTextNode(' ' + d.label));
+    dispWrap.appendChild(lab);
+    disp[d.key] = cb;
+  }
+  el.appendChild(dispWrap);
+
+  const linksWrap = document.createElement('div');
+  el.appendChild(linksWrap);
+
+  const rec = { el, name, swatch: sw, color, fields, disp, linksWrap,
+                linksSig: null, colorEditing: false, linksEditing: false };
+
+  name.onchange = () => setArea(a.id, { name: name.value }, true);
+  color.oninput = () => { sw.style.background = color.value; setArea(a.id, { color: color.value }); };
+  color.onpointerdown = () => { rec.colorEditing = true; };
+  color.onchange = () => { rec.colorEditing = false; };
+  color.onblur = () => { rec.colorEditing = false; };
+  del.onclick = async () => { await fetch(U(`/api/areas/${a.id}`), { method: 'DELETE' }); refresh(); };
+
+  return rec;
 }
 
-// ---- polling ---------------------------------------------------------------
+// Push the latest values into an existing card. Each input is skipped while it's
+// focused or mid-drag, so an incoming push never yanks the control you're using.
+function updateCard(rec, a, metaChanged) {
+  rec.swatch.style.background = a.color;
+  if (document.activeElement !== rec.name) rec.name.value = a.name;
+  if (!rec.colorEditing && document.activeElement !== rec.color) rec.color.value = a.color;
+  for (const f of FIELDS) {
+    const { range, num } = rec.fields[f.key];
+    if (range.dataset.drag === '1' || document.activeElement === range || document.activeElement === num) continue;
+    const v = +a[f.key];
+    range.value = v;
+    num.value = round2(v);
+  }
+  for (const d of DISPLAY) {
+    const cb = rec.disp[d.key];
+    if (document.activeElement !== cb) cb.checked = a[d.key] !== false;
+  }
+  const sig = JSON.stringify(a.links || []);
+  if ((metaChanged || rec.linksSig !== sig) && !rec.linksEditing) {
+    rec.linksSig = sig;
+    rebuildLinks(rec, a);
+  }
+}
+
+// Per-zone links: chips for existing links (× to remove) + a picker to add one.
+// Rebuilt only when this zone's links or the set of areas actually change.
+function rebuildLinks(rec, a) {
+  const wrap = rec.linksWrap;
+  wrap.className = 'links';
+  wrap.innerHTML = '';
+  const nameOf = id => { const t = allAreas.find(x => x.id === id); return t ? t.name : id; };
+
+  for (const to of (a.links || [])) {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    const dot = document.createElement('span'); dot.className = 'cdot';
+    const other = allAreas.find(x => x.id === to);
+    dot.style.background = other ? other.color : '#888';
+    const label = document.createElement('span'); label.textContent = nameOf(to);
+    const x = document.createElement('button'); x.className = 'x'; x.textContent = '×';
+    x.title = 'Remove link';
+    x.onclick = async () => { await fetch(U(`/api/areas/${a.id}/links/${to}`), { method: 'DELETE' }); refresh(); };
+    chip.append(dot, label, x);
+    wrap.appendChild(chip);
+  }
+
+  const sel = document.createElement('select');
+  sel.className = 'linkSel';
+  const others = allAreas.filter(x => x.id !== a.id && !(a.links || []).includes(x.id));
+  sel.innerHTML = '<option value="">link to…</option>'
+    + others.map(x => `<option value="${x.id}">${x.name}</option>`).join('');
+  sel.onfocus = () => { rec.linksEditing = true; };   // hold off rebuilds while choosing
+  sel.onblur = () => { rec.linksEditing = false; };
+  const add = document.createElement('button');
+  add.className = 'addlink'; add.textContent = '+ Link';
+  add.onclick = async () => {
+    if (!sel.value) return;
+    await fetch(U(`/api/areas/${a.id}/links`), { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: sel.value }) });
+    rec.linksEditing = false; refresh();
+  };
+  wrap.append(sel, add);
+}
+
+// ---- live state via Server-Sent Events ------------------------------------
+// The server pushes the full state the instant anything changes, so a driven
+// variable updates the controls here as fast as it moves on the screen — no poll
+// step. EventSource auto-reconnects if the connection drops.
+let allAreas = [];     // latest areas, for the per-zone link pickers
 let lastRev = -1, lastSrev = -1;
-async function poll(force = false) {
-  try {
-    const res = await fetch(U('/api/state'));
-    const data = await res.json();
-    status(`${data.areas.length} areas · live`);
-    if ((force || data.rev !== lastRev) && editing === null) { lastRev = data.rev; render(data.areas); }
-    if (force || data.srev !== lastSrev) { lastSrev = data.srev; updateViewPanel(data.settings); }
-  } catch (_) { status('offline', true); }
+function applyState(data, force = false) {
+  status(`${data.areas.length} areas · live`);
+  allAreas = data.areas;
+  if (force || data.rev !== lastRev) { lastRev = data.rev; syncList(data.areas); }
+  if (force || data.srev !== lastSrev) { lastSrev = data.srev; updateViewPanel(data.settings); }
+}
+async function refresh() {   // one-shot pull: instant first paint + resync after a local edit
+  try { applyState(await (await fetch(U('/api/state'))).json(), true); }
+  catch (_) { status('offline', true); }
 }
 
 document.getElementById('add').onclick = async () => {
   await fetch(U('/api/areas'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-  poll(true);
+  refresh();
 };
-document.getElementById('refresh').onclick = () => poll(true);
+document.getElementById('refresh').onclick = refresh;
 
 buildViewPanel();
-poll(true);
-setInterval(poll, 400);
+refresh();
+const es = new EventSource(U('/api/events'));   // live pushes from the server
+es.onmessage = e => { try { applyState(JSON.parse(e.data)); } catch (_) {} };
+es.onerror = () => status('offline', true);
 </script>
 </body>
 </html>

@@ -150,6 +150,16 @@ def discover():
 
 
 # ---- hub routes ------------------------------------------------------------
+@app.after_request
+def _no_html_cache(resp):
+    """Never cache prototype pages (their app code is inline), so editing a
+    controller/screen and reloading always picks up the new version — no stale
+    'why isn't my change showing' from a cached tab."""
+    if resp.mimetype == "text/html":
+        resp.headers["Cache-Control"] = "no-store, max-age=0"
+    return resp
+
+
 @app.route("/")
 def dashboard():
     return send_from_directory(HERE, "dashboard.html")

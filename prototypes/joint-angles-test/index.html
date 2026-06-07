@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MG400 Cartesian XYZ Test</title>
+<title>MG400 Joint Angles Test</title>
 <style>
   :root {
     --bg:#0f1115; --panel:#1a1d24; --line:#2a2f3a; --txt:#e6e9ef; --muted:#8a93a6;
@@ -85,8 +85,8 @@
 </head>
 <body>
 <header>
-  <h1>MG400 Cartesian XYZ Test</h1>
-  <span class="sub">Manual Override · TCP workspace prototype</span>
+  <h1>MG400 Joint Angles Test</h1>
+  <span class="sub">Manual Override · joint-space prototype</span>
   <span style="flex:1"></span>
   <span id="connPill" class="pill off"><span class="dot"></span><span id="connText">Disconnected</span></span>
   <span id="modePill" class="pill off"><span class="dot"></span><span id="modeText">—</span></span>
@@ -115,7 +115,7 @@
       <button id="btnEstop" class="estop" disabled>■ EMERGENCY STOP</button>
       <button id="btnStop" class="stop" disabled>Stop motion</button>
       <span class="hint">E-STOP cuts servo power (recover: Clear Error → Enable).
-        “Stop motion” freezes the pose. Keyboard: <b>Esc</b> = E-STOP.</span>
+        “Stop motion” eases to a halt. Keyboard: <b>Esc</b> = E-STOP.</span>
     </div>
   </section>
 
@@ -134,8 +134,7 @@
     <div class="axis">
       <div class="label"><span class="name">Speed</span><span class="val" id="speedVal">30%</span></div>
       <input type="range" id="speed" min="1" max="100" value="30" disabled />
-      <div class="hint">Caps linear (mm/s) and rotational (deg/s) following speed.
-        Start low for first Cartesian tests.</div>
+      <div class="hint">Caps joint following speed (deg/s). Start low for first tests.</div>
     </div>
     <div class="axis">
       <div class="label"><span class="name">Smoothness (ramp)</span><span class="val" id="smoothVal">0.35 s</span></div>
@@ -146,22 +145,21 @@
   </section>
 
   <section class="panel">
-    <h2>TCP pose — X / Y / Z (mm) &amp; R (deg)</h2>
+    <h2>Joint angles — J1 / J2 / J3 / J4 (deg)</h2>
     <div id="axes"></div>
     <div class="row" style="margin-top:10px">
       <button id="btnSync" disabled>Sync sliders to robot</button>
-      <span class="hint" id="wsHint"></span>
+      <span class="hint" id="limHint"></span>
     </div>
-    <div class="hint">Targets are clamped to the reachable workspace (Z/R range
-      and an X/Y radius ring). The controller rejects anything still
-      unreachable — shown in the log.</div>
+    <div class="hint">Targets are clamped to each joint's limit. The controller
+      rejects anything still unreachable — shown in the log.</div>
   </section>
 
   <section class="panel">
     <h2>Saved locations</h2>
     <div class="hint" style="margin-bottom:10px">Ten fixed slots — always callable as
       <code>POST api/recall/&lt;1–10&gt;</code>, even when empty. Edit the label and
-      X/Y/Z/R, or <b>Set</b> to capture the current slider pose; <b>Recall</b> sends
+      J1–J4, or <b>Set</b> to capture the current slider angles; <b>Recall</b> sends
       the arm there (needs Connect → Enable). Saved across restarts.</div>
     <div id="locList" class="loclist"></div>
   </section>
@@ -184,13 +182,13 @@
 
 <script>
 const AXIS_DEFS = [
-  { id:"x", name:"X — forward / back", unit:"mm", step:1 },
-  { id:"y", name:"Y — left / right", unit:"mm", step:1 },
-  { id:"z", name:"Z — up / down", unit:"mm", step:1 },
-  { id:"r", name:"R — tool rotation", unit:"°", step:0.5 },
+  { id:"j1", name:"J1 — base rotation", step:0.5 },
+  { id:"j2", name:"J2 — arm joint 1",   step:0.5 },
+  { id:"j3", name:"J3 — arm joint 2",   step:0.5 },
+  { id:"j4", name:"J4 — end rotation",  step:0.5 },
 ];
-let ws = { x:[-450,450], y:[-450,450], z:[-150,230], r:[-160,160] };
-let radiusMin = 150, radiusMax = 440;
+const UNIT = "°";
+let limits = { j1:[-160,160], j2:[-25,85], j3:[-25,105], j4:[-160,160] };
 let connected = false;
 let sliderEls = {};
 const numEls = {};   // per-axis type-in number boxes, kept in sync with the sliders
@@ -209,7 +207,7 @@ function log(msg, cls="log-info") {
   el.appendChild(line); el.scrollTop = el.scrollHeight;
 }
 // Resolve API paths relative to this page's directory so the prototype works
-// wherever the hub mounts it (e.g. /p/cartesian-xyz-test/).
+// wherever the hub mounts it (e.g. /p/joint-angles-test/).
 const BASE = location.pathname.replace(/\/[^/]*$/, "/");
 
 async function api(path, body, method) {
@@ -224,18 +222,18 @@ function report(name, res) {
   return res;
 }
 
-const fmtAxis = (def, v) => (typeof v === "number" ? v : parseFloat(v)).toFixed(def.id === "r" ? 1 : 0);
+const fmtAxis = v => (typeof v === "number" ? v : parseFloat(v)).toFixed(1);
 // Push a value into an axis's number box, unless the user is typing in it.
 function showAxis(def, v) {
   const num = numEls[def.id];
-  if (num && num !== document.activeElement) num.value = fmtAxis(def, v);
+  if (num && num !== document.activeElement) num.value = fmtAxis(v);
 }
 
 function buildAxes() {
   const wrap = document.getElementById("axes");
   wrap.innerHTML = "";
   AXIS_DEFS.forEach(def => {
-    const [lo, hi] = ws[def.id];
+    const [lo, hi] = limits[def.id];
     const div = document.createElement("div");
     div.className = "axis";
     div.innerHTML = `
@@ -244,11 +242,11 @@ function buildAxes() {
         <span class="readout">
           <input type="number" class="valnum" id="${def.id}Num" step="${def.step}"
             min="${lo}" max="${hi}" value="0" disabled />
-          <span class="unit">${def.unit}</span>
+          <span class="unit">${UNIT}</span>
           <span class="actual" id="${def.id}Act"></span></span>
       </div>
       <input type="range" id="${def.id}" min="${lo}" max="${hi}" step="${def.step}" value="0" disabled />
-      <div class="limits"><span>${lo} ${def.unit}</span><span>${hi} ${def.unit}</span></div>`;
+      <div class="limits"><span>${lo} ${UNIT}</span><span>${hi} ${UNIT}</span></div>`;
     wrap.appendChild(div);
   });
   AXIS_DEFS.forEach(def => {
@@ -260,29 +258,30 @@ function buildAxes() {
     // mark which slider the user is dragging so cross-window sync doesn't fight it
     el.addEventListener("pointerdown", () => draggingId = def.id);
     el.addEventListener("keydown", () => draggingId = def.id);
-    // type an exact value: clamp into the workspace, move the slider, send it
+    // type an exact value: clamp into the joint limit, move the slider, send it
     num.addEventListener("focus", () => draggingId = def.id);   // hold off sync while typing
     num.addEventListener("blur", () => draggingId = null);
     num.addEventListener("change", () => {
-      const [lo, hi] = ws[def.id];
+      const [lo, hi] = limits[def.id];
       let v = parseFloat(num.value);
       if (Number.isNaN(v)) return;
       v = Math.max(lo, Math.min(hi, v));
-      num.value = fmtAxis(def, v);
+      num.value = fmtAxis(v);
       el.value = v;
       queueMove();
     });
   });
-  document.getElementById("wsHint").textContent =
-    `Reach ring ${radiusMin}–${radiusMax} mm; Z ${ws.z[0]}–${ws.z[1]} mm (approx).`;
+  document.getElementById("limHint").textContent =
+    `J1 ${limits.j1[0]}–${limits.j1[1]} · J2 ${limits.j2[0]}–${limits.j2[1]} · `
+    + `J3 ${limits.j3[0]}–${limits.j3[1]} · J4 ${limits.j4[0]}–${limits.j4[1]} (deg).`;
 }
 
 let lastSent = 0, pending = null, timer = null;
 const MOVE_INTERVAL = 60;
 function queueMove() {
   pending = {
-    x: parseFloat(sliderEls.x.value), y: parseFloat(sliderEls.y.value),
-    z: parseFloat(sliderEls.z.value), r: parseFloat(sliderEls.r.value),
+    j1: parseFloat(sliderEls.j1.value), j2: parseFloat(sliderEls.j2.value),
+    j3: parseFloat(sliderEls.j3.value), j4: parseFloat(sliderEls.j4.value),
   };
   const now = Date.now();
   if (now - lastSent >= MOVE_INTERVAL) flushMove();
@@ -335,16 +334,16 @@ function applyStatus(s) {
     "pill " + (pumpMode === "off" ? "off" : (pumpMode === "conflict" ? "error" : "on"));
   document.getElementById("pumpText").textContent = pumpMode;
 
-  if (Array.isArray(s.pose)) {
+  if (Array.isArray(s.joints)) {
     AXIS_DEFS.forEach((def, i) => {
       const act = document.getElementById(def.id + "Act");
-      if (act) act.textContent = "actual " + s.pose[i].toFixed(def.id === "r" ? 1 : 0) + " " + def.unit;
+      if (act) act.textContent = "actual " + s.joints[i].toFixed(1) + " " + UNIT;
     });
   }
 
   // Cross-window slider sync: follow the server's commanded target so several
   // controller windows stay in lock-step. Skip the slider this window is
-  // actively dragging; deadband avoids float jitter (0.5 mm / 0.5° granularity).
+  // actively dragging; the deadband avoids float jitter.
   if (Array.isArray(s.target)) {
     AXIS_DEFS.forEach((def, i) => {
       if (draggingId === def.id) return;
@@ -352,7 +351,7 @@ function applyStatus(s) {
       const v = s.target[i];
       if (typeof v !== "number") return;
       if (Math.abs(parseFloat(el.value) - v) > 0.25) {
-        const [lo, hi] = ws[def.id];
+        const [lo, hi] = limits[def.id];
         el.value = Math.max(lo, Math.min(hi, v));
         showAxis(def, el.value);
       }
@@ -371,6 +370,7 @@ function applyStatus(s) {
 // ---- saved locations: 10 fixed slots ---------------------------------------
 // Built once (always present), then updated in place from the live stream — so
 // the recall buttons / API endpoints are stable even while a slot is empty.
+const JK = ["j1","j2","j3","j4"];
 const slotEls = [];
 function buildSlots() {
   const wrap = document.getElementById("locList");
@@ -383,10 +383,10 @@ function buildSlots() {
       <span class="locnum">#${n}</span>
       <input class="locname" type="text" placeholder="Slot ${n}" />
       <span class="loccoords">
-        X<input type="number" class="loccoord" data-k="x" step="1">
-        Y<input type="number" class="loccoord" data-k="y" step="1">
-        Z<input type="number" class="loccoord" data-k="z" step="1">
-        R<input type="number" class="loccoord" data-k="r" step="0.5">
+        J1<input type="number" class="loccoord" data-k="j1" step="0.5">
+        J2<input type="number" class="loccoord" data-k="j2" step="0.5">
+        J3<input type="number" class="loccoord" data-k="j3" step="0.5">
+        J4<input type="number" class="loccoord" data-k="j4" step="0.5">
       </span>
       <button type="button" class="locset">Set</button>
       <button type="button" class="locrecall" disabled>Recall</button>
@@ -394,13 +394,14 @@ function buildSlots() {
     wrap.appendChild(row);
     const q = sel => row.querySelector(sel);
     const rec = { row, name: q(".locname"),
-      x: q('[data-k="x"]'), y: q('[data-k="y"]'), z: q('[data-k="z"]'), r: q('[data-k="r"]'),
+      j1: q('[data-k="j1"]'), j2: q('[data-k="j2"]'), j3: q('[data-k="j3"]'), j4: q('[data-k="j4"]'),
       set: q(".locset"), recall: q(".locrecall"), clear: q(".del") };
 
     rec.name.onchange = () => api(`/api/locations/${n}`, { name: rec.name.value });
-    ["x","y","z","r"].forEach(k => rec[k].onchange = () => patchSlotPose(i));
+    JK.forEach(k => rec[k].onchange = () => patchSlotPose(i));
     rec.set.onclick = () => api(`/api/locations/${n}`, { pose: {
-      x:+sliderEls.x.value, y:+sliderEls.y.value, z:+sliderEls.z.value, r:+sliderEls.r.value } });
+      j1:+sliderEls.j1.value, j2:+sliderEls.j2.value,
+      j3:+sliderEls.j3.value, j4:+sliderEls.j4.value } });
     rec.recall.onclick = async () => {
       const res = await api(`/api/recall/${n}`, {});
       if (res.ok) log(`Recall “${res.slot.name || ('#'+n)}” → moving`, "log-ok");
@@ -414,7 +415,7 @@ function buildSlots() {
 function patchSlotPose(i) {
   const r = slotEls[i];
   api(`/api/locations/${i + 1}`, { pose: {
-    x: +r.x.value || 0, y: +r.y.value || 0, z: +r.z.value || 0, r: +r.r.value || 0 } });
+    j1: +r.j1.value || 0, j2: +r.j2.value || 0, j3: +r.j3.value || 0, j4: +r.j4.value || 0 } });
 }
 
 // Push the latest slot data into the fixed rows, skipping any field being edited.
@@ -423,7 +424,7 @@ function applySlots(slots) {
     const r = slotEls[i];
     if (!r) return;
     if (document.activeElement !== r.name) r.name.value = s.name || "";
-    ["x","y","z","r"].forEach(k => {
+    JK.forEach(k => {
       if (document.activeElement !== r[k]) r[k].value = s.set ? s[k] : "";
     });
     r.row.classList.toggle("empty", !s.set);
@@ -433,15 +434,15 @@ function applySlots(slots) {
 
 function syncSliders() {
   api("/api/status").then(s => {
-    if (!Array.isArray(s.pose)) return;
+    if (!Array.isArray(s.joints)) return;
     AXIS_DEFS.forEach((def, i) => {
       const el = sliderEls[def.id];
-      const [lo, hi] = ws[def.id];
-      const v = Math.max(lo, Math.min(hi, s.pose[i]));
+      const [lo, hi] = limits[def.id];
+      const v = Math.max(lo, Math.min(hi, s.joints[i]));
       el.value = v;
       showAxis(def, v);
     });
-    log("Sliders synced to current TCP pose", "log-info");
+    log("Sliders synced to current joint angles", "log-info");
   });
 }
 
@@ -468,7 +469,7 @@ function wire() {
     const c = report("clear error", await api("/api/clear_error", {}));
     if (!c.ok) return;
     // Re-arm so you can drive again: clearing the error alone leaves the servo
-    // follower stopped, so Enable (restarts ServoP + holds the current pose) is
+    // follower stopped, so Enable (restarts ServoJ + holds the current pose) is
     // the documented next step — do it automatically.
     const e = report("enable", await api("/api/enable", {}));
     if (e.ok) setTimeout(syncSliders, 300);
@@ -507,9 +508,7 @@ function wire() {
 
 async function init() {
   const cfg = await api("/api/config");
-  if (cfg.workspace) ws = cfg.workspace;
-  if (cfg.radius_min) radiusMin = cfg.radius_min;
-  if (cfg.radius_max) radiusMax = cfg.radius_max;
+  if (cfg.joint_limits) limits = cfg.joint_limits;
   if (cfg.default_ip) document.getElementById("ip").value = cfg.default_ip;
   buildAxes();
   buildSlots();

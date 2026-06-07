@@ -11,32 +11,10 @@
     font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
   #app { position: fixed; inset: 0; }
   canvas { display: block; }
-  #hud {
-    position: fixed; top: 12px; left: 12px; z-index: 10; background: var(--panel);
-    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
-    backdrop-filter: blur(8px); font-size: 12px; max-width: 260px;
-  }
-  #hud h1 { font-size: 13px; margin: 0 0 6px; font-weight: 600; }
-  #hud .muted { color: var(--muted); line-height: 1.5; }
-  #hud .sel { margin-top: 8px; color: var(--accent); font-weight: 600; min-height: 16px; }
-  #hud a { color: var(--accent); }
-  #conn { position: fixed; top: 12px; right: 12px; z-index: 10; font-size: 11px; color: var(--muted);
-    background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
-  #conn.ok { color: #36c46b; } #conn.err { color: #ff5462; }
 </style>
 </head>
 <body>
 <div id="app"></div>
-<div id="hud">
-  <h1>Playfield — Screen</h1>
-  <div class="muted">
-    Drag to orbit · scroll to zoom · <b>click</b> an area to select and drag the
-    gizmo to move it. Glow, depth-of-field and camera presets live in the
-    <a href="controller">controller</a>.
-  </div>
-  <div class="sel" id="sel">No selection</div>
-</div>
-<div id="conn">connecting…</div>
 
 <script type="importmap">
 {
@@ -115,9 +93,30 @@ scene.add(gizmo);
 
 // ---- area meshes, keyed by id ---------------------------------------------
 // Each mesh stores a `target` (the latest server values). The render loop eases
-// the mesh toward its target every frame, so the low-rate poll looks smooth.
+// the mesh toward its target every frame, so motion stays smooth between pushes.
 const meshes = new Map();
 let selectedId = null;
+
+// Markers live on their own layer so they can be drawn as a crisp overlay AFTER
+// the bloom/DOF pass — i.e. on top of the glow, sharp, with no separate mode.
+const MARKER_LAYER = 1;
+
+// ArUco marker textures from the server (DICT_4X4_50), cached by id. Nearest
+// filtering keeps the black/white cells crisp so a top camera can detect them.
+const texLoader = new THREE.TextureLoader();
+const markerTextures = new Map();
+function markerTexture(mid) {
+  let t = markerTextures.get(mid);
+  if (!t) {
+    t = texLoader.load(U('/api/marker/' + mid));
+    t.magFilter = THREE.NearestFilter;
+    t.minFilter = THREE.NearestFilter;
+    t.generateMipmaps = false;
+    t.colorSpace = THREE.SRGBColorSpace;
+    markerTextures.set(mid, t);
+  }
+  return t;
+}
 
 function makeMesh(area) {
   const geo = new THREE.BoxGeometry(1, 0.18, 1);
@@ -130,6 +129,29 @@ function makeMesh(area) {
   mesh.add(edges);
   mesh.userData.edges = edges;
   mesh.userData.id = area.id;
+
+  // ArUco marker on BOTH faces (centred), so it reads whether the playfield is
+  // viewed from above or from underneath. The bottom plane is a 180° rotation of
+  // the top (a rotation, not a mirror), so it stays a valid, detectable marker.
+  // toneMapped:false keeps the white pure for contrast. Both sit on the marker
+  // layer so they're drawn as a crisp overlay on top of the glow.
+  // depthTest/Write off so the overlay pass always paints them crisp on top of
+  // the composited glow, regardless of the screen depth buffer.
+  const markerMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff, toneMapped: false, depthTest: false, depthWrite: false, fog: false,
+  });
+  const geoM = new THREE.PlaneGeometry(0.74, 0.74);
+  const markerTop = new THREE.Mesh(geoM, markerMat);
+  markerTop.rotation.x = -Math.PI / 2; markerTop.position.y = 0.10;
+  const markerBot = new THREE.Mesh(geoM, markerMat);
+  markerBot.rotation.x = Math.PI / 2;  markerBot.position.y = -0.10;
+  markerTop.layers.set(MARKER_LAYER); markerTop.renderOrder = 10;
+  markerBot.layers.set(MARKER_LAYER); markerBot.renderOrder = 10;
+  mesh.add(markerTop, markerBot);
+  mesh.userData.markerMat = markerMat;
+  mesh.userData.markers = [markerTop, markerBot];
+  mesh.userData.markerId = -1;
+
   scene.add(mesh);
   return mesh;
 }
@@ -143,6 +165,19 @@ function setTarget(mesh, area) {
   // drop below the playfield (negative height) -> hide it (also un-raycastable)
   mesh.visible = area.y >= 0;
   if (!mesh.visible && selectedId === area.id) deselect();
+  // swap the ArUco marker texture if this area's id changed
+  const mid = area.marker | 0;
+  if (mesh.userData.markerId !== mid) {
+    mesh.userData.markerId = mid;
+    mesh.userData.markerMat.map = markerTexture(mid);
+    mesh.userData.markerMat.needsUpdate = true;
+  }
+  // per-component visibility, configured per area in the controller
+  const showArea = area.show_area !== false;
+  mesh.material.visible = showArea;                 // box body
+  mesh.userData.edges.visible = showArea;           // box outline
+  for (const m of mesh.userData.markers) m.visible = area.show_aruco !== false;
+  mesh.userData.showLinks = area.show_links !== false;   // read by updateLinks()
   if (!mesh.userData.inited) { snapToTarget(mesh); mesh.userData.inited = true; }
 }
 
@@ -196,22 +231,69 @@ function interpolate(dt) {
   }
 }
 
+// ---- glowing links between zones ------------------------------------------
+// Each area can link to other areas (area.links = [id,...]); we draw a thin
+// emissive cylinder per link, coloured by the source zone, on the bloomed layer
+// so it glows. Endpoints follow the areas every frame. Keyed by "from|to".
+const linkMeshes = new Map();
+const _up = new THREE.Vector3(0, 1, 0);
+
+function makeLinkMesh() {
+  const geo = new THREE.CylinderGeometry(0.05, 0.05, 1, 10);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.0 });
+  const mesh = new THREE.Mesh(geo, mat);
+  scene.add(mesh);
+  return mesh;
+}
+
+function syncLinks(areas) {
+  const seen = new Set();
+  for (const a of areas) {
+    for (const to of (a.links || [])) {
+      const key = a.id + '|' + to;
+      seen.add(key);
+      let lm = linkMeshes.get(key);
+      if (!lm) { lm = makeLinkMesh(); linkMeshes.set(key, lm); }
+      lm.userData.a = a.id; lm.userData.b = to;
+      const col = new THREE.Color(a.color);          // link glows in the zone's colour
+      lm.material.color.copy(col);
+      lm.material.emissive.copy(col);
+      lm.material.emissiveIntensity = Math.max(1.2, a.glow);
+    }
+  }
+  for (const [key, lm] of linkMeshes) {
+    if (!seen.has(key)) {
+      scene.remove(lm); lm.geometry.dispose(); lm.material.dispose(); linkMeshes.delete(key);
+    }
+  }
+}
+
+function updateLinks() {
+  for (const lm of linkMeshes.values()) {
+    const ma = meshes.get(lm.userData.a), mb = meshes.get(lm.userData.b);
+    if (!ma || !mb || !ma.visible || !mb.visible || ma.userData.showLinks === false) { lm.visible = false; continue; }
+    lm.visible = true;
+    const p1 = ma.position, p2 = mb.position;
+    const dx = p2.x - p1.x, dy = p2.y - p1.y, dz = p2.z - p1.z;
+    const len = Math.hypot(dx, dy, dz) || 1e-4;
+    lm.position.set(p1.x + dx / 2, p1.y + dy / 2, p1.z + dz / 2);
+    lm.scale.set(1, len, 1);
+    lm.quaternion.setFromUnitVectors(_up, new THREE.Vector3(dx / len, dy / len, dz / len));
+  }
+}
+
 // ---- selection + drag-to-move ---------------------------------------------
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
-const selEl = document.getElementById('sel');
 const round = v => Math.round(v * 100) / 100;
 
 function select(mesh) {
   selectedId = mesh.userData.id;
   gizmo.attach(mesh);
-  const a = mesh.userData.area || {};
-  selEl.textContent = `Selected: ${a.name || selectedId}`;
 }
 function deselect() {
   selectedId = null;
   gizmo.detach();
-  selEl.textContent = 'No selection';
 }
 
 renderer.domElement.addEventListener('pointerdown', e => {
@@ -323,23 +405,17 @@ async function saveCamera() {
   } catch (_) { /* keep last good local view */ }
 }
 
-// ---- fixed-rate polling (~6.7 fps) ----------------------------------------
-const connEl = document.getElementById('conn');
+// ---- live state via Server-Sent Events ------------------------------------
+// The server pushes the full state the instant any area or setting changes, so
+// the box follows a driven variable (e.g. the Approaching Box tween) with no
+// poll lag. The per-frame easing in interpolate() still smooths between pushes.
 let lastRev = -1, lastSrev = -1;
-async function poll() {
-  try {
-    const res = await fetch(U('/api/state'));
-    const data = await res.json();
-    connEl.textContent = `live · ${data.areas.length} areas`;
-    connEl.className = 'ok';
-    if (data.rev !== lastRev) { lastRev = data.rev; syncAreas(data.areas); }
-    if (data.srev !== lastSrev) { lastSrev = data.srev; applySettings(data.settings); }
-  } catch (_) {
-    connEl.textContent = 'offline'; connEl.className = 'err';
-  }
+function applyState(data) {
+  if (data.rev !== lastRev) { lastRev = data.rev; syncAreas(data.areas); syncLinks(data.areas); }
+  if (data.srev !== lastSrev) { lastSrev = data.srev; applySettings(data.settings); }
 }
-poll();
-setInterval(poll, 150);
+const es = new EventSource(U('/api/events'));   // auto-reconnects on a dropped link
+es.onmessage = e => { try { applyState(JSON.parse(e.data)); } catch (_) {} };
 
 // ---- render loop (smooth, every frame) ------------------------------------
 const clock = new THREE.Clock();
@@ -347,9 +423,25 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.1);
   interpolate(dt);
+  updateLinks();
   orbit.update();
   if (roll) camera.rotateZ(roll);   // apply roll on top (OrbitControls levels each frame)
+
+  // 1) the glowing playfield through bloom + DOF (markers excluded)
+  camera.layers.set(0);
   composer.render();
+  // 2) the ArUco markers as a crisp overlay on top of the glow — straight to the
+  //    screen, no bloom/DOF, depth-test off so they always paint sharp on top.
+  //    Blank the background first, else render() would repaint it over the glow.
+  camera.layers.set(MARKER_LAYER);
+  const bg = scene.background;
+  scene.background = null;
+  renderer.setRenderTarget(null);
+  renderer.autoClear = false;
+  renderer.render(scene, camera);
+  renderer.autoClear = true;
+  scene.background = bg;
+  camera.layers.set(0);             // restore (raycasting/selection use layer 0)
 }
 animate();
 

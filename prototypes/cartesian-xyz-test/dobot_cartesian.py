@@ -1,21 +1,20 @@
 """
-Dobot MG400 TCP/IP driver — first prototype.
+Dobot MG400 TCP/IP driver — Cartesian (TCP / workspace) prototype.
 
-Implements all three communication layers exposed by the MG400 controller when
-it is in TCP/IP ("API") mode:
+Same three communication layers as the joint prototype, but live control drives
+the **Cartesian tool pose** (X, Y, Z, R) instead of joint angles:
 
-  * Dashboard  (port 29999) — control & settings: enable, disable, clear error,
-                              reset/stop, emergency stop, speed factor, queries.
-  * Motion     (port 30003) — motion commands: JointMovJ (absolute joint move).
-  * Feedback   (port 30004) — 1440-byte real-time status packet @ ~8 ms,
-                              parsed for robot mode + actual joint angles.
+  * Dashboard  (29999) — enable/disable/clear/stop/estop/speed/digital outputs.
+  * Motion     (30003) — ServoP streamed pose setpoints for smooth following
+                         (MovL also available for point-to-point linear moves).
+  * Feedback   (30004) — 1440-byte real-time packet @ ~8 ms: robot mode, actual
+                         joint angles, and the actual TCP pose (tool_vector_actual
+                         at byte offset 624).
 
-The class is thread-safe: each command socket has its own lock, and the feedback
-socket is read by a dedicated background thread that updates a shared state dict.
-
-References: Dobot TCP/IP protocol (4-axis, MG400/M1Pro). Joint angles are in
-degrees. The feedback struct offsets used below are the documented layout; the
-packet is validated with the 0x0123456789ABCDEF magic at offset 48.
+X/Y/Z are millimetres, R is the end-effector rotation about Z in degrees. As with
+the joint prototype, a background thread streams setpoints toward a target while
+velocity-limiting, so dragging a slider produces smooth motion rather than queued
+point-to-point moves.
 """
 
 import socket
@@ -30,36 +29,25 @@ PORT_DASHBOARD = 29999
 PORT_MOTION = 30003
 PORT_FEEDBACK = 30004
 
-# ---- feedback packet ------------------------------------------------------
+# ---- feedback packet (offsets per Dobot's MyType struct) ------------------
 FEEDBACK_SIZE = 1440
-FEEDBACK_MAGIC = 0x0123456789ABCDEF  # 'test_value' field, validates alignment
-OFF_DIGITAL_IN = 8     # uint64
-OFF_DIGITAL_OUT = 16   # uint64
-OFF_ROBOT_MODE = 24    # uint64
-OFF_TEST_VALUE = 48    # uint64 (magic)
-OFF_Q_ACTUAL = 432     # 6 x double (actual joint angles, degrees)
+FEEDBACK_MAGIC = 0x0123456789ABCDEF
+OFF_DIGITAL_IN = 8       # int64
+OFF_DIGITAL_OUT = 16     # int64
+OFF_ROBOT_MODE = 24      # int64
+OFF_TEST_VALUE = 48      # int64 (magic, validates alignment)
+OFF_Q_ACTUAL = 432       # 6 x double (actual joint angles, degrees)
+OFF_TOOL_VECTOR_ACTUAL = 624  # 6 x double (actual TCP pose: x,y,z,rx,ry,rz)
 
-# ---- robot modes (best-effort labels per Dobot docs) ----------------------
 ROBOT_MODES = {
-    1: "INIT",
-    2: "BRAKE_OPEN",
-    3: "RESERVED",
-    4: "DISABLED",
-    5: "ENABLED (idle)",
-    6: "BACKDRIVE",
-    7: "RUNNING",
-    8: "SINGLE_MOVE",
-    9: "ERROR",
-    10: "PAUSE",
-    11: "JOG",
+    1: "INIT", 2: "BRAKE_OPEN", 3: "RESERVED", 4: "DISABLED",
+    5: "ENABLED (idle)", 6: "BACKDRIVE", 7: "RUNNING", 8: "SINGLE_MOVE",
+    9: "ERROR", 10: "PAUSE", 11: "JOG",
 }
-# modes in which the servos are powered on
 ENABLED_MODES = {5, 6, 7, 8, 10, 11}
 
 
 class DobotError(Exception):
-    """Raised when the controller reports a non-zero ErrorID for a command."""
-
     def __init__(self, errid, resp, command):
         self.errid = errid
         self.resp = resp
@@ -68,23 +56,22 @@ class DobotError(Exception):
 
 
 def parse_feedback(packet):
-    """Parse a single 1440-byte feedback packet. Returns dict or None if the
-    packet is not aligned (magic mismatch)."""
+    """Parse a 1440-byte feedback packet; return dict or None if misaligned."""
     if len(packet) < FEEDBACK_SIZE:
         return None
-    test_value = struct.unpack_from("<Q", packet, OFF_TEST_VALUE)[0]
-    if test_value != FEEDBACK_MAGIC:
+    if struct.unpack_from("<Q", packet, OFF_TEST_VALUE)[0] != FEEDBACK_MAGIC:
         return None
     robot_mode = struct.unpack_from("<Q", packet, OFF_ROBOT_MODE)[0]
-    digital_in = struct.unpack_from("<Q", packet, OFF_DIGITAL_IN)[0]
-    digital_out = struct.unpack_from("<Q", packet, OFF_DIGITAL_OUT)[0]
+    di = struct.unpack_from("<Q", packet, OFF_DIGITAL_IN)[0]
+    do = struct.unpack_from("<Q", packet, OFF_DIGITAL_OUT)[0]
     q_actual = struct.unpack_from("<6d", packet, OFF_Q_ACTUAL)
+    tool = struct.unpack_from("<6d", packet, OFF_TOOL_VECTOR_ACTUAL)
     return {
         "robot_mode": int(robot_mode),
-        "digital_in": int(digital_in),
-        "digital_out": int(digital_out),
-        # MG400 is 4-axis; first four values are J1..J4 in degrees
+        "digital_in": int(di),
+        "digital_out": int(do),
         "joints": [round(v, 3) for v in q_actual[:4]],
+        "pose": [round(v, 3) for v in tool[:4]],  # x, y, z, r
     }
 
 
@@ -105,13 +92,17 @@ class DobotMG400:
         self._feed_thread = None
         self._running = False
 
-        # servo (smooth live following) state
+        # Cartesian follower state
         self._servo_thread = None
         self._servo_running = False
         self._servo_lock = threading.Lock()
-        self._target = None      # desired joint vector [j1,j2,j3,j4]
-        self._setpoint = None    # current streamed setpoint (slew-limited)
-        self._max_vel = 45.0     # deg/s, per-joint velocity cap for following
+        self._target = None       # desired pose [x, y, z, r]
+        self._setpoint = None     # current streamed pose
+        self._vel = [0.0, 0.0, 0.0, 0.0]   # current setpoint velocity per axis
+        self._max_lin = 80.0      # mm/s
+        self._max_ang = 60.0      # deg/s
+        self._max_lin_acc = 400.0 # mm/s^2 (ramp ~0.2 s to 80 mm/s; lower = gentler)
+        self._max_ang_acc = 300.0 # deg/s^2
 
         self._state = self._blank_state()
 
@@ -125,6 +116,7 @@ class DobotMG400:
             "enabled": False,
             "error": False,
             "joints": [0.0, 0.0, 0.0, 0.0],
+            "pose": [0.0, 0.0, 0.0, 0.0],
             "target": None,
             "digital_in": 0,
             "digital_out": 0,
@@ -139,9 +131,9 @@ class DobotMG400:
             return dict(self._state)
 
     def get_target(self):
-        """The commanded joint target the follower is slewing toward, or None
-        before the servo loop is initialised. Exposing it lets several control
-        windows sync their sliders to the same setpoint."""
+        """The commanded tool-pose target the follower is slewing toward, or
+        None before the servo loop is initialised. Exposing it lets several
+        control windows sync their sliders to the same setpoint."""
         with self._servo_lock:
             return list(self._target) if self._target is not None else None
 
@@ -157,8 +149,6 @@ class DobotMG400:
         return s
 
     def connect(self):
-        """Open all three sockets and start the feedback thread. Raises on
-        failure (and cleans up any partially-opened sockets)."""
         try:
             self._dashboard = self._open(PORT_DASHBOARD, self.command_timeout)
             self._motion = self._open(PORT_MOTION, self.command_timeout)
@@ -166,7 +156,6 @@ class DobotMG400:
         except OSError as e:
             self.close()
             raise DobotError(-1, str(e), "connect")
-
         self._running = True
         with self._state_lock:
             self._state["connected"] = True
@@ -176,7 +165,6 @@ class DobotMG400:
         self._feed_thread.start()
 
     def close(self):
-        """Stop the feedback thread and close every socket. Safe to call twice."""
         self.stop_servo()
         self._running = False
         for sock in (self._feedback, self._motion, self._dashboard):
@@ -198,7 +186,6 @@ class DobotMG400:
 
     # -- low-level command I/O ------------------------------------------------
     def _recv_response(self, sock):
-        """Read one Dobot response, terminated by ';'."""
         data = b""
         while b";" not in data:
             chunk = sock.recv(1024)
@@ -215,7 +202,6 @@ class DobotMG400:
             return -1
 
     def _command(self, sock, lock, command, raise_on_error=True):
-        """Send one command on a control socket and return (errid, response)."""
         if sock is None:
             raise DobotError(-1, "not connected", command)
         with lock:
@@ -246,13 +232,9 @@ class DobotMG400:
         return self._dash("ClearError()")
 
     def reset(self):
-        """Soft stop: stop current motion and clear the motion queue."""
         return self._dash("ResetRobot()")
 
     def emergency_stop(self):
-        """Emergency stop: cut servo power immediately. Recovery requires
-        ClearError() + EnableRobot(). Not raised-on-error so the UI always sees
-        the result even on older firmware."""
         return self._dash("EmergencyStop()", raise_on_error=False)
 
     def speed_factor(self, ratio):
@@ -260,9 +242,6 @@ class DobotMG400:
         return self._dash(f"SpeedFactor({ratio})")
 
     def set_digital_output(self, index, status, immediate=True):
-        """Set a controller digital output (used for the vacuum pump / suction
-        cup kit). `immediate` uses DOExecute so it fires now rather than waiting
-        in the motion queue behind streamed ServoJ points."""
         value = 1 if status else 0
         cmd = (
             f"DOExecute({int(index)},{value})"
@@ -272,15 +251,8 @@ class DobotMG400:
         return self._dash(cmd, raise_on_error=False)
 
     def set_pump(self, mode, suck_do, blow_do):
-        """Drive the air pump box (I/O mode) in one of three modes: 'suck',
-        'blow', 'off'.
-
-        The Mini Vacuum Pump Box exposes two independent control lines — one
-        drives suction, one drives blowing. At most one may be energised at a
-        time (both high is a conflicting state); both low turns the pump off.
-        We therefore always drop the opposite line before raising the active
-        one, and 'off' pulls both low. Returns (errid, resp).
-        """
+        """Air pump box (I/O mode): two independent lines (suck / blow). Energise
+        at most one; both low = off. See the joint prototype for the rationale."""
         mode = (mode or "").lower()
         resp = []
         errid = 0
@@ -292,80 +264,87 @@ class DobotMG400:
             errid = e or errid
 
         if mode == "suck":
-            out(blow_do, 0, "blow")   # ensure blow is off first
+            out(blow_do, 0, "blow")
             out(suck_do, 1, "suck")
         elif mode == "blow":
-            out(suck_do, 0, "suck")   # ensure suck is off first
+            out(suck_do, 0, "suck")
             out(blow_do, 1, "blow")
         elif mode == "off":
             out(suck_do, 0, "suck")
             out(blow_do, 0, "blow")
         else:
             raise DobotError(-1, f"unknown pump mode {mode!r}", "set_pump")
-
         return errid, "; ".join(resp)
 
-    def get_angle(self):
-        """Query current joint angles via the dashboard (alternative to the
-        feedback stream). Returns a list of floats."""
-        _, resp = self._dash("GetAngle()")
-        return self._extract_floats(resp)
-
-    def get_error_id(self):
-        """Return the controller/servo error IDs as a flat list of non-zero
-        integers (empty if none)."""
-        _, resp = self._dash("GetErrorID()", raise_on_error=False)
-        return self._extract_error_ids(resp)
+    def get_pose(self):
+        """Query the current TCP pose via the dashboard. Returns [x, y, z, r]."""
+        _, resp = self._dash("GetPose()")
+        vals = self._extract_floats(resp)
+        return vals[:4]
 
     # -- motion ---------------------------------------------------------------
-    def joint_move(self, j1, j2, j3, j4):
-        """Absolute joint-space move (degrees). Returns (errid, resp); does not
-        raise on a controller error so out-of-range targets surface to the UI."""
-        cmd = f"JointMovJ({j1:.3f},{j2:.3f},{j3:.3f},{j4:.3f})"
-        return self._move(cmd, raise_on_error=False)
+    def mov_l(self, x, y, z, r):
+        """Point-to-point linear Cartesian move (queued). Returns (errid, resp)."""
+        return self._move(
+            f"MovL({x:.3f},{y:.3f},{z:.3f},{r:.3f})", raise_on_error=False
+        )
 
-    def servo_j(self, j1, j2, j3, j4, t=0.1):
-        """Stream one servo setpoint (degrees). ServoJ is meant to be called
-        repeatedly at a steady cadence; `t` is the time to reach this point."""
-        cmd = f"ServoJ({j1:.3f},{j2:.3f},{j3:.3f},{j4:.3f},t={t:.3f})"
-        return self._move(cmd, raise_on_error=False)
+    def servo_p(self, x, y, z, r):
+        """Stream one Cartesian servo setpoint. ServoP takes no optional params
+        and should be sent at <= ~33 Hz."""
+        return self._move(
+            f"ServoP({x:.3f},{y:.3f},{z:.3f},{r:.3f})", raise_on_error=False
+        )
 
-    # -- smooth live following (servo streaming) ------------------------------
-    def set_max_velocity(self, deg_per_sec):
+    # -- smooth live following (ServoP streaming) -----------------------------
+    def set_max_velocity(self, lin_mm_s, ang_deg_s):
         with self._servo_lock:
-            self._max_vel = max(1.0, float(deg_per_sec))
+            self._max_lin = max(1.0, float(lin_mm_s))
+            self._max_ang = max(1.0, float(ang_deg_s))
 
-    def set_target(self, j1, j2, j3, j4=None):
-        """Set the desired joint angles the follower slews toward. J4 is left at
-        its initialized (current) angle unless given."""
+    def set_max_accel(self, lin_mm_s2, ang_deg_s2):
+        """Acceleration caps for the follower. Lower = gentler ramp up/down and a
+        longer braking distance, which removes the overshoot that a hard velocity
+        step causes; higher = snappier but can overshoot on stop."""
+        with self._servo_lock:
+            self._max_lin_acc = max(1.0, float(lin_mm_s2))
+            self._max_ang_acc = max(1.0, float(ang_deg_s2))
+
+    def set_target_pose(self, x, y, z, r=None):
         with self._servo_lock:
             if self._target is None:
                 self._target = [0.0, 0.0, 0.0, 0.0]
-            self._target[0] = float(j1)
-            self._target[1] = float(j2)
-            self._target[2] = float(j3)
-            if j4 is not None:
-                self._target[3] = float(j4)
+            self._target[0] = float(x)
+            self._target[1] = float(y)
+            self._target[2] = float(z)
+            if r is not None:
+                self._target[3] = float(r)
 
     def hold(self):
-        """Smooth stop: snap the target to the current setpoint so the follower
-        freezes in place within one tick (no decel-to-stop lurch)."""
+        """Smooth stop: aim the target at the follower's natural braking point so
+        it decelerates to rest instead of snapping (which would overshoot)."""
         with self._servo_lock:
-            if self._setpoint is not None:
-                self._target = list(self._setpoint)
+            if self._setpoint is None:
+                return
+            tgt = list(self._setpoint)
+            accels = (self._max_lin_acc, self._max_lin_acc,
+                      self._max_lin_acc, self._max_ang_acc)
+            for i, a in enumerate(accels):
+                v = self._vel[i]
+                if v:                       # coast to a stop one braking-distance ahead
+                    tgt[i] += (1.0 if v > 0 else -1.0) * (v * v) / (2.0 * max(1.0, a))
+            self._target = tgt
 
     def start_servo(self):
-        """Begin streaming ServoJ, initialised to the current actual pose so the
-        first move doesn't jump. Restarts cleanly if already running."""
         self.stop_servo()
-        # wait briefly for live feedback so we start from the real pose
         deadline = time.time() + 1.0
         while time.time() < deadline and not self.get_state()["feedback_ok"]:
             time.sleep(0.02)
-        actual = [float(x) for x in self.get_state()["joints"]]
+        pose = [float(v) for v in self.get_state()["pose"]]
         with self._servo_lock:
-            self._setpoint = list(actual)
-            self._target = list(actual)
+            self._setpoint = list(pose)
+            self._target = list(pose)
+            self._vel = [0.0, 0.0, 0.0, 0.0]
         self._servo_running = True
         with self._state_lock:
             self._state["servo_active"] = True
@@ -385,41 +364,54 @@ class DobotMG400:
             self._state["servo_active"] = False
 
     def _servo_loop(self):
-        interval = 0.08   # send rate (~12.5 Hz)
-        t_param = 0.10    # slightly longer than interval for overlap/smoothness
+        interval = 0.04   # 25 Hz (ServoP minimum cycle is ~30 ms)
         consecutive_errors = 0
         next_t = time.monotonic()
         while self._servo_running:
             with self._servo_lock:
                 target = list(self._target) if self._target is not None else None
                 setpoint = list(self._setpoint) if self._setpoint is not None else None
-                max_step = self._max_vel * interval
+                vel = list(self._vel)
+                caps = ((self._max_lin, self._max_lin_acc),
+                        (self._max_lin, self._max_lin_acc),
+                        (self._max_lin, self._max_lin_acc),
+                        (self._max_ang, self._max_ang_acc))
             if target is None or setpoint is None:
                 time.sleep(interval)
                 continue
-            # slew the setpoint toward the target, capped at max_step per joint
-            for i in range(4):
-                delta = target[i] - setpoint[i]
-                if delta > max_step:
-                    setpoint[i] += max_step
-                elif delta < -max_step:
-                    setpoint[i] -= max_step
+            dt = interval
+            # Acceleration-limited slew: ramp velocity up toward the cap, then brake
+            # early enough (v <= sqrt(2*a*dist)) to arrive at the target with ~zero
+            # speed. This eases the start AND the stop, so the arm tracks a smooth
+            # velocity profile instead of overshooting and creeping back.
+            for i, (v_max, a) in enumerate(caps):
+                remaining = target[i] - setpoint[i]
+                dist = abs(remaining)
+                direction = 1.0 if remaining >= 0 else -1.0
+                v_brake = (2.0 * a * dist) ** 0.5        # fastest we can still stop from
+                v_des = min(v_max, v_brake) * direction   # desired signed velocity
+                dv = v_des - vel[i]                        # ramp velocity by <= a*dt
+                max_dv = a * dt
+                dv = max(-max_dv, min(max_dv, dv))
+                vel[i] += dv
+                step = vel[i] * dt
+                if abs(step) >= dist and (step >= 0) == (remaining >= 0):
+                    setpoint[i] = target[i]               # would reach/pass it this tick
+                    vel[i] = 0.0
                 else:
-                    setpoint[i] = target[i]
+                    setpoint[i] += step
             with self._servo_lock:
                 self._setpoint = list(setpoint)
-            errid, resp = self.servo_j(*setpoint, t=t_param)
+                self._vel = list(vel)
+            errid, resp = self.servo_p(*setpoint)
             if errid != 0:
                 consecutive_errors += 1
                 if consecutive_errors >= 3:
                     with self._state_lock:
-                        self._state["servo_error"] = (
-                            f"ServoJ ErrorID {errid}: {resp}"
-                        )
+                        self._state["servo_error"] = f"ServoP ErrorID {errid}: {resp}"
                     break
             else:
                 consecutive_errors = 0
-            # pace the loop to a steady cadence
             next_t += interval
             sleep = next_t - time.monotonic()
             if sleep > 0:
@@ -440,9 +432,8 @@ class DobotMG400:
         return resp[start + 1 : end]
 
     def _extract_floats(self, resp):
-        inner = self._extract_braces(resp)
         out = []
-        for tok in inner.split(","):
+        for tok in self._extract_braces(resp).split(","):
             tok = tok.strip()
             if not tok:
                 continue
@@ -452,10 +443,10 @@ class DobotMG400:
                 pass
         return out
 
-    def _extract_error_ids(self, resp):
-        inner = self._extract_braces(resp)
+    def get_error_id(self):
+        _, resp = self._dash("GetErrorID()", raise_on_error=False)
         try:
-            nested = json.loads(inner)
+            nested = json.loads(self._extract_braces(resp))
         except (ValueError, TypeError):
             return []
         ids = []
@@ -464,9 +455,8 @@ class DobotMG400:
             if isinstance(x, list):
                 for v in x:
                     walk(v)
-            elif isinstance(x, (int, float)):
-                if int(x) != 0:
-                    ids.append(int(x))
+            elif isinstance(x, (int, float)) and int(x) != 0:
+                ids.append(int(x))
 
         walk(nested)
         return ids
@@ -484,16 +474,13 @@ class DobotMG400:
             if not chunk:
                 break
             buf += chunk
-            # Process all complete, aligned packets in the buffer.
             while len(buf) >= FEEDBACK_SIZE:
                 parsed = parse_feedback(buf[:FEEDBACK_SIZE])
                 if parsed is None:
-                    # Misaligned stream: slide forward one byte to resync.
                     buf = buf[1:]
                     continue
                 buf = buf[FEEDBACK_SIZE:]
                 self._apply_feedback(parsed)
-
         with self._state_lock:
             self._state["connected"] = False
             self._state["feedback_ok"] = False
@@ -507,6 +494,7 @@ class DobotMG400:
             self._state["enabled"] = mode in ENABLED_MODES
             self._state["error"] = mode == 9
             self._state["joints"] = parsed["joints"]
+            self._state["pose"] = parsed["pose"]
             self._state["digital_in"] = parsed["digital_in"]
             self._state["digital_out"] = parsed["digital_out"]
             self._state["last_feedback"] = time.time()
