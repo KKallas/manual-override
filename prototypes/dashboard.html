@@ -17,7 +17,11 @@
     display: flex; align-items: baseline; gap: 12px; }
   header h1 { font-size: 15px; margin: 0; font-weight: 600; }
   header .sub { color: var(--muted); font-size: 12px; }
-  header .right { margin-left: auto; color: var(--muted); font-size: 12px; }
+  header .right { margin-left: auto; color: var(--muted); font-size: 12px;
+    display: flex; align-items: baseline; }
+  .hdrlink { color: var(--accent); cursor: pointer; margin-left: 10px;
+    text-decoration: none; font-size: 12px; }
+  .hdrlink:hover { text-decoration: underline; }
 
   /* tab strip — one tab per prototype */
   #tabs { display: flex; gap: 6px; padding: 8px 14px 0; border-bottom: 1px solid var(--line);
@@ -30,6 +34,9 @@
   .tab.active { background: var(--panel); color: var(--txt); border-color: var(--accent); }
   .tab.disabled { opacity: .5; }
   .tab.disabled .name { text-decoration: line-through; }
+  .tab[draggable=true] { cursor: grab; }
+  .tab.dragging { opacity: .4; }
+  .tab.dragover { border-color: var(--accent); }
 
   /* little enable/disable switch living in each tab */
   .sw { position: relative; width: 30px; height: 16px; flex: 0 0 auto; }
@@ -63,7 +70,10 @@
 <header>
   <h1>Manual Override — Prototypes</h1>
   <span class="sub">one server, every prototype</span>
-  <span class="right" id="count"></span>
+  <span class="right">
+    <span id="count"></span>
+    <a href="#" id="toggleDisabled" class="hdrlink" style="display:none"></a>
+  </span>
 </header>
 
 <div id="tabs"></div>
@@ -97,8 +107,12 @@ const toolbar = document.getElementById('toolbar');
 const reloadBtn = document.getElementById('reload');
 const disabledMsg = document.getElementById('disabledMsg');
 const enableHere = document.getElementById('enableHere');
+const countEl = document.getElementById('count');
+const toggleDisabled = document.getElementById('toggleDisabled');
 let protos = [];
 let active = null;
+let hideDisabled = localStorage.getItem('hideDisabled') === '1';
+let dragSlug = null;
 
 // ---- enable / disable (persisted server-side) ------------------------------
 async function setEnabled(slug, enabled) {
@@ -115,33 +129,93 @@ async function setEnabled(slug, enabled) {
 }
 enableHere.onclick = () => { if (active) setEnabled(active.slug, true); };
 
+// ---- hide/show disabled + drag-to-reorder (both persisted) -----------------
+function updateToggleLink() {
+  const anyDisabled = protos.some(p => !p.enabled);
+  toggleDisabled.style.display = anyDisabled ? '' : 'none';
+  toggleDisabled.textContent = hideDisabled ? 'show disabled' : 'hide disabled';
+}
+toggleDisabled.onclick = e => {
+  e.preventDefault();
+  hideDisabled = !hideDisabled;
+  localStorage.setItem('hideDisabled', hideDisabled ? '1' : '0');
+  // if the active prototype just got hidden, jump to the first visible one
+  if (hideDisabled && active && !active.enabled) {
+    const firstVisible = protos.find(p => p.enabled);
+    if (firstVisible) { localStorage.setItem('lastProto', firstVisible.slug); selectProto(firstVisible); }
+  }
+  renderTabs();
+};
+
+function saveOrder() { localStorage.setItem('protoOrder', JSON.stringify(protos.map(p => p.slug))); }
+function reorderProtos(fromSlug, toSlug) {           // drop `from` before `to`
+  if (fromSlug === toSlug) return;
+  const order = protos.map(p => p.slug);
+  order.splice(order.indexOf(fromSlug), 1);
+  order.splice(order.indexOf(toSlug), 0, fromSlug);
+  protos.sort((a, b) => order.indexOf(a.slug) - order.indexOf(b.slug));
+  saveOrder();
+  renderTabs();
+}
+function applySavedOrder() {                          // reorder protos to the saved sequence
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem('protoOrder') || '[]'); } catch (_) {}
+  if (!Array.isArray(saved) || !saved.length) return;
+  const rank = (slug, i) => { const j = saved.indexOf(slug); return j < 0 ? saved.length + i : j; };
+  protos = protos.map((p, i) => ({ p, k: rank(p.slug, i) })).sort((a, b) => a.k - b.k).map(o => o.p);
+}
+
 // ---- tabs ------------------------------------------------------------------
 function renderTabs() {
   tabsEl.innerHTML = '';
   for (const p of protos) {
+    if (hideDisabled && !p.enabled) continue;
     const tab = document.createElement('div');
     tab.className = 'tab' + (p.enabled ? '' : ' disabled') + (active && active.slug === p.slug ? ' active' : '');
     tab.dataset.slug = p.slug;
+    // when disabled prototypes are hidden we're in a clean viewing mode:
+    // no per-tab enable/disable switch and no drag-to-reorder
+    tab.draggable = !hideDisabled;
 
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = p.name;
     name.onclick = () => { localStorage.setItem('lastProto', p.slug); selectProto(p); };
 
-    const sw = document.createElement('label');
-    sw.className = 'sw';
-    sw.title = p.enabled ? 'Disable' : 'Enable';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = p.enabled;
-    cb.onclick = e => { e.stopPropagation(); setEnabled(p.slug, cb.checked); };
-    const track = document.createElement('span'); track.className = 'track';
-    const thumb = document.createElement('span'); thumb.className = 'thumb';
-    sw.append(cb, track, thumb);
+    tab.append(name);
 
-    tab.append(name, sw);
+    if (!hideDisabled) {
+      const sw = document.createElement('label');
+      sw.className = 'sw';
+      sw.title = p.enabled ? 'Disable' : 'Enable';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = p.enabled;
+      cb.onclick = e => { e.stopPropagation(); setEnabled(p.slug, cb.checked); };
+      const track = document.createElement('span'); track.className = 'track';
+      const thumb = document.createElement('span'); thumb.className = 'thumb';
+      sw.append(cb, track, thumb);
+
+      // drag to reorder; the order is saved so the workflow stays linear
+      tab.ondragstart = e => {
+        dragSlug = p.slug; e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', p.slug); } catch (_) {}
+        tab.classList.add('dragging');
+      };
+      tab.ondragend = () => {
+        dragSlug = null; tab.classList.remove('dragging');
+        for (const t of tabsEl.children) t.classList.remove('dragover');
+      };
+      tab.ondragover = e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; tab.classList.add('dragover'); };
+      tab.ondragleave = () => tab.classList.remove('dragover');
+      tab.ondrop = e => { e.preventDefault(); tab.classList.remove('dragover'); if (dragSlug) reorderProtos(dragSlug, p.slug); };
+
+      tab.append(sw);
+    }
+
     tabsEl.appendChild(tab);
   }
+  updateToggleLink();
 }
 
 // ---- selected prototype view ----------------------------------------------
@@ -188,7 +262,8 @@ async function load() {
   try {
     protos = await (await fetch('api/prototypes')).json();
   } catch (_) { protos = []; }
-  document.getElementById('count').textContent =
+  applySavedOrder();
+  countEl.textContent =
     protos.length ? `${protos.length} prototype${protos.length > 1 ? 's' : ''}` : '';
   if (!protos.length) {
     toolbar.style.display = 'none';
@@ -199,7 +274,8 @@ async function load() {
   renderTabs();
   // restore last-viewed tab across reloads; prefer an enabled one
   const remembered = protos.find(p => p.slug === localStorage.getItem('lastProto'));
-  const want = remembered || protos.find(p => p.enabled) || protos[0];
+  let want = remembered || protos.find(p => p.enabled) || protos[0];
+  if (hideDisabled && want && !want.enabled) want = protos.find(p => p.enabled) || want;
   selectProto(want);
 }
 

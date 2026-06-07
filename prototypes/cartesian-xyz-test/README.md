@@ -1,7 +1,7 @@
 # Cartesian XYZ Test (prototype)
 
 Second hardware prototype for **Manual Override**. Like the
-[joint-slider test](../joint-slider-test/), but the sliders drive the **Cartesian
+[Joint Angles test](../joint-angles-test/), but the sliders drive the **Cartesian
 tool pose** (X, Y, Z in mm, R in degrees) in the robot's **TCP workspace** instead
 of individual joints. The MG400's controller does the inverse kinematics; you
 think in workspace coordinates.

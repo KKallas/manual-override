@@ -1,20 +1,18 @@
 """
-Dobot MG400 TCP/IP driver — Cartesian (TCP / workspace) prototype.
+Dobot MG400 TCP/IP driver — Joint Angles prototype.
 
-Same three communication layers as the joint prototype, but live control drives
-the **Cartesian tool pose** (X, Y, Z, R) instead of joint angles:
+Live control drives the **joint angles** (J1, J2, J3, J4 in degrees) over the
+same three communication layers:
 
   * Dashboard  (29999) — enable/disable/clear/stop/estop/speed/digital outputs.
-  * Motion     (30003) — ServoP streamed pose setpoints for smooth following
-                         (MovL also available for point-to-point linear moves).
-  * Feedback   (30004) — 1440-byte real-time packet @ ~8 ms: robot mode, actual
-                         joint angles, and the actual TCP pose (tool_vector_actual
-                         at byte offset 624).
+  * Motion     (30003) — ServoJ streamed joint setpoints for smooth following
+                         (JointMovJ also available for point-to-point moves).
+  * Feedback   (30004) — 1440-byte real-time packet @ ~8 ms: robot mode and the
+                         actual joint angles (q_actual at byte offset 432).
 
-X/Y/Z are millimetres, R is the end-effector rotation about Z in degrees. As with
-the joint prototype, a background thread streams setpoints toward a target while
-velocity-limiting, so dragging a slider produces smooth motion rather than queued
-point-to-point moves.
+A background thread streams setpoints toward a target with an acceleration-limited
+(trapezoidal) velocity profile, so dragging a slider eases in and out smoothly and
+the arm doesn't overshoot and creep back.
 """
 
 import socket
@@ -96,10 +94,11 @@ class DobotMG400:
         self._servo_thread = None
         self._servo_running = False
         self._servo_lock = threading.Lock()
-        self._target = None       # desired pose [x, y, z, r]
-        self._setpoint = None     # current streamed pose
-        self._max_lin = 80.0      # mm/s
-        self._max_ang = 60.0      # deg/s
+        self._target = None       # desired joint angles [j1, j2, j3, j4]
+        self._setpoint = None     # current streamed joint setpoint
+        self._vel = [0.0, 0.0, 0.0, 0.0]   # current setpoint velocity per joint
+        self._max_vel = 60.0      # deg/s
+        self._max_acc = 240.0     # deg/s^2 (ramp ~0.25 s to 60 deg/s; lower = gentler)
 
         self._state = self._blank_state()
 
@@ -128,7 +127,7 @@ class DobotMG400:
             return dict(self._state)
 
     def get_target(self):
-        """The commanded tool-pose target the follower is slewing toward, or
+        """The commanded joint-angle target the follower is slewing toward, or
         None before the servo loop is initialised. Exposing it lets several
         control windows sync their sliders to the same setpoint."""
         with self._servo_lock:
@@ -273,57 +272,75 @@ class DobotMG400:
             raise DobotError(-1, f"unknown pump mode {mode!r}", "set_pump")
         return errid, "; ".join(resp)
 
-    def get_pose(self):
-        """Query the current TCP pose via the dashboard. Returns [x, y, z, r]."""
-        _, resp = self._dash("GetPose()")
+    def get_angle(self):
+        """Query the current joint angles via the dashboard. Returns [j1..j4]."""
+        _, resp = self._dash("GetAngle()")
         vals = self._extract_floats(resp)
         return vals[:4]
 
     # -- motion ---------------------------------------------------------------
-    def mov_l(self, x, y, z, r):
-        """Point-to-point linear Cartesian move (queued). Returns (errid, resp)."""
+    def joint_move(self, j1, j2, j3, j4):
+        """Absolute joint-space move (queued). Returns (errid, resp); does not
+        raise so out-of-range targets surface to the UI."""
         return self._move(
-            f"MovL({x:.3f},{y:.3f},{z:.3f},{r:.3f})", raise_on_error=False
+            f"JointMovJ({j1:.3f},{j2:.3f},{j3:.3f},{j4:.3f})", raise_on_error=False
         )
 
-    def servo_p(self, x, y, z, r):
-        """Stream one Cartesian servo setpoint. ServoP takes no optional params
-        and should be sent at <= ~33 Hz."""
+    def servo_j(self, j1, j2, j3, j4, t=0.1):
+        """Stream one joint servo setpoint (degrees). ServoJ is meant to be sent
+        repeatedly at a steady cadence; `t` is the time to reach this point."""
         return self._move(
-            f"ServoP({x:.3f},{y:.3f},{z:.3f},{r:.3f})", raise_on_error=False
+            f"ServoJ({j1:.3f},{j2:.3f},{j3:.3f},{j4:.3f},t={t:.3f})", raise_on_error=False
         )
 
-    # -- smooth live following (ServoP streaming) -----------------------------
-    def set_max_velocity(self, lin_mm_s, ang_deg_s):
+    # -- smooth live following (ServoJ streaming) -----------------------------
+    def set_max_velocity(self, deg_per_sec):
         with self._servo_lock:
-            self._max_lin = max(1.0, float(lin_mm_s))
-            self._max_ang = max(1.0, float(ang_deg_s))
+            self._max_vel = max(1.0, float(deg_per_sec))
 
-    def set_target_pose(self, x, y, z, r=None):
+    def set_max_accel(self, deg_per_sec2):
+        """Acceleration cap for the follower. Lower = gentler ramp up/down and a
+        longer braking distance, which removes the overshoot that a hard velocity
+        step causes; higher = snappier but can overshoot on stop."""
+        with self._servo_lock:
+            self._max_acc = max(1.0, float(deg_per_sec2))
+
+    def set_target(self, j1, j2, j3, j4=None):
+        """Set the desired joint angles the follower slews toward. J4 is held at
+        its current angle unless given."""
         with self._servo_lock:
             if self._target is None:
                 self._target = [0.0, 0.0, 0.0, 0.0]
-            self._target[0] = float(x)
-            self._target[1] = float(y)
-            self._target[2] = float(z)
-            if r is not None:
-                self._target[3] = float(r)
+            self._target[0] = float(j1)
+            self._target[1] = float(j2)
+            self._target[2] = float(j3)
+            if j4 is not None:
+                self._target[3] = float(j4)
 
     def hold(self):
-        """Smooth stop: freeze the follower at its current setpoint."""
+        """Smooth stop: aim the target at the follower's natural braking point so
+        it decelerates to rest instead of snapping (which would overshoot)."""
         with self._servo_lock:
-            if self._setpoint is not None:
-                self._target = list(self._setpoint)
+            if self._setpoint is None:
+                return
+            a = self._max_acc
+            tgt = list(self._setpoint)
+            for i in range(4):
+                v = self._vel[i]
+                if v:                       # coast to a stop one braking-distance ahead
+                    tgt[i] += (1.0 if v > 0 else -1.0) * (v * v) / (2.0 * max(1.0, a))
+            self._target = tgt
 
     def start_servo(self):
         self.stop_servo()
         deadline = time.time() + 1.0
         while time.time() < deadline and not self.get_state()["feedback_ok"]:
             time.sleep(0.02)
-        pose = [float(v) for v in self.get_state()["pose"]]
+        actual = [float(v) for v in self.get_state()["joints"]]
         with self._servo_lock:
-            self._setpoint = list(pose)
-            self._target = list(pose)
+            self._setpoint = list(actual)
+            self._target = list(actual)
+            self._vel = [0.0, 0.0, 0.0, 0.0]
         self._servo_running = True
         with self._state_lock:
             self._state["servo_active"] = True
@@ -343,36 +360,51 @@ class DobotMG400:
             self._state["servo_active"] = False
 
     def _servo_loop(self):
-        interval = 0.04   # 25 Hz (ServoP minimum cycle is ~30 ms)
+        interval = 0.08   # send rate (~12.5 Hz); ServoJ minimum cycle
+        t_param = 0.10    # ServoJ point duration; slightly > interval for overlap
         consecutive_errors = 0
         next_t = time.monotonic()
         while self._servo_running:
             with self._servo_lock:
                 target = list(self._target) if self._target is not None else None
                 setpoint = list(self._setpoint) if self._setpoint is not None else None
-                max_lin_step = self._max_lin * interval
-                max_ang_step = self._max_ang * interval
+                vel = list(self._vel)
+                cap_v = self._max_vel
+                cap_a = self._max_acc
             if target is None or setpoint is None:
                 time.sleep(interval)
                 continue
-            # slew x,y,z (mm) and r (deg) toward target, each capped per tick
-            for i, step in ((0, max_lin_step), (1, max_lin_step),
-                            (2, max_lin_step), (3, max_ang_step)):
-                delta = target[i] - setpoint[i]
-                if delta > step:
-                    setpoint[i] += step
-                elif delta < -step:
-                    setpoint[i] -= step
+            dt = interval
+            caps = ((cap_v, cap_a),) * 4   # all four joints share one velocity/accel cap
+            # Acceleration-limited slew: ramp velocity up toward the cap, then brake
+            # early enough (v <= sqrt(2*a*dist)) to arrive at the target with ~zero
+            # speed. This eases the start AND the stop, so the arm tracks a smooth
+            # velocity profile instead of overshooting and creeping back.
+            for i, (v_max, a) in enumerate(caps):
+                remaining = target[i] - setpoint[i]
+                dist = abs(remaining)
+                direction = 1.0 if remaining >= 0 else -1.0
+                v_brake = (2.0 * a * dist) ** 0.5        # fastest we can still stop from
+                v_des = min(v_max, v_brake) * direction   # desired signed velocity
+                dv = v_des - vel[i]                        # ramp velocity by <= a*dt
+                max_dv = a * dt
+                dv = max(-max_dv, min(max_dv, dv))
+                vel[i] += dv
+                step = vel[i] * dt
+                if abs(step) >= dist and (step >= 0) == (remaining >= 0):
+                    setpoint[i] = target[i]               # would reach/pass it this tick
+                    vel[i] = 0.0
                 else:
-                    setpoint[i] = target[i]
+                    setpoint[i] += step
             with self._servo_lock:
                 self._setpoint = list(setpoint)
-            errid, resp = self.servo_p(*setpoint)
+                self._vel = list(vel)
+            errid, resp = self.servo_j(*setpoint, t=t_param)
             if errid != 0:
                 consecutive_errors += 1
                 if consecutive_errors >= 3:
                     with self._state_lock:
-                        self._state["servo_error"] = f"ServoP ErrorID {errid}: {resp}"
+                        self._state["servo_error"] = f"ServoJ ErrorID {errid}: {resp}"
                     break
             else:
                 consecutive_errors = 0

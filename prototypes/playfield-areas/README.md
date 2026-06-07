@@ -14,8 +14,8 @@ This is a UI/architecture prototype — there is no robot or camera involved.
   - `UnrealBloomPass` → the **glow**
   - `BokehPass` → the **depth-of-field**
   - `OrbitControls` (camera) + `TransformControls` (drag an area to move it)
-- **Backend:** Flask, in-memory area store, REST API (matches the
-  `joint-slider-test` prototype's style).
+- **Backend:** Flask, in-memory area store, REST API (matches the other
+  prototypes' style).
 
 ### Smooth on a slow update rate
 
@@ -33,6 +33,33 @@ comes back exactly where you left it — deletes stick, edits stick. The seed
 presets only appear on a first-ever run (when no `areas.json` exists). Areas are
 flushed by a background thread that batches rapid changes, so a high-rate
 animation driving the store doesn't hammer the disk.
+
+### Glowing links between zones
+
+Each zone can **link** to other zones: in its card, pick a target from the
+*link to…* dropdown and **+ Link**. A straight **glowing** line (in the source
+zone's colour) is drawn between them — handy to outline a region (e.g. the area
+being calibrated). Links are part of the zone, so **deleting a zone removes every
+link to it**. Lines follow the zones as they move, glow with the bloom, and
+persist (they live in each area's `links` array).
+
+### Camera tracking (ArUco markers)
+
+Each area carries a `marker` id and renders a real **OpenCV `DICT_4X4_50`**
+ArUco marker (black pattern, centred) on **both** its top and bottom faces, so it
+reads whether the playfield is viewed from above or from underneath. New areas
+get a distinct id automatically; set it per area with the **marker id** field.
+The markers come from the server (`/api/marker/<id>`, generated with `cv2.aruco`),
+so they're detectable by a standard `cv2.aruco` detector — verified by round-trip.
+
+The markers are drawn as a **crisp overlay on top of the glow**: they sit on
+their own render layer and are composited *after* the bloom/DOF pass, so they
+stay sharp for a camera while the glow stays pretty — no mode to toggle. (The
+bottom face is a 180° rotation of the top, which is a rotation, not a mirror, so
+it remains a valid detectable marker.)
+
+> OpenCV is an optional dependency. Without it the playfield still runs; the
+> `/api/marker` endpoint returns 503 and the markers just don't render.
 
 ### View & effects live in the controller (and persist)
 
@@ -71,9 +98,10 @@ The HUD sliders tune the glow and depth-of-field live.
 
 ## API
 
-An **area** is `{ id, name, x, y, z, size, color, glow }`. Positions are in
-scene units (1 unit ≈ 10 cm); `y` is height above the ground; `glow` scales the
-bloom emissive (0 = matte).
+An **area** is `{ id, name, x, y, z, size, color, glow, marker, links }`.
+Positions are in scene units (1 unit ≈ 10 cm); `y` is height above the ground;
+`glow` scales the bloom emissive (0 = matte); `marker` is the ArUco id (0–49)
+shown on it; `links` is a list of other area ids this zone draws a glowing line to.
 
 | Verb     | Path               | Action                                   |
 |----------|--------------------|------------------------------------------|
@@ -85,6 +113,9 @@ bloom emissive (0 = matte).
 | `GET`    | `/api/state`       | poll snapshot: `{rev, areas, srev, settings}` |
 | `GET`    | `/api/settings`    | get view/effect settings (`{srev, settings}`) |
 | `PATCH`  | `/api/settings`    | **set** view/effect settings (persisted)  |
+| `GET`    | `/api/marker/<id>` | PNG of the ArUco marker for that id (DICT_4X4_50) |
+| `POST`   | `/api/areas/<id>/links` | link a zone to another (`{to}`)       |
+| `DELETE` | `/api/areas/<id>/links/<to>` | remove a link                    |
 
 `rev` (areas) and `srev` (settings) are counters that bump on every change, so a
 poller can skip work when nothing changed. Settings are `{ bloom, dof, fov,

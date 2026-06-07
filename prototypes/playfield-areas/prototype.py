@@ -20,7 +20,18 @@ import os
 import threading
 import time
 
-from flask import Blueprint, jsonify, request, send_from_directory
+from flask import Blueprint, Response, jsonify, request, send_from_directory
+
+import live   # shared push helper (prototypes/live.py)
+
+# OpenCV is optional: only the ArUco marker endpoint needs it. If it's missing
+# the rest of the playfield works and the markers simply don't render.
+try:
+    import cv2
+    import numpy as np
+    _HAS_CV = True
+except Exception:
+    _HAS_CV = False
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -49,13 +60,32 @@ _rev = 0          # bumps on every mutation so clients can poll cheaply
 _next_id = 1
 _dirty = threading.Event()   # set on every mutation; a background thread flushes to disk
 
+# Live push: this is event-driven state, so every mutation bumps and clients are
+# woken immediately (see _touch / set_settings). See prototypes/live.py.
+_live = live.LiveState()
+
 DEFAULTS = {
     "name": "Area",
     "x": 0.0, "y": 0.0, "z": 0.0,
     "size": 1.0,
     "color": "#4f9dff",
     "glow": 1.0,
+    "marker": 0,        # ArUco id (DICT_4X4_50) rendered on the area for tracking
+    "links": [],        # ids of other areas this zone draws a glowing line to
+    # per-component visibility on the clean screen, configured per area
+    "show_area": True,   # the coloured box body + outline
+    "show_aruco": True,  # the ArUco marker planes
+    "show_links": True,  # the glowing links leaving this zone
 }
+SHOW_FIELDS = ("show_area", "show_aruco", "show_links")
+
+
+def _new_area():
+    """A fresh area dict (with its own links list, not the shared default)."""
+    area = dict(DEFAULTS)
+    area["links"] = []
+    return area
+ARUCO_COUNT = 50        # DICT_4X4_50
 NUM_LIMITS = {
     "x": (-12.0, 12.0),
     "y": (-6.0, 6.0),   # height; negative drops the area below the ground plane
@@ -82,19 +112,26 @@ def _coerce(field, value):
         return s
     if field == "name":
         return str(value)[:60]
+    if field == "marker":
+        return int(_clamp(int(float(value)), 0, ARUCO_COUNT - 1))
+    if field in SHOW_FIELDS:
+        return bool(value)
     raise KeyError(field)
 
 
 def _apply(area, data):
-    for field in ("name", "x", "y", "z", "size", "color", "glow"):
+    for field in ("name", "x", "y", "z", "size", "color", "glow", "marker", *SHOW_FIELDS):
         if field in data:
             area[field] = _coerce(field, data[field])
+    if isinstance(data.get("links"), list):
+        area["links"] = [str(x) for x in data["links"]][:64]
 
 
 def _touch():
     global _rev
     _rev += 1
     _dirty.set()
+    _live.bump()
 
 
 # ---- programmatic API (for other prototypes via the hub) -------------------
@@ -102,12 +139,13 @@ def _touch():
 # REST routes use), so e.g. an animation can spawn and move areas. They mirror
 # the route handlers but take/return plain dicts and never touch Flask.
 def create_area(**fields):
-    """Create an area; `fields` may set any of name/x/y/z/size/color/glow."""
+    """Create an area; `fields` may set any of name/x/y/z/size/color/glow/marker."""
     global _next_id
     with _lock:
-        area = dict(DEFAULTS)
+        area = _new_area()
         area["id"] = f"a{_next_id}"
         area["name"] = f"Area {_next_id}"
+        area["marker"] = (_next_id - 1) % ARUCO_COUNT   # a distinct default id
         _next_id += 1
         _apply(area, fields)
         _store[area["id"]] = area
@@ -126,11 +164,19 @@ def update_area(area_id, **fields):
         return dict(area)
 
 
+def _prune_links_to(area_id):
+    """Drop any links pointing at a (now-deleted) area. Call with the lock held."""
+    for other in _store.values():
+        if area_id in other.get("links", []):
+            other["links"].remove(area_id)
+
+
 def remove_area(area_id):
-    """Delete an area; returns True if it existed."""
+    """Delete an area and any links pointing to it; returns True if it existed."""
     with _lock:
         existed = _store.pop(area_id, None) is not None
         if existed:
+            _prune_links_to(area_id)
             _touch()
         return existed
 
@@ -138,6 +184,28 @@ def remove_area(area_id):
 def list_areas():
     with _lock:
         return list(_store.values())
+
+
+def add_link(area_id, to):
+    """Add a glowing link from `area_id` to area `to`. Returns the area or None."""
+    with _lock:
+        area = _store.get(area_id)
+        if area is None or to not in _store or to == area_id:
+            return None
+        if to not in area["links"]:
+            area["links"].append(to)
+            _touch()
+        return dict(area)
+
+
+def remove_link(area_id, to):
+    with _lock:
+        area = _store.get(area_id)
+        if area is None or to not in area.get("links", []):
+            return None
+        area["links"].remove(to)
+        _touch()
+        return dict(area)
 
 
 # ---- persisted view / effect settings -------------------------------------
@@ -205,14 +273,80 @@ def screen():
     return send_from_directory(HERE, "screen.html")
 
 
+# ---- ArUco markers ---------------------------------------------------------
+# Real OpenCV DICT_4X4_50 markers, so a top-down camera + cv2.aruco can detect
+# and identify each area. Generated once per id and cached.
+_marker_cache = {}
+if _HAS_CV:
+    _ARUCO_DICT = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+
+
+def _marker_png(mid):
+    mid = int(mid) % ARUCO_COUNT
+    cached = _marker_cache.get(mid)
+    if cached is not None:
+        return cached
+    side = 240                              # marker pixels (excl. quiet zone)
+    img = cv2.aruco.generateImageMarker(_ARUCO_DICT, mid, side)
+    border = side // 6                      # white quiet zone (~1 cell) for detection
+    canvas = np.full((side + 2 * border, side + 2 * border), 255, np.uint8)
+    canvas[border:border + side, border:border + side] = img
+    ok, buf = cv2.imencode(".png", canvas)
+    data = buf.tobytes() if ok else b""
+    _marker_cache[mid] = data
+    return data
+
+
+@bp.route("/api/marker/<int:mid>")
+def marker_png(mid):
+    if not _HAS_CV:
+        return jsonify({"ok": False, "error": "opencv not installed"}), 503
+    png = _marker_png(mid)
+    resp = Response(png, mimetype="image/png")
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
 # ---- areas + settings API --------------------------------------------------
-@bp.route("/api/state")
-def state():
+def _snapshot():
+    """Everything a client needs to render, in one dict (areas + view settings)."""
     with _lock:
-        return jsonify({
+        return {
             "rev": _rev, "areas": list(_store.values()),
             "srev": _srev, "settings": _settings,
-        })
+        }
+
+
+@bp.route("/api/state")
+def state():
+    return jsonify(_snapshot())
+
+
+@bp.route("/api/events")
+def events():
+    """Server-Sent Events: push the full state whenever any area or setting
+    changes (every mutation calls _live.bump). Clients open an EventSource here
+    instead of polling. See prototypes/live.py."""
+    return _live.stream(_snapshot)
+
+
+@bp.route("/api/areas/<area_id>/links", methods=["POST"])
+def route_add_link(area_id):
+    to = (request.json or {}).get("to")
+    if not to:
+        return jsonify({"ok": False, "error": "need target area id 'to'"}), 400
+    area = add_link(area_id, to)
+    if area is None:
+        return jsonify({"ok": False, "error": "unknown area / target / self-link"}), 400
+    return jsonify({"ok": True, "area": area, "rev": _rev})
+
+
+@bp.route("/api/areas/<area_id>/links/<to>", methods=["DELETE"])
+def route_remove_link(area_id, to):
+    area = remove_link(area_id, to)
+    if area is None:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    return jsonify({"ok": True, "area": area, "rev": _rev})
 
 
 @bp.route("/api/areas", methods=["GET"])
@@ -226,9 +360,10 @@ def route_create_area():
     global _next_id
     data = request.json or {}
     with _lock:
-        area = dict(DEFAULTS)
+        area = _new_area()
         area["id"] = f"a{_next_id}"
         area["name"] = f"Area {_next_id}"
+        area["marker"] = (_next_id - 1) % ARUCO_COUNT
         _next_id += 1
         try:
             _apply(area, data)
@@ -268,6 +403,7 @@ def delete_area(area_id):
     with _lock:
         if _store.pop(area_id, None) is None:
             return jsonify({"ok": False, "error": "not found"}), 404
+        _prune_links_to(area_id)
         _touch()
         return jsonify({"ok": True, "rev": _rev})
 
@@ -289,7 +425,8 @@ def set_settings():
             return jsonify({"ok": False, "error": "bad settings value"}), 400
         _srev += 1
         _save_settings()
-        return jsonify({"ok": True, "settings": _settings, "srev": _srev})
+    _live.bump()
+    return jsonify({"ok": True, "settings": _settings, "srev": _srev})
 
 
 def _seed():
@@ -301,8 +438,9 @@ def _seed():
         {"name": "Player B zone", "x":  4.0, "z": 0.0, "size": 2.0, "color": "#36c46b", "glow": 1.4},
     ]
     for p in presets:
-        area = dict(DEFAULTS)
+        area = _new_area()
         area["id"] = f"a{_next_id}"
+        area["marker"] = (_next_id - 1) % ARUCO_COUNT
         _next_id += 1
         _apply(area, p)
         _store[area["id"]] = area
@@ -339,11 +477,14 @@ def _load_areas():
         return False
     for raw in areas:
         if isinstance(raw, dict) and "id" in raw:
-            area = dict(DEFAULTS)
+            area = _new_area()
             area["id"] = str(raw["id"])
             _apply(area, raw)            # coerce/clamp known fields
             _store[area["id"]] = area
     _next_id = int(data.get("next_id", _next_id))
+    # drop links that point at areas which no longer exist
+    for area in _store.values():
+        area["links"] = [t for t in area.get("links", []) if t in _store]
     return True
 
 

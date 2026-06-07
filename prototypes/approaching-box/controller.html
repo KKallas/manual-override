@@ -145,15 +145,8 @@ function renderAlert(error) {
   }
 }
 
-async function poll() {
-  let s;
-  try {
-    s = await (await fetch(U('/api/status'))).json();
-    el('conn').textContent = 'live';
-  } catch (_) {
-    el('conn').textContent = 'offline';
-    return;
-  }
+function applyStatus(s) {
+  el('conn').textContent = 'live';
   currentPlayfieldSlug = s.playfield_slug || 'playfield-areas';
   renderAlert(s.error);
 
@@ -184,8 +177,9 @@ async function poll() {
   el('marker').style.opacity = s.box_id ? '1' : '0.15';
 }
 
-poll();
-setInterval(poll, 250);
+const es = new EventSource(U('/api/events'));   // live pushes; auto-reconnects
+es.onmessage = e => { try { applyStatus(JSON.parse(e.data)); } catch (_) {} };
+es.onerror = () => { el('conn').textContent = 'offline'; };
 </script>
 </body>
 </html>

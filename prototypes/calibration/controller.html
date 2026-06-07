@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Calibration — Controller</title>
+<style>
+  :root { --bg:#0f1115; --panel:#1a1d24; --line:#2a2f3a; --txt:#e6e9ef; --muted:#8a93a6;
+    --accent:#4f9dff; --ok:#36c46b; --warn:#f5a623; --err:#ff5462; --purple:#a855f7; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:var(--bg); color:var(--txt); line-height:1.45; }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex;
+    align-items:baseline; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  header .sub { color:var(--muted); font-size:12px; }
+  main { max-width:760px; margin:0 auto; padding:20px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:16px 18px; margin-bottom:16px; }
+  .panel h2 { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+    margin:0 0 12px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  /* pan/zoom viewport */
+  .viewport { position:relative; overflow:hidden; background:#000; border:1px solid var(--line);
+    border-radius:10px; aspect-ratio:16/9; margin-bottom:10px; cursor:grab; touch-action:none; }
+  .viewport.panning { cursor:grabbing; }
+  .viewport img { position:absolute; top:0; left:0; transform-origin:0 0; user-select:none;
+    -webkit-user-drag:none; image-rendering:auto; }
+  .ovl { position:absolute; z-index:5; background:rgba(20,23,30,.82); border:1px solid var(--line);
+    border-radius:7px; padding:5px 9px; font-size:12px; backdrop-filter:blur(6px); }
+  .ovl.home { top:8px; right:8px; cursor:pointer; color:var(--txt); }
+  .ovl.home:hover { border-color:var(--accent); }
+  .ovl.coords { bottom:8px; left:8px; color:var(--accent);
+    font-family:ui-monospace,Menlo,monospace; font-variant-numeric:tabular-nums; }
+  /* manual tag-pinning overlay */
+  .manualLayer { position:absolute; inset:0; z-index:4; pointer-events:none; display:none; }
+  .manualSvg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+  .manualPoly { fill:none; stroke:var(--accent); stroke-width:2; }
+  .manualMarker { position:absolute; top:0; left:0; width:100px; height:100px; transform-origin:0 0;
+    opacity:.6; pointer-events:none; image-rendering:pixelated; }
+  .manualEdge0 { stroke:var(--warn); stroke-width:3.5; }   /* first edge = "top" of the tag */
+  .manualDirHead { fill:var(--warn); }                     /* arrow points corner0 -> corner1 */
+  .manualHandle { position:absolute; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%;
+    background:var(--accent); border:2px solid #fff; box-shadow:0 0 0 1px #0007; pointer-events:auto;
+    cursor:grab; touch-action:none; z-index:6; }
+  .manualHandle.first { background:var(--warn); }           /* corner 0 = orientation anchor */
+  .manualHandle.center { width:18px; height:18px; margin:-9px 0 0 -9px; background:#fff; border-color:var(--accent); }
+  .bar { display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+  button { background:#232733; border:1px solid var(--line); color:var(--txt); padding:9px 16px;
+    border-radius:6px; font:inherit; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--purple); border-color:var(--purple); color:#fff; font-weight:600; }
+  /* robot coordinate inputs */
+  .rgrid { display:flex; flex-direction:column; gap:8px; }
+  .rrow { display:flex; align-items:center; gap:8px; }
+  .rrow .rlabel { width:48px; font-weight:600; color:var(--purple); }
+  .rrow .ax { color:var(--muted); font-size:12px; }
+  .rrow input { width:90px; background:#0c0e12; border:1px solid var(--line); color:var(--txt);
+    border-radius:5px; padding:5px 8px; font:inherit; font-size:13px; text-align:right;
+    font-variant-numeric:tabular-nums; -moz-appearance:textfield; }
+  .rrow input:focus { outline:none; border-color:var(--accent); }
+  .rrow { flex-wrap:wrap; }
+  .rrow .getbtn { padding:5px 12px; font-size:12px; margin-left:6px; }
+  .rrow .calbtn, .rrow .movebtn, .rrow .manualbtn { padding:5px 12px; font-size:12px; margin-left:4px; }
+  .rrow .manualbtn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .lvlinput { width:64px; background:#0c0e12; border:1px solid var(--line); color:var(--accent);
+    border-radius:5px; padding:5px 7px; font:inherit; font-size:13px; text-align:right;
+    font-variant-numeric:tabular-nums; -moz-appearance:textfield; margin-left:4px; }
+  .lvlinput:focus { outline:none; border-color:var(--accent); }
+  .lvlsel { background:#0c0e12; border:1px solid var(--line); color:var(--txt); border-radius:5px;
+    padding:5px 7px; font:inherit; font-size:13px; margin-left:6px; cursor:pointer; }
+  .lvlsel:focus { outline:none; border-color:var(--accent); }
+  table { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+  th { text-align:left; color:var(--muted); font-weight:600; font-size:10px; text-transform:uppercase;
+    padding:5px 6px; border-bottom:1px solid var(--line); }
+  td { padding:5px 6px; border-bottom:1px solid #1b1f27; }
+  .tagid { color:var(--accent); font-weight:600; }
+  .muted { color:var(--muted); font-size:12px; }
+  #conn { margin-left:auto; }
+  #conn.err { color:var(--err); } #conn.ok { color:var(--ok); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Calibration</h1>
+  <span class="sub">drag to pan · scroll to zoom · click to read pixel</span>
+  <span id="conn" class="muted">…</span>
+</header>
+<main>
+  <!-- camera feed: pan / zoom / home / click-to-read -->
+  <div class="viewport" id="viewport">
+    <img id="feed" alt="webcam feed" draggable="false" />
+    <button class="ovl home" id="homeBtn" title="Reset view">⌂ Home</button>
+    <div class="ovl coords" id="coords">—</div>
+  </div>
+
+  <!-- actions -->
+  <div class="bar">
+    <button id="drawBtn" class="primary">Draw work area</button>
+    <label class="muted">work level<input id="workLevel" class="lvlinput" type="number" step="1" /></label>
+    <label class="muted">move level<input id="moveLevel" class="lvlinput" type="number" step="1" /></label>
+    <select id="moveTarget" class="lvlsel" title="Which level the Move buttons drive to">
+      <option value="move">Move → move level</option>
+      <option value="work">Move → work level</option>
+    </select>
+    <span id="drawMsg" class="muted"></span>
+  </div>
+
+  <!-- robot cartesian coordinates per corner -->
+  <section class="panel">
+    <h2><span>Robot coordinates (mm)</span><span id="robotMsg" class="muted"></span></h2>
+    <div class="rgrid" id="robotInputs"></div>
+    <div class="bar" style="margin:14px 0 0">
+      <button id="calibBtn" disabled
+        title="Calibrate every point that has coordinates (each: move head there at Z=-60, read tag #10, park at TL). Needs TL filled.">
+        Calibrate all</button>
+      <span id="calibMsg" class="muted"></span>
+    </div>
+  </section>
+
+  <!-- captured calibration points -->
+  <section class="panel">
+    <h2>Calibration points</h2>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>point</th><th>robot X</th><th>robot Y</th><th>robot Z</th>
+          <th>head nx</th><th>head ny</th><th>head px X</th><th>head px Y</th>
+          <th>play X</th><th>play Z</th>
+        </tr></thead>
+        <tbody id="calibRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- tracked tags, under the image -->
+  <section class="panel">
+    <h2><span>Tracked tags <span id="tagCount" class="muted"></span></span></h2>
+    <table>
+      <thead><tr><th>id</th><th>nx</th><th>ny</th><th>rotation</th><th>missing</th></tr></thead>
+      <tbody id="tagRows"></tbody>
+    </table>
+    <p class="muted" id="tagEmpty" style="margin:8px 0 0">No tags yet.</p>
+  </section>
+</main>
+
+<script>
+const BASE = location.pathname.replace(/\/[^/]*$/, '/');
+const U = p => BASE + p.replace(/^\//, '');
+const el = id => document.getElementById(id);
+
+function setConn(text, cls) { el('conn').textContent = text; el('conn').className = cls || 'muted'; }
+
+// ---- pan / zoom / click-to-read the camera image ---------------------------
+const viewport = el('viewport'), feed = el('feed'), coords = el('coords');
+let view = { s: 1, tx: 0, ty: 0, inited: false };
+
+const applyView = () => {
+  feed.style.transform = `translate(${view.tx}px,${view.ty}px) scale(${view.s})`;
+  renderManual();   // keep the manual wireframe pinned to the image as it pans/zooms
+};
+const imgW = () => feed.naturalWidth || 0;
+const imgH = () => feed.naturalHeight || 0;
+function vpSize() { const r = viewport.getBoundingClientRect(); return { w: r.width, h: r.height }; }
+
+function fit() {   // "Home": scale to fit + centre
+  const iw = imgW(), ih = imgH();
+  if (!iw || !ih) return;
+  const { w: vw, h: vh } = vpSize();
+  const s = Math.min(vw / iw, vh / ih);
+  view.s = s; view.tx = (vw - iw * s) / 2; view.ty = (vh - ih * s) / 2;
+  applyView();
+}
+
+// screen event -> image pixel coordinate
+function toImage(e) {
+  const r = viewport.getBoundingClientRect();
+  return { x: (e.clientX - r.left - view.tx) / view.s, y: (e.clientY - r.top - view.ty) / view.s };
+}
+function inImage(p) { return p.x >= 0 && p.y >= 0 && p.x <= imgW() && p.y <= imgH(); }
+
+function showHover(e) {
+  const p = toImage(e);
+  coords.textContent = inImage(p) ? `x ${Math.round(p.x)}  y ${Math.round(p.y)}` : '—';
+}
+
+// zoom toward the cursor
+viewport.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = viewport.getBoundingClientRect();
+  const cx = e.clientX - r.left, cy = e.clientY - r.top;
+  const ns = Math.max(0.05, Math.min(40, view.s * Math.exp(-e.deltaY * 0.0015)));
+  view.tx = cx - (cx - view.tx) * (ns / view.s);
+  view.ty = cy - (cy - view.ty) * (ns / view.s);
+  view.s = ns;
+  applyView();
+}, { passive: false });
+
+// drag = pan; a press that doesn't move = click (print image coordinate)
+let drag = null;
+viewport.addEventListener('pointerdown', e => {
+  if (e.target === el('homeBtn')) return;
+  viewport.setPointerCapture(e.pointerId);
+  drag = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty, moved: false };
+  viewport.classList.add('panning');
+});
+viewport.addEventListener('pointermove', e => {
+  showHover(e);
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) drag.moved = true;
+  view.tx = drag.tx + dx; view.ty = drag.ty + dy;
+  applyView();
+});
+viewport.addEventListener('pointerup', e => {
+  viewport.classList.remove('panning');
+  if (drag && !drag.moved && !manual) {   // a click, not a pan -> map it (off in manual mode)
+    const p = toImage(e);
+    if (inImage(p)) {
+      const ix = Math.round(p.x), iy = Math.round(p.y);
+      coords.textContent = `clicked  x ${ix}  y ${iy}`;
+      if (workAreaCalibrated()) clickToMove(ix, iy);   // calibrated -> move robot + drop tag
+    }
+  }
+  drag = null;
+});
+viewport.addEventListener('pointerleave', () => { if (!drag) coords.textContent = '—'; });
+el('homeBtn').onclick = e => { e.stopPropagation(); fit(); };
+
+feed.addEventListener('load', () => { if (!view.inited && imgW()) { fit(); view.inited = true; } });
+window.addEventListener('resize', () => { if (view.inited) fit(); });
+
+// ---- robot cartesian coordinates per corner (entered by hand for now) -------
+const CORNERS = ['TL', 'TR', 'BR', 'BL', 'Center'];
+const ROBOT = {};
+CORNERS.forEach(n => { ROBOT[n] = { x: '', y: '' }; });
+function buildRobotInputs() {
+  const wrap = el('robotInputs');
+  CORNERS.forEach(n => {
+    const row = document.createElement('div');
+    row.className = 'rrow';
+    row.innerHTML = `<span class="rlabel">${n}</span>`
+      + `<span class="ax">X</span><input type="number" step="0.1" data-n="${n}" data-k="x" />`
+      + `<span class="ax">Y</span><input type="number" step="0.1" data-n="${n}" data-k="y" />`
+      + `<button class="getbtn" data-n="${n}" title="Take the robot's current X/Y from the Cartesian tab">Get</button>`
+      + `<button class="calbtn" data-n="${n}" disabled title="Calibrate this point: move head here (Z=-60), read tag #10, park at TL">Cal</button>`
+      + `<button class="movebtn" data-n="${n}" disabled title="Move the head over this point at the move level">Move</button>`
+      + `<button class="manualbtn" data-n="${n}" title="Manually pin the tag wireframe to complete this point (Esc cancels)">Manual</button>`;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('input').forEach(inp => {
+    inp.onchange = () => {
+      markEdited(`r:${inp.dataset.n}:${inp.dataset.k}`);
+      ROBOT[inp.dataset.n][inp.dataset.k] = inp.value; saveCorner(inp.dataset.n); updateCalibButtons();
+    };
+  });
+  wrap.querySelectorAll('.getbtn').forEach(b => { b.onclick = () => getRobotPose(b.dataset.n); });
+  wrap.querySelectorAll('.calbtn').forEach(b => { b.onclick = () => calibrateSingle(b.dataset.n); });
+  wrap.querySelectorAll('.movebtn').forEach(b => { b.onclick = () => moveToPoint(b.dataset.n); });
+  wrap.querySelectorAll('.manualbtn').forEach(b => { b.onclick = () => toggleManual(b.dataset.n); });
+}
+
+// ---- work / move Z levels (persisted) --------------------------------------
+async function loadLevels() {
+  try {
+    const r = await (await fetch(U('/api/levels'))).json();
+    const lv = r.levels || {};
+    if (lv.work != null) el('workLevel').value = lv.work;
+    if (lv.move != null) el('moveLevel').value = lv.move;
+    if (r.move_target) el('moveTarget').value = r.move_target;
+  } catch (_) {}
+}
+function saveLevels() {
+  fetch(U('/api/levels'), {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ work: +el('workLevel').value, move: +el('moveLevel').value }),
+  }).catch(() => {});
+}
+el('workLevel').onchange = () => { markEdited('l:work'); saveLevels(); };
+el('moveLevel').onchange = () => { markEdited('l:move'); saveLevels(); };
+el('moveTarget').onchange = () => {
+  markEdited('movetarget');
+  fetch(U('/api/levels'), {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ move_target: el('moveTarget').value }),
+  }).catch(() => {});
+};
+
+// ---- manual pin: drag a wireframe quad over the tag ------------------------
+const SVGNS = 'http://www.w3.org/2000/svg';
+const HEAD_MARKER = 10;   // the head tag's ArUco id — drawn warped onto the quad
+let manual = null;        // { point, corners:[{x,y}*4] in image px }
+let manualDrag = null;
+let manualOverlay = null;
+let lastCalib = {};
+
+// perspective-warp an element's box onto an arbitrary quad (CSS matrix3d).
+function adj(m) {
+  return [m[4] * m[8] - m[5] * m[7], m[2] * m[7] - m[1] * m[8], m[1] * m[5] - m[2] * m[4],
+          m[5] * m[6] - m[3] * m[8], m[0] * m[8] - m[2] * m[6], m[2] * m[3] - m[0] * m[5],
+          m[3] * m[7] - m[4] * m[6], m[1] * m[6] - m[0] * m[7], m[0] * m[4] - m[1] * m[3]];
+}
+function multmm(a, b) {
+  const c = [];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+    let s = 0; for (let k = 0; k < 3; k++) s += a[3 * i + k] * b[3 * k + j]; c[3 * i + j] = s;
+  }
+  return c;
+}
+function multmv(m, v) {
+  return [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2],
+          m[6] * v[0] + m[7] * v[1] + m[8] * v[2]];
+}
+function basisToPoints(x1, y1, x2, y2, x3, y3, x4, y4) {
+  const m = [x1, x2, x3, y1, y2, y3, 1, 1, 1];
+  const v = multmv(adj(m), [x4, y4, 1]);
+  return multmm(m, [v[0], 0, 0, 0, v[1], 0, 0, 0, v[2]]);
+}
+function warpToQuad(elt, x1, y1, x2, y2, x3, y3, x4, y4) {   // dst order: TL, TR, BL, BR
+  const w = elt.offsetWidth || 100, h = elt.offsetHeight || 100;
+  const s = basisToPoints(0, 0, w, 0, 0, h, w, h);
+  const d = basisToPoints(x1, y1, x2, y2, x3, y3, x4, y4);
+  let t = multmm(d, adj(s));
+  for (let i = 0; i < 9; i++) t[i] = t[i] / t[8];
+  const m = [t[0], t[3], 0, t[6], t[1], t[4], 0, t[7], 0, 0, 1, 0, t[2], t[5], 0, t[8]];
+  elt.style.transform = 'matrix3d(' + m.join(',') + ')';
+}
+
+function buildManualOverlay() {
+  const layer = document.createElement('div'); layer.className = 'manualLayer';
+  const marker = document.createElement('img'); marker.className = 'manualMarker';
+  marker.draggable = false; marker.src = U('/api/marker/' + HEAD_MARKER);   // tag pattern to fit
+  layer.appendChild(marker);
+  const svg = document.createElementNS(SVGNS, 'svg'); svg.setAttribute('class', 'manualSvg');
+  const poly = document.createElementNS(SVGNS, 'polygon'); poly.setAttribute('class', 'manualPoly');
+  const edge0 = document.createElementNS(SVGNS, 'line'); edge0.setAttribute('class', 'manualEdge0');
+  const dirHead = document.createElementNS(SVGNS, 'polygon'); dirHead.setAttribute('class', 'manualDirHead');
+  svg.append(poly, edge0, dirHead); layer.appendChild(svg);
+  const handles = [];
+  for (let i = 0; i < 5; i++) {
+    const h = document.createElement('div');
+    h.className = 'manualHandle' + (i === 0 ? ' first' : '') + (i === 4 ? ' center' : '');
+    h.onpointerdown = e => {
+      e.stopPropagation(); e.preventDefault();
+      h.setPointerCapture(e.pointerId); manualDrag = { i, last: toImage(e) }; h.style.cursor = 'grabbing';
+    };
+    h.onpointermove = e => {
+      if (!manualDrag || manualDrag.i !== i || !manual) return;
+      const img = toImage(e);
+      if (i < 4) manual.corners[i] = { x: img.x, y: img.y };
+      else { const dx = img.x - manualDrag.last.x, dy = img.y - manualDrag.last.y; manual.corners.forEach(c => { c.x += dx; c.y += dy; }); }
+      manualDrag.last = img; renderManual();
+    };
+    h.onpointerup = () => { manualDrag = null; h.style.cursor = 'grab'; };
+    layer.appendChild(h); handles.push(h);
+  }
+  viewport.appendChild(layer);
+  manualOverlay = { layer, marker, poly, edge0, dirHead, handles };
+}
+
+function renderManual() {
+  if (!manualOverlay) return;
+  if (!manual) { manualOverlay.layer.style.display = 'none'; return; }
+  manualOverlay.layer.style.display = 'block';
+  const pts = manual.corners.map(c => ({ x: view.tx + c.x * view.s, y: view.ty + c.y * view.s }));
+  manualOverlay.poly.setAttribute('points', pts.map(p => `${p.x},${p.y}`).join(' '));
+  pts.forEach((p, i) => { const h = manualOverlay.handles[i]; h.style.left = p.x + 'px'; h.style.top = p.y + 'px'; });
+  const cx = pts.reduce((s, p) => s + p.x, 0) / 4, cy = pts.reduce((s, p) => s + p.y, 0) / 4;
+  manualOverlay.handles[4].style.left = cx + 'px'; manualOverlay.handles[4].style.top = cy + 'px';
+
+  // orientation: highlight the first edge (corner0 -> corner1) with an arrowhead at corner1
+  const p0 = pts[0], p1 = pts[1];
+  const e = manualOverlay.edge0;
+  e.setAttribute('x1', p0.x); e.setAttribute('y1', p0.y); e.setAttribute('x2', p1.x); e.setAttribute('y2', p1.y);
+  const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x), L = 11, W = 6;
+  const bx = p1.x - L * Math.cos(ang), by = p1.y - L * Math.sin(ang);
+  const h1x = bx + W * Math.cos(ang + Math.PI / 2), h1y = by + W * Math.sin(ang + Math.PI / 2);
+  const h2x = bx + W * Math.cos(ang - Math.PI / 2), h2y = by + W * Math.sin(ang - Math.PI / 2);
+  manualOverlay.dirHead.setAttribute('points', `${p1.x},${p1.y} ${h1x},${h1y} ${h2x},${h2y}`);
+
+  // warp the tag image onto the quad (corners TL=0, TR=1, BR=2, BL=3)
+  warpToQuad(manualOverlay.marker, p0.x, p0.y, p1.x, p1.y, pts[3].x, pts[3].y, pts[2].x, pts[2].y);
+}
+
+function enterManual(point) {
+  let corners = null;
+  const ex = lastCalib[point] && lastCalib[point].corners;
+  if (Array.isArray(ex) && ex.length === 4) {
+    corners = ex.map(c => Array.isArray(c) ? { x: c[0], y: c[1] } : { x: c.x, y: c.y });
+  } else {
+    const w = imgW() || 640, h = imgH() || 480, s = Math.min(w, h) * 0.15, cx = w / 2, cy = h / 2;
+    corners = [{ x: cx - s, y: cy - s }, { x: cx + s, y: cy - s }, { x: cx + s, y: cy + s }, { x: cx - s, y: cy + s }];
+  }
+  manual = { point, corners };
+  renderManual(); updateManualButtons();
+  const m = el('calibMsg'); m.style.color = 'var(--muted)';
+  m.textContent = `manual ${point}: drag the wireframe onto the tag, then Save (Esc cancels)`;
+}
+function exitManual() { manual = null; manualDrag = null; renderManual(); updateManualButtons(); }
+
+function updateManualButtons() {
+  CORNERS.forEach(n => {
+    const b = el('robotInputs').querySelector(`.manualbtn[data-n="${n}"]`);
+    if (!b) return;
+    const act = manual && manual.point === n;
+    b.textContent = act ? 'Save' : 'Manual';
+    b.classList.toggle('active', !!act);
+  });
+}
+
+async function saveManual() {
+  if (!manual) return;
+  const point = manual.point, w = imgW() || 1, h = imgH() || 1;
+  const cx = manual.corners.reduce((s, c) => s + c.x, 0) / 4, cy = manual.corners.reduce((s, c) => s + c.y, 0) / 4;
+  const r1 = v => Math.round(v * 10) / 10, r4 = v => Math.round(v * 10000) / 10000;
+  const body = {
+    head_px: { x: r1(cx), y: r1(cy) },
+    head_cam: { nx: r4(cx / w), ny: r4(cy / h) },
+    corners: manual.corners.map(c => [r1(c.x), r1(c.y)]),
+  };
+  const m = el('calibMsg');
+  try {
+    const r = await (await fetch(U(`/api/calibrate-manual/${point}`), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })).json();
+    if (!r.ok) { m.textContent = `${point}: ${r.error || 'failed'}`; m.style.color = 'var(--err)'; }
+    else { m.textContent = `${point} pinned manually`; m.style.color = 'var(--ok)'; exitManual(); }
+  } catch (_) { m.textContent = 'offline'; m.style.color = 'var(--err)'; }
+}
+
+function toggleManual(n) { if (manual && manual.point === n) saveManual(); else enterManual(n); }
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && manual) exitManual(); });
+
+// ---- click the working area -> robot move + pointer tag (needs all 4 corners) ----
+function workAreaCalibrated() {
+  return ['TL', 'TR', 'BR', 'BL'].every(n => lastCalib[n] && lastCalib[n].head_px && lastCalib[n].head_px.x != null);
+}
+async function clickToMove(x, y) {
+  const m = el('calibMsg'); m.style.color = 'var(--muted)'; m.textContent = 'mapping click…';
+  try {
+    const r = await (await fetch(U('/api/click'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ px: { x, y } }),
+    })).json();
+    if (!r.ok) { m.textContent = r.error || 'failed'; m.style.color = 'var(--err)'; return; }
+    let t = `→ robot ${r.robot.x}, ${r.robot.y}`;
+    if (r.playground) t += ` · play ${r.playground.x}, ${r.playground.z}`;
+    if (r.move_error) t += ` · move: ${r.move_error}`;
+    m.textContent = t; m.style.color = r.move_error ? 'var(--warn)' : 'var(--ok)';
+  } catch (_) { m.textContent = 'offline'; m.style.color = 'var(--err)'; }
+}
+
+// ---- live sync between windows (don't clobber a field you're editing) -------
+const editedUntil = {};
+const nowMs = () => performance.now();
+function markEdited(key) { editedUntil[key] = nowMs() + 1500; }
+function locked(key, inp) {
+  return (inp && inp === document.activeElement) || nowMs() < (editedUntil[key] || 0);
+}
+function syncRobotInputs(corners) {
+  if (!corners) return;
+  let changed = false;
+  CORNERS.forEach(n => ['x', 'y'].forEach(k => {
+    const inp = inputFor(n, k);
+    if (!inp || locked(`r:${n}:${k}`, inp)) return;
+    const v = corners[n] ? corners[n][k] : null;
+    const want = (v == null) ? '' : String(v);
+    if (inp.value !== want) { inp.value = want; changed = true; }
+    ROBOT[n][k] = want;
+  }));
+  if (changed) updateCalibButtons();
+}
+function syncLevelInputs(levels) {
+  if (!levels) return;
+  [['work', 'workLevel'], ['move', 'moveLevel']].forEach(([k, id]) => {
+    const inp = el(id);
+    if (locked(`l:${k}`, inp) || levels[k] == null) return;
+    const want = String(levels[k]);
+    if (inp.value !== want) inp.value = want;
+  });
+}
+function syncMoveTarget(t) {
+  const sel = el('moveTarget');
+  if (!t || sel === document.activeElement || nowMs() < (editedUntil['movetarget'] || 0)) return;
+  if (sel.value !== t) sel.value = t;
+}
+
+// Move the head over a point at the move level
+async function moveToPoint(n) {
+  const m = el('calibMsg'); m.style.color = 'var(--muted)';
+  m.textContent = `moving to ${n}…`;
+  try {
+    const r = await (await fetch(U(`/api/move-to/${n}`), { method: 'POST' })).json();
+    if (!r.ok) { m.textContent = `${n}: ${r.error || 'failed'}`; m.style.color = 'var(--err)'; }
+    else { m.textContent = `moving to ${n} @ ${r.level} level (${r.z})`; m.style.color = 'var(--ok)'; }
+  } catch (_) { m.textContent = 'offline'; m.style.color = 'var(--err)'; }
+}
+
+// A point's "Cal" needs that point + TL filled (TL is the park-out-of-the-way
+// spot). "Calibrate all" needs TL + at least one point. All disabled while running.
+let calibRunning = false;
+const hasXY = o => o && o.x !== '' && o.x != null && o.y !== '' && o.y != null;
+const calBtn = n => el('robotInputs').querySelector(`.calbtn[data-n="${n}"]`);
+const moveBtn = n => el('robotInputs').querySelector(`.movebtn[data-n="${n}"]`);
+function updateCalibButtons() {
+  const tl = hasXY(ROBOT.TL);
+  el('calibBtn').disabled = calibRunning || !(tl && CORNERS.some(n => hasXY(ROBOT[n])));
+  CORNERS.forEach(n => {
+    const c = calBtn(n); if (c) c.disabled = calibRunning || !(tl && hasXY(ROBOT[n]));
+    const mv = moveBtn(n); if (mv) mv.disabled = calibRunning || !hasXY(ROBOT[n]);   // Move just needs this point
+  });
+}
+
+async function calibrateSingle(n) {
+  if (calibRunning) return;
+  calibRunning = true; updateCalibButtons();
+  const m = el('calibMsg'); m.style.color = 'var(--muted)';
+  m.textContent = `calibrating ${n}… moving the robot`;
+  try {
+    const r = await (await fetch(U(`/api/calibrate/${n}`), { method: 'POST' })).json();
+    if (!r.ok) { m.textContent = `${n}: ${r.error || 'failed'}`; m.style.color = 'var(--err)'; }
+    else { m.textContent = `${n} captured`; m.style.color = 'var(--ok)'; }
+  } catch (_) { m.textContent = 'offline'; m.style.color = 'var(--err)'; }
+  calibRunning = false; updateCalibButtons();
+}
+
+el('calibBtn').onclick = async () => {
+  if (calibRunning) return;
+  calibRunning = true; updateCalibButtons();
+  const m = el('calibMsg'); m.style.color = 'var(--muted)';
+  m.textContent = 'calibrating all… moving the robot';
+  try {
+    const r = await (await fetch(U('/api/calibrate-all'), { method: 'POST' })).json();
+    if (!r.ok) { m.textContent = r.error || 'failed'; m.style.color = 'var(--err)'; }
+    else {
+      const failed = Object.keys(r.failed || {});
+      const parts = [];
+      if (r.done.length) parts.push(`done ${r.done.join(', ')}`);
+      if (r.skipped.length) parts.push(`skipped ${r.skipped.join(', ')}`);
+      if (failed.length) parts.push(`failed ${failed.join(', ')}`);
+      m.textContent = parts.join(' · ') || 'nothing to do';
+      m.style.color = failed.length ? 'var(--err)' : 'var(--ok)';
+    }
+  } catch (_) { m.textContent = 'offline'; m.style.color = 'var(--err)'; }
+  calibRunning = false; updateCalibButtons();
+};
+
+const inputFor = (n, k) => el('robotInputs').querySelector(`input[data-n="${n}"][data-k="${k}"]`);
+
+// persist a corner's X/Y to the server (survives tab switches + restarts)
+function saveCorner(n) {
+  fetch(U('/api/robot-corners'), {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ corner: n, x: ROBOT[n].x === '' ? null : ROBOT[n].x,
+                                      y: ROBOT[n].y === '' ? null : ROBOT[n].y }),
+  }).catch(() => {});
+}
+
+// load the saved values into the inputs on page load
+async function loadRobotCorners() {
+  try {
+    const c = (await (await fetch(U('/api/robot-corners'))).json()).corners || {};
+    CORNERS.forEach(n => ['x', 'y'].forEach(k => {
+      const v = c[n] ? c[n][k] : null;
+      if (v !== null && v !== undefined) { inputFor(n, k).value = v; ROBOT[n][k] = String(v); }
+    }));
+    updateCalibButtons();
+  } catch (_) {}
+}
+
+async function getRobotPose(n) {
+  const msg = el('robotMsg');
+  msg.textContent = 'reading…'; msg.style.color = 'var(--muted)';
+  try {
+    const r = await (await fetch(U('/api/robot-pose'))).json();
+    if (!r.ok) { msg.textContent = r.error || 'failed'; msg.style.color = 'var(--err)'; return; }
+    inputFor(n, 'x').value = r.x; inputFor(n, 'y').value = r.y;
+    ROBOT[n].x = String(r.x); ROBOT[n].y = String(r.y);
+    markEdited(`r:${n}:x`); markEdited(`r:${n}:y`);
+    saveCorner(n); updateCalibButtons();
+    msg.textContent = `${n} ← robot  X ${r.x}  Y ${r.y}`; msg.style.color = 'var(--ok)';
+  } catch (_) { msg.textContent = 'offline'; msg.style.color = 'var(--err)'; }
+}
+
+// ---- captured calibration points table -------------------------------------
+const CALIB_POINTS = ['Center', 'TL', 'TR', 'BR', 'BL'];
+function renderCalib(calib) {
+  calib = calib || {};
+  const f = (o, k) => (o && o[k] != null) ? o[k] : '—';
+  el('calibRows').innerHTML = CALIB_POINTS.map(n => {
+    const c = calib[n] || {};
+    return `<tr><td class="tagid">${n}</td>`
+      + `<td>${f(c.robot, 'x')}</td><td>${f(c.robot, 'y')}</td><td>${f(c.robot, 'z')}</td>`
+      + `<td>${f(c.head_cam, 'nx')}</td><td>${f(c.head_cam, 'ny')}</td>`
+      + `<td>${f(c.head_px, 'x')}</td><td>${f(c.head_px, 'y')}</td>`
+      + `<td>${f(c.playground, 'x')}</td><td>${f(c.playground, 'z')}</td></tr>`;
+  }).join('');
+}
+
+// ---- tracked tags ----------------------------------------------------------
+function applyState(s) {
+  setConn('live', 'ok');
+  lastCalib = s.calib || {};
+  renderCalib(s.calib);
+  syncRobotInputs(s.robot_corners);
+  syncLevelInputs(s.levels);
+  syncMoveTarget(s.move_target);
+  const tags = s.tags || [];
+  el('tagCount').textContent = tags.length ? `· ${tags.length}` : '';
+  el('tagEmpty').style.display = tags.length ? 'none' : '';
+  el('tagRows').innerHTML = tags.map(t =>
+    `<tr><td class="tagid">#${t.id}</td><td>${t.nx}</td><td>${t.ny}</td>`
+    + `<td>${t.rotation}°</td><td>${t.missing > 0 ? t.missing.toFixed(1) + 's' : '—'}</td></tr>`).join('');
+}
+
+el('drawBtn').onclick = async () => {
+  el('drawMsg').textContent = 'drawing…';
+  try {
+    const r = await (await fetch(U('/api/draw-work-area'), { method: 'POST' })).json();
+    if (!r.ok) { el('drawMsg').textContent = r.error || 'failed'; el('drawMsg').style.color = 'var(--err)'; return; }
+    el('drawMsg').style.color = 'var(--muted)';
+    const made = r.created.length ? `drew ${r.created.join(', ')}` : '';
+    const kept = r.kept.length ? `kept ${r.kept.join(', ')}` : '';
+    const ctr = r.center ? `center ${r.center.action} @ ${r.center.x}, ${r.center.z}` : '';
+    el('drawMsg').textContent = [made, kept, ctr].filter(Boolean).join(' · ') || 'done';
+  } catch (_) { el('drawMsg').textContent = 'offline'; el('drawMsg').style.color = 'var(--err)'; }
+};
+
+// ---- boot ------------------------------------------------------------------
+buildRobotInputs();
+buildManualOverlay();
+updateCalibButtons();
+loadRobotCorners();                                  // restore saved robot coordinates
+loadLevels();                                        // restore work / move levels
+feed.src = '/p/webcam/api/stream?t=' + Date.now();   // live MJPEG video
+const es = new EventSource(U('/api/events'));         // live tag list; auto-reconnects
+es.onmessage = e => { try { applyState(JSON.parse(e.data)); } catch (_) {} };
+es.onerror = () => setConn('offline', 'err');
+</script>
+</body>
+</html>

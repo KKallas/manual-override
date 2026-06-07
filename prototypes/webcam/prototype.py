@@ -19,6 +19,7 @@ this folder's requirements.txt to enable it.
 """
 
 import json
+import math
 import os
 import sys
 import threading
@@ -28,13 +29,15 @@ import cv2
 import numpy as np
 from flask import Blueprint, Response, jsonify, request, send_from_directory
 
+import live   # shared push helper (prototypes/live.py)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 MANIFEST = {
     "name": "Webcam",
-    "description": "Live OpenCV camera feed with a camera-selection dropdown. The "
-                   "eyes for the perception stage — ArUco reading builds on this. "
-                   "Needs opencv-python (see the prototype's requirements.txt).",
+    "description": "Live OpenCV camera feed with ArUco (DICT_4X4_50) tracking: a "
+                   "debounced list of tags (id, x, y, rotation) at /api/tags, for "
+                   "other prototypes. Needs opencv-python (see requirements.txt).",
     "default_page": "controller",   # the config screen the hub embeds
     "pages": [
         {"path": "controller", "label": "Controller"},
@@ -61,6 +64,110 @@ RESOLUTIONS = [
     {"w": 3840, "h": 2160, "label": "3840×2160 (4K)"},
 ]
 SETTINGS_PATH = os.path.join(HERE, "camera-settings.json")
+
+# ---- ArUco tag tracking ----------------------------------------------------
+# Detect DICT_4X4_50 markers each frame and keep a debounced list of tags:
+#   * a marker must be seen for > PROMOTE_SECS before it's added to the list
+#     (so a one-frame false positive never appears), and
+#   * once tracked it stays in the list until it's been missing > DROP_SECS.
+# The list (id, x, y, rotation) is exposed over /api/tags and via get_tags() for
+# other prototypes through the hub.
+TAG_DICT = cv2.aruco.DICT_4X4_50
+PROMOTE_SECS = 1.0       # seen this long (continuously) before it's tracked
+DROP_SECS = 3.0          # removed this long after it goes missing
+STREAK_GRACE = 0.5       # a gap longer than this restarts the qualifying clock
+DETECT_MAX_W = 960       # downscale wide frames for fast detection (coords rescaled)
+
+_aruco_dict = cv2.aruco.getPredefinedDictionary(TAG_DICT)
+_detector = cv2.aruco.ArucoDetector(_aruco_dict, cv2.aruco.DetectorParameters())
+
+
+def _detect(frame):
+    """Detect markers; return {id: {x, y, nx, ny, rot, corners}} in full-res
+    pixel coords (plus normalised nx/ny in 0..1, rotation in degrees)."""
+    h, w = frame.shape[:2]
+    scale = DETECT_MAX_W / w if w > DETECT_MAX_W else 1.0
+    small = cv2.resize(frame, None, fx=scale, fy=scale) if scale != 1.0 else frame
+    gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+    corners, ids, _ = _detector.detectMarkers(gray)
+    dets = {}
+    if ids is not None:
+        for c, mid in zip(corners, ids.flatten()):
+            pts = c.reshape(4, 2) / scale            # back to full-res pixels
+            cx, cy = pts.mean(axis=0)
+            dx, dy = pts[1] - pts[0]                  # top edge -> orientation
+            dets[int(mid)] = {
+                "x": float(cx), "y": float(cy),
+                "nx": float(cx / w), "ny": float(cy / h),
+                "rot": float(math.degrees(math.atan2(dy, dx))),
+                "corners": pts,
+            }
+    return dets
+
+
+class TagTracker:
+    """Debounced ArUco tag list with promote-after-1s / drop-after-3s logic."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._tags = {}      # id -> record
+
+    def update(self, dets, now):
+        with self._lock:
+            for mid, d in dets.items():
+                rec = self._tags.get(mid)
+                if rec is None:
+                    rec = {"id": mid, "first_seen": now, "tracked": False, "tracked_since": None}
+                    self._tags[mid] = rec
+                elif not rec["tracked"] and (now - rec["last_seen"]) > STREAK_GRACE:
+                    rec["first_seen"] = now          # streak broke; restart the clock
+                rec["last_seen"] = now
+                rec["x"], rec["y"] = d["x"], d["y"]
+                rec["nx"], rec["ny"] = d["nx"], d["ny"]
+                rec["rot"] = d["rot"]
+                if not rec["tracked"] and (now - rec["first_seen"]) >= PROMOTE_SECS:
+                    rec["tracked"] = True
+                    rec["tracked_since"] = now
+            for mid in list(self._tags):
+                rec = self._tags[mid]
+                age = now - rec["last_seen"]
+                if (rec["tracked"] and age > DROP_SECS) or (not rec["tracked"] and age > STREAK_GRACE):
+                    del self._tags[mid]
+
+    def tags(self, now):
+        """The confirmed tracked tags, sorted by id."""
+        with self._lock:
+            out = []
+            for rec in self._tags.values():
+                if not rec["tracked"] or (now - rec["last_seen"]) > DROP_SECS:
+                    continue
+                out.append({
+                    "id": rec["id"],
+                    "x": round(rec["x"], 1), "y": round(rec["y"], 1),
+                    "nx": round(rec["nx"], 4), "ny": round(rec["ny"], 4),
+                    "rotation": round(rec["rot"], 1),
+                    "missing": round(now - rec["last_seen"], 2),
+                })
+            out.sort(key=lambda t: t["id"])
+            return out
+
+
+_tracker = TagTracker()
+
+
+def get_tags():
+    """Programmatic API for other prototypes (via the hub): the confirmed list of
+    tracked ArUco tags — [{id, x, y, nx, ny, rotation, missing}]."""
+    return _tracker.tags(time.monotonic())
+
+
+def get_tag(tag_id):
+    """One tracked tag by id, or None if it isn't currently tracked."""
+    tag_id = int(tag_id)
+    for t in _tracker.tags(time.monotonic()):
+        if t["id"] == tag_id:
+            return t
+    return None
 
 
 def _backend():
@@ -101,6 +208,7 @@ class CameraManager:
         self._fps = 0.0            # measured capture fps (EMA)
         self._last_ts = 0.0
         self._error = None         # last open/read error, for the UI
+        self._rotate = False       # rotate every frame 180° (display + detection)
         self._no_signal = _placeholder("No camera selected")
 
     # -- lifecycle ------------------------------------------------------------
@@ -193,11 +301,26 @@ class CameraManager:
                 self._last_ts = now
                 self._error = None
 
-    def _process_frame(self, frame):
-        """Hook for per-frame work before encoding. Today: identity.
+    def set_rotate(self, on):
+        with self._lock:
+            self._rotate = bool(on)
+        _save_settings(rotate=self._rotate)
 
-        ArUco detection lands here later — detect markers on `frame`, draw the
-        overlay, and stash the world/pixel positions for an /api/markers route."""
+    def _process_frame(self, frame):
+        """Detect ArUco markers, update the debounced tracker, and draw an
+        overlay (green = tracked, amber = still qualifying)."""
+        if self._rotate:
+            frame = cv2.rotate(frame, cv2.ROTATE_180)
+        now = time.monotonic()
+        dets = _detect(frame)
+        _tracker.update(dets, now)
+        tracked = {t["id"] for t in _tracker.tags(now)}
+        for mid, d in dets.items():
+            color = (0, 220, 0) if mid in tracked else (0, 190, 255)  # BGR
+            cv2.polylines(frame, [d["corners"].astype(np.int32)], True, color, 2)
+            cx, cy = int(d["x"]), int(d["y"])
+            cv2.putText(frame, f"#{mid}  {int(d['rot'])}deg", (cx + 8, cy - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)
         return frame
 
     # -- readers --------------------------------------------------------------
@@ -217,6 +340,7 @@ class CameraManager:
                 "requested_height": self._req_h,
                 "fps": round(self._fps, 1),
                 "error": self._error,
+                "rotate180": self._rotate,
                 "backend": "AVFoundation" if sys.platform == "darwin"
                 else ("DirectShow" if sys.platform.startswith("win") else "default"),
             }
@@ -236,6 +360,11 @@ class CameraManager:
 
 
 _mgr = CameraManager()
+# Sampled state (camera fps + tracked tags change continuously), so the SSE
+# stream re-snapshots on a short interval rather than on a bump. The live VIDEO
+# is a separate MJPEG stream at /api/stream — this only pushes the status+tags
+# panels. See prototypes/live.py.
+_live = live.LiveState()
 
 
 # ---- camera enumeration ----------------------------------------------------
@@ -290,12 +419,39 @@ def _load_settings():
         return None
 
 
-def _save_settings(index, width, height):
+def _save_settings(index=None, width=None, height=None, rotate=None):
+    """Merge the given fields into camera-settings.json (so e.g. toggling rotate
+    doesn't forget the remembered camera, and vice versa)."""
+    cur = {}
+    try:
+        with open(SETTINGS_PATH) as f:
+            cur = json.load(f)
+    except (OSError, ValueError, TypeError):
+        cur = {}
+    if index is not None:
+        cur["index"] = index
+    if width:
+        cur["width"] = width
+    if height:
+        cur["height"] = height
+    if rotate is not None:
+        cur["rotate180"] = bool(rotate)
     try:
         with open(SETTINGS_PATH, "w") as f:
-            json.dump({"index": index, "width": width, "height": height}, f)
+            json.dump(cur, f)
     except OSError:
         pass
+
+
+def _load_rotate():
+    try:
+        with open(SETTINGS_PATH) as f:
+            return bool(json.load(f).get("rotate180", False))
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+_mgr._rotate = _load_rotate()   # restore the remembered rotation
 
 
 # ---- pages -----------------------------------------------------------------
@@ -329,6 +485,31 @@ def api_status():
     return jsonify(st)
 
 
+def _events_dict():
+    st = _mgr.status()
+    st["remembered"] = _load_settings()
+    return {"status": st, "tags": _tracker.tags(time.monotonic())}
+
+
+@bp.route("/api/events")
+def api_events():
+    """Push the camera status + tracked tags ~3x/s while they change. (The live
+    video is the separate MJPEG /api/stream.)"""
+    return _live.stream(_events_dict, interval=0.3)
+
+
+@bp.route("/api/tags")
+def api_tags():
+    """The debounced list of tracked ArUco tags: id, x, y (pixels), nx/ny
+    (normalised 0..1), rotation (degrees), and how long it's been `missing`."""
+    return jsonify({
+        "tags": _tracker.tags(time.monotonic()),
+        "dict": "DICT_4X4_50",
+        "promote_secs": PROMOTE_SECS,
+        "drop_secs": DROP_SECS,
+    })
+
+
 @bp.route("/api/select", methods=["POST"])
 def api_select():
     """Open a camera by index at an optional width/height (and remember both).
@@ -348,6 +529,14 @@ def api_select():
     if not ok:
         return jsonify({"ok": False, "error": err}), 502
     return jsonify({"ok": True, "status": _mgr.status()})
+
+
+@bp.route("/api/rotate", methods=["POST"])
+def api_rotate():
+    """Toggle 180° rotation of the feed (display + detection). Persisted."""
+    on = bool((request.get_json(silent=True) or {}).get("on"))
+    _mgr.set_rotate(on)
+    return jsonify({"ok": True, "rotate180": on})
 
 
 @bp.route("/api/stop", methods=["POST"])
