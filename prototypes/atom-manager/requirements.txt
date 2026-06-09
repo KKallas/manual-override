@@ -1,0 +1,4 @@
+# Atom Manager prototype
+pyserial>=3.5
+# Flashing also needs PlatformIO on PATH (`pio`); install separately:
+#   python3 -m pip install platformio   (or use the official get-platformio.py)
