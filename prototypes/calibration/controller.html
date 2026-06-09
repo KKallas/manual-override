@@ -44,6 +44,17 @@
     cursor:grab; touch-action:none; z-index:6; }
   .manualHandle.first { background:var(--warn); }           /* corner 0 = orientation anchor */
   .manualHandle.center { width:18px; height:18px; margin:-9px 0 0 -9px; background:#fff; border-color:var(--accent); }
+  /* 3-layer corner overlay (screen / work / move pins) */
+  .layer3 { position:absolute; inset:0; z-index:4; pointer-events:none; display:none; }
+  .layer3Svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+  .clickSvg { position:absolute; inset:0; width:100%; height:100%; overflow:visible;
+    pointer-events:none; z-index:5; }
+  .layerbtn { padding:5px 12px; font-size:12px; }
+  .layerpx { font-family:ui-monospace,Menlo,monospace; font-size:11px; color:var(--muted);
+    min-width:62px; display:inline-block; margin-right:6px; font-variant-numeric:tabular-nums; }
+  .legend { display:inline-flex; gap:10px; align-items:center; font-size:11px; color:var(--muted); }
+  .legend i { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px;
+    vertical-align:middle; }
   .bar { display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
   button { background:#232733; border:1px solid var(--line); color:var(--txt); padding:9px 16px;
     border-radius:6px; font:inherit; cursor:pointer; }
@@ -60,8 +71,7 @@
   .rrow input:focus { outline:none; border-color:var(--accent); }
   .rrow { flex-wrap:wrap; }
   .rrow .getbtn { padding:5px 12px; font-size:12px; margin-left:6px; }
-  .rrow .calbtn, .rrow .movebtn, .rrow .manualbtn { padding:5px 12px; font-size:12px; margin-left:4px; }
-  .rrow .manualbtn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .rrow .calbtn, .rrow .movebtn { padding:5px 12px; font-size:12px; margin-left:4px; }
   .lvlinput { width:64px; background:#0c0e12; border:1px solid var(--line); color:var(--accent);
     border-radius:5px; padding:5px 7px; font:inherit; font-size:13px; text-align:right;
     font-variant-numeric:tabular-nums; -moz-appearance:textfield; margin-left:4px; }
@@ -89,6 +99,8 @@
   <!-- camera feed: pan / zoom / home / click-to-read -->
   <div class="viewport" id="viewport">
     <img id="feed" alt="webcam feed" draggable="false" />
+    <div class="layer3" id="layer3"><svg class="layer3Svg" id="layer3Svg"></svg></div>
+    <svg class="clickSvg" id="clickSvg"></svg>
     <button class="ovl home" id="homeBtn" title="Reset view">⌂ Home</button>
     <div class="ovl coords" id="coords">—</div>
   </div>
@@ -114,6 +126,25 @@
         title="Calibrate every point that has coordinates (each: move head there at Z=-60, read tag #10, park at TL). Needs TL filled.">
         Calibrate all</button>
       <span id="calibMsg" class="muted"></span>
+    </div>
+  </section>
+
+  <!-- three-layer corner capture: screen / work / move -->
+  <section class="panel">
+    <h2><span>Corner layers
+      <span class="legend">
+        <span><i style="background:#36c46b"></i>screen</span>
+        <span><i style="background:#f5a623"></i>work</span>
+        <span><i style="background:#4f9dff"></i>move</span>
+      </span></span><span id="layersMsg" class="muted"></span></h2>
+    <p class="muted" style="margin:0 0 12px">
+      Screen = the corner tag (ids 1–4) on the surface. Work/Move = head tag #10 with the
+      TCP parked over the corner at that Z level (needs the corner's robot X/Y).</p>
+    <div class="rgrid" id="layerInputs"></div>
+    <div class="bar" style="margin:14px 0 0">
+      <button id="overlayBtn">Show overlay</button>
+      <button id="layerPinBtn" hidden></button>
+      <span class="muted">draws the 3 layers × 4 corner pins on the feed</span>
     </div>
   </section>
 
@@ -156,7 +187,9 @@ let view = { s: 1, tx: 0, ty: 0, inited: false };
 
 const applyView = () => {
   feed.style.transform = `translate(${view.tx}px,${view.ty}px) scale(${view.s})`;
-  renderManual();   // keep the manual wireframe pinned to the image as it pans/zooms
+  renderManual();      // keep the manual wireframe pinned to the image as it pans/zooms
+  renderLayers3();     // and the 3-layer corner pins
+  renderClick();       // and the click cross
 };
 const imgW = () => feed.naturalWidth || 0;
 const imgH = () => feed.naturalHeight || 0;
@@ -218,6 +251,7 @@ viewport.addEventListener('pointerup', e => {
     if (inImage(p)) {
       const ix = Math.round(p.x), iy = Math.round(p.y);
       coords.textContent = `clicked  x ${ix}  y ${iy}`;
+      lastClick = { x: ix, y: iy }; renderClick();     // mark where we clicked
       if (workAreaCalibrated()) clickToMove(ix, iy);   // calibrated -> move robot + drop tag
     }
   }
@@ -233,6 +267,18 @@ window.addEventListener('resize', () => { if (view.inited) fit(); });
 const CORNERS = ['TL', 'TR', 'BR', 'BL', 'Center'];
 const ROBOT = {};
 CORNERS.forEach(n => { ROBOT[n] = { x: '', y: '' }; });
+
+// ---- three-layer corner overlay state --------------------------------------
+const CORNERS4 = ['TL', 'TR', 'BR', 'BL'];
+const LAYER_DEFS = [
+  { key: 'screen', label: 'Screen', color: '#36c46b' },   // corner tag on the surface
+  { key: 'work',   label: 'Work',   color: '#f5a623' },   // head #10 at work Z
+  { key: 'move',   label: 'Move',   color: '#4f9dff' },   // head #10 at move Z
+];
+let lastLayers = {};
+let overlayOn = false;
+let pendingPin = null;   // { corner, layer } offered after a failed auto capture
+let lastClick = null;    // { x, y } last clicked image pixel, drawn as a cross
 function buildRobotInputs() {
   const wrap = el('robotInputs');
   CORNERS.forEach(n => {
@@ -243,8 +289,7 @@ function buildRobotInputs() {
       + `<span class="ax">Y</span><input type="number" step="0.1" data-n="${n}" data-k="y" />`
       + `<button class="getbtn" data-n="${n}" title="Take the robot's current X/Y from the Cartesian tab">Get</button>`
       + `<button class="calbtn" data-n="${n}" disabled title="Calibrate this point: move head here (Z=-60), read tag #10, park at TL">Cal</button>`
-      + `<button class="movebtn" data-n="${n}" disabled title="Move the head over this point at the move level">Move</button>`
-      + `<button class="manualbtn" data-n="${n}" title="Manually pin the tag wireframe to complete this point (Esc cancels)">Manual</button>`;
+      + `<button class="movebtn" data-n="${n}" disabled title="Move the head over this point at the move level">Move</button>`;
     wrap.appendChild(row);
   });
   wrap.querySelectorAll('input').forEach(inp => {
@@ -256,8 +301,113 @@ function buildRobotInputs() {
   wrap.querySelectorAll('.getbtn').forEach(b => { b.onclick = () => getRobotPose(b.dataset.n); });
   wrap.querySelectorAll('.calbtn').forEach(b => { b.onclick = () => calibrateSingle(b.dataset.n); });
   wrap.querySelectorAll('.movebtn').forEach(b => { b.onclick = () => moveToPoint(b.dataset.n); });
-  wrap.querySelectorAll('.manualbtn').forEach(b => { b.onclick = () => toggleManual(b.dataset.n); });
 }
+
+// ---- three-layer corner capture (screen / work / move) ---------------------
+function buildLayerInputs() {
+  const wrap = el('layerInputs');
+  CORNERS4.forEach(n => {
+    const row = document.createElement('div');
+    row.className = 'rrow';
+    row.innerHTML = `<span class="rlabel">${n}</span>`
+      + LAYER_DEFS.map(L =>
+          `<button class="layerbtn" data-n="${n}" data-l="${L.key}" style="border-color:${L.color}"`
+          + ` title="Record the ${L.label.toLowerCase()} layer for ${n}">${L.label}</button>`
+          + `<span class="layerpx" data-n="${n}" data-l="${L.key}">—</span>`).join('');
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('.layerbtn').forEach(b => {
+    b.onclick = () => recordLayer(b.dataset.n, b.dataset.l);
+  });
+}
+
+async function recordLayer(corner, layer) {
+  const m = el('layersMsg'); m.style.color = 'var(--muted)';
+  m.textContent = layer === 'screen' ? `reading ${corner} tag…` : `moving to ${corner} (${layer})…`;
+  try {
+    const r = await (await fetch(U(`/api/record-corner/${corner}/${layer}`), { method: 'POST' })).json();
+    if (!r.ok) {
+      m.textContent = `${corner}/${layer}: ${r.error || 'failed'}`; m.style.color = 'var(--err)';
+      offerManualPin(corner, layer);                    // couldn't auto-detect → let them pin it
+    } else {
+      m.textContent = `${corner} ${layer} ← ${r.uv.x}, ${r.uv.y}`; m.style.color = 'var(--ok)';
+      pendingPin = null; updateManualButtons();
+    }
+  } catch (_) { m.textContent = 'offline'; m.style.color = 'var(--err)'; }
+}
+
+// When an auto capture fails, offer the manual wireframe pin for that corner/layer.
+// The shared layerPinBtn toggles "Pin… → Save" (see updateManualButtons / saveManual).
+function offerManualPin(corner, layer) { pendingPin = { corner, layer }; updateManualButtons(); }
+
+el('layerPinBtn').onclick = () => {
+  if (manual) saveManual();
+  else if (pendingPin) enterLayerManual(pendingPin.corner, pendingPin.layer);
+};
+
+function syncLayerPx() {
+  const wrap = el('layerInputs'); if (!wrap) return;
+  CORNERS4.forEach(n => LAYER_DEFS.forEach(L => {
+    const span = wrap.querySelector(`.layerpx[data-n="${n}"][data-l="${L.key}"]`);
+    if (!span) return;
+    const u = lastLayers[n] && lastLayers[n][L.key];
+    span.textContent = u ? `${u.x},${u.y}` : '—';
+    span.style.color = u ? L.color : 'var(--muted)';
+  }));
+}
+
+// image px -> current viewport px (matches the feed's pan/zoom transform)
+const imgToView = (x, y) => ({ x: view.tx + x * view.s, y: view.ty + y * view.s });
+
+// crosshair at the last clicked image pixel (fixed screen size, pinned through pan/zoom)
+function renderClick() {
+  const svg = el('clickSvg'); if (!svg) return;
+  if (!lastClick) { svg.innerHTML = ''; return; }
+  const p = imgToView(lastClick.x, lastClick.y), g = 4, a = 18;
+  const arms = [[p.x - a - g, p.y, p.x - g, p.y], [p.x + g, p.y, p.x + a + g, p.y],
+                [p.x, p.y - a - g, p.x, p.y - g], [p.x, p.y + g, p.x, p.y + a + g]];
+  const ln = (s, col, wd) => `<line x1="${s[0]}" y1="${s[1]}" x2="${s[2]}" y2="${s[3]}" `
+    + `stroke="${col}" stroke-width="${wd}" stroke-linecap="round"/>`;
+  const parts = arms.map(s => ln(s, 'rgba(0,0,0,0.6)', 4))     // dark halo for contrast
+    .concat(arms.map(s => ln(s, '#ff3df5', 2)));               // bright magenta cross
+  parts.push(`<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="#ff3df5" stroke="rgba(0,0,0,0.6)" stroke-width="1"/>`);
+  svg.innerHTML = parts.join('');
+}
+
+function renderLayers3() {
+  const svg = el('layer3Svg'); if (!svg) return;
+  if (!overlayOn) { el('layer3').style.display = 'none'; return; }
+  el('layer3').style.display = 'block';
+  const parts = [];
+  LAYER_DEFS.forEach(L => {
+    const pts = CORNERS4.map(c => {
+      const u = lastLayers[c] && lastLayers[c][L.key];
+      return u && u.x != null ? imgToView(u.x, u.y) : null;
+    });
+    const seen = pts.filter(Boolean);
+    if (pts.every(Boolean)) {
+      parts.push(`<polygon points="${pts.map(p => `${p.x},${p.y}`).join(' ')}" `
+        + `fill="none" stroke="${L.color}" stroke-width="2" stroke-opacity="0.9"/>`);
+    } else if (seen.length >= 2) {
+      parts.push(`<polyline points="${seen.map(p => `${p.x},${p.y}`).join(' ')}" `
+        + `fill="none" stroke="${L.color}" stroke-width="1.5" stroke-dasharray="4 4" stroke-opacity="0.7"/>`);
+    }
+    pts.forEach((p, i) => {
+      if (!p) return;
+      parts.push(`<circle cx="${p.x}" cy="${p.y}" r="5" fill="${L.color}" stroke="#fff" stroke-width="1.5"/>`);
+      parts.push(`<text x="${p.x + 8}" y="${p.y - 8}" fill="${L.color}" font-size="11" `
+        + `font-family="ui-monospace,Menlo,monospace">${CORNERS4[i]}</text>`);
+    });
+  });
+  svg.innerHTML = parts.join('');
+}
+
+el('overlayBtn').onclick = () => {
+  overlayOn = !overlayOn;
+  el('overlayBtn').classList.toggle('primary', overlayOn);
+  el('overlayBtn').textContent = overlayOn ? 'Hide overlay' : 'Show overlay';
+  renderLayers3();
+};
 
 // ---- work / move Z levels (persisted) --------------------------------------
 async function loadLevels() {
@@ -381,58 +531,53 @@ function renderManual() {
   warpToQuad(manualOverlay.marker, p0.x, p0.y, p1.x, p1.y, pts[3].x, pts[3].y, pts[2].x, pts[2].y);
 }
 
-function enterManual(point) {
-  let corners = null;
-  const ex = lastCalib[point] && lastCalib[point].corners;
-  if (Array.isArray(ex) && ex.length === 4) {
-    corners = ex.map(c => Array.isArray(c) ? { x: c[0], y: c[1] } : { x: c.x, y: c.y });
-  } else {
-    const w = imgW() || 640, h = imgH() || 480, s = Math.min(w, h) * 0.15, cx = w / 2, cy = h / 2;
-    corners = [{ x: cx - s, y: cy - s }, { x: cx + s, y: cy - s }, { x: cx + s, y: cy + s }, { x: cx - s, y: cy + s }];
-  }
-  manual = { point, corners };
+function enterLayerManual(corner, layer) {
+  const u = lastLayers[corner] && lastLayers[corner][layer];
+  const w = imgW() || 640, h = imgH() || 480, s = Math.min(w, h) * 0.1;
+  const cx = (u && u.x != null) ? u.x : w / 2, cy = (u && u.y != null) ? u.y : h / 2;
+  const corners = [{ x: cx - s, y: cy - s }, { x: cx + s, y: cy - s },
+                   { x: cx + s, y: cy + s }, { x: cx - s, y: cy + s }];
+  manual = { corner, layer, corners };
+  pendingPin = null;
   renderManual(); updateManualButtons();
-  const m = el('calibMsg'); m.style.color = 'var(--muted)';
-  m.textContent = `manual ${point}: drag the wireframe onto the tag, then Save (Esc cancels)`;
+  const m = el('layersMsg'); m.style.color = 'var(--muted)';
+  m.textContent = `manual ${corner}/${layer}: drag the wireframe onto the tag, then Save (Esc cancels)`;
 }
 function exitManual() { manual = null; manualDrag = null; renderManual(); updateManualButtons(); }
 
+// The single shared pin button: "Pin…" after a failed capture, "Save" while pinning.
 function updateManualButtons() {
-  CORNERS.forEach(n => {
-    const b = el('robotInputs').querySelector(`.manualbtn[data-n="${n}"]`);
-    if (!b) return;
-    const act = manual && manual.point === n;
-    b.textContent = act ? 'Save' : 'Manual';
-    b.classList.toggle('active', !!act);
-  });
+  const b = el('layerPinBtn');
+  if (manual) { b.hidden = false; b.textContent = `Save ${manual.corner}/${manual.layer}`; b.classList.add('primary'); }
+  else if (pendingPin) { b.hidden = false; b.textContent = `Pin ${pendingPin.corner}/${pendingPin.layer} manually`; b.classList.remove('primary'); }
+  else { b.hidden = true; b.classList.remove('primary'); }
 }
 
 async function saveManual() {
   if (!manual) return;
-  const point = manual.point, w = imgW() || 1, h = imgH() || 1;
+  const { corner, layer } = manual, w = imgW() || 1, h = imgH() || 1;
   const cx = manual.corners.reduce((s, c) => s + c.x, 0) / 4, cy = manual.corners.reduce((s, c) => s + c.y, 0) / 4;
   const r1 = v => Math.round(v * 10) / 10, r4 = v => Math.round(v * 10000) / 10000;
-  const body = {
-    head_px: { x: r1(cx), y: r1(cy) },
-    head_cam: { nx: r4(cx / w), ny: r4(cy / h) },
-    corners: manual.corners.map(c => [r1(c.x), r1(c.y)]),
-  };
-  const m = el('calibMsg');
+  const body = { px: { x: r1(cx), y: r1(cy) }, cam: { nx: r4(cx / w), ny: r4(cy / h) } };
+  const m = el('layersMsg');
   try {
-    const r = await (await fetch(U(`/api/calibrate-manual/${point}`), {
+    const r = await (await fetch(U(`/api/record-corner/${corner}/${layer}`), {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     })).json();
-    if (!r.ok) { m.textContent = `${point}: ${r.error || 'failed'}`; m.style.color = 'var(--err)'; }
-    else { m.textContent = `${point} pinned manually`; m.style.color = 'var(--ok)'; exitManual(); }
+    if (!r.ok) { m.textContent = `${corner}/${layer}: ${r.error || 'failed'}`; m.style.color = 'var(--err)'; }
+    else {
+      m.textContent = `${corner} ${layer} pinned ← ${r.uv.x}, ${r.uv.y}`; m.style.color = 'var(--ok)';
+      lastLayers[corner] = lastLayers[corner] || {}; lastLayers[corner][layer] = r.uv;
+      syncLayerPx(); exitManual(); renderLayers3();
+    }
   } catch (_) { m.textContent = 'offline'; m.style.color = 'var(--err)'; }
 }
 
-function toggleManual(n) { if (manual && manual.point === n) saveManual(); else enterManual(n); }
 window.addEventListener('keydown', e => { if (e.key === 'Escape' && manual) exitManual(); });
 
 // ---- click the working area -> robot move + pointer tag (needs all 4 corners) ----
-function workAreaCalibrated() {
-  return ['TL', 'TR', 'BR', 'BL'].every(n => lastCalib[n] && lastCalib[n].head_px && lastCalib[n].head_px.x != null);
+function workAreaCalibrated() {   // click-to-move maps through the screen-layer corners
+  return CORNERS4.every(n => lastLayers[n] && lastLayers[n].screen && lastLayers[n].screen.x != null);
 }
 async function clickToMove(x, y) {
   const m = el('calibMsg'); m.style.color = 'var(--muted)'; m.textContent = 'mapping click…';
@@ -507,6 +652,11 @@ function updateCalibButtons() {
     const c = calBtn(n); if (c) c.disabled = calibRunning || !(tl && hasXY(ROBOT[n]));
     const mv = moveBtn(n); if (mv) mv.disabled = calibRunning || !hasXY(ROBOT[n]);   // Move just needs this point
   });
+  // work/move layer captures drive the robot, so they need this corner's X/Y
+  CORNERS4.forEach(n => ['work', 'move'].forEach(l => {
+    const b = el('layerInputs') && el('layerInputs').querySelector(`.layerbtn[data-n="${n}"][data-l="${l}"]`);
+    if (b) b.disabled = calibRunning || !hasXY(ROBOT[n]);
+  }));
 }
 
 async function calibrateSingle(n) {
@@ -600,6 +750,9 @@ function applyState(s) {
   setConn('live', 'ok');
   lastCalib = s.calib || {};
   renderCalib(s.calib);
+  lastLayers = s.corner_layers || {};
+  syncLayerPx();
+  renderLayers3();
   syncRobotInputs(s.robot_corners);
   syncLevelInputs(s.levels);
   syncMoveTarget(s.move_target);
@@ -626,6 +779,7 @@ el('drawBtn').onclick = async () => {
 
 // ---- boot ------------------------------------------------------------------
 buildRobotInputs();
+buildLayerInputs();
 buildManualOverlay();
 updateCalibButtons();
 loadRobotCorners();                                  // restore saved robot coordinates
