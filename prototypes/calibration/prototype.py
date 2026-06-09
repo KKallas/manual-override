@@ -170,6 +170,56 @@ def _save_levels():
 _load_levels()
 
 
+# ---- three-layer corner calibration ----------------------------------------
+# For each corner we capture up to three SCREEN positions, all of the same
+# physical corner but on different planes (so each plane has its own UV):
+#   "screen" : the corner's own ArUco tag (ids 1-4) lying on the work surface
+#   "work"   : head tag #10 with the TCP parked over the corner at work-level Z
+#   "move"   : head tag #10 with the TCP parked over the corner at move-level Z
+# The surface plane is the one a click should map through; the two head planes
+# show the head tag's parallax at each working height. Drawn as 3 overlay layers.
+CORNERS4 = ["TL", "TR", "BR", "BL"]
+CORNER_TAGS = {"TL": 1, "TR": 2, "BR": 3, "BL": 4}   # ArUco ids on the surface
+LAYER_KEYS = ["screen", "work", "move"]
+# The camera views the field from UNDERNEATH, so the surface corner tags land
+# left-right mirrored vs the robot/scene frame (same flip WORK_AREA bakes in). When
+# mapping a click we pair each robot/playground corner with the screen tag of its
+# left-right mirror, so the same physical corner is matched.
+MIRROR_LR = {"TL": "TR", "TR": "TL", "BR": "BL", "BL": "BR"}
+
+LAYERS3_PATH = os.path.join(HERE, "corner-layers.json")
+_corner_layers = {c: {k: None for k in LAYER_KEYS} for c in CORNERS4}
+
+
+def _load_corner_layers():
+    try:
+        with open(LAYERS3_PATH) as f:
+            data = json.load(f)
+    except (OSError, ValueError, TypeError):
+        return
+    if not isinstance(data, dict):
+        return
+    for c in CORNERS4:
+        v = data.get(c)
+        if not isinstance(v, dict):
+            continue
+        for k in LAYER_KEYS:
+            u = v.get(k)
+            if isinstance(u, dict) and u.get("x") is not None:
+                _corner_layers[c][k] = {f: u.get(f) for f in ("x", "y", "nx", "ny")}
+
+
+def _save_corner_layers():
+    try:
+        with open(LAYERS3_PATH, "w") as f:
+            json.dump(_corner_layers, f, indent=2)
+    except OSError:
+        pass
+
+
+_load_corner_layers()
+
+
 # ---- cross-prototype access ------------------------------------------------
 def _webcam():
     return _ctx.get_prototype(WEBCAM) if _ctx else None
@@ -254,6 +304,7 @@ def _state_dict():
         "robot_corners": _robot_xy,
         "levels": _levels,
         "move_target": _move_target,
+        "corner_layers": _corner_layers,
     }
 
 
@@ -564,11 +615,86 @@ def calibrate_manual(point):
     return jsonify({"ok": True, "point": point, "record": _calib[point]})
 
 
+# ---- three-layer corner recording ------------------------------------------
+def _read_tag_uv(cam, tag_id, fresh=0.4, tries=30):
+    """Wait briefly for a fresh sighting of `tag_id`; return its screen UV
+    (px + normalised) or None."""
+    for _ in range(tries):
+        t = cam.get_tag(tag_id)
+        if t and float(t.get("missing", 99)) <= fresh:
+            return {"x": round(float(t["x"]), 1), "y": round(float(t["y"]), 1),
+                    "nx": round(float(t["nx"]), 4), "ny": round(float(t["ny"]), 4)}
+        time.sleep(0.1)
+    return None
+
+
+@bp.route("/api/record-corner/<corner>/<layer>", methods=["POST"])
+def record_corner(corner, layer):
+    """Capture one corner on one plane:
+      screen -> read that corner's own tag (id 1-4) where it sits on the surface;
+      work/move -> drive head tag #10 over the corner at that level's Z, read it.
+    Stores the screen UV into the 3-layer overlay set."""
+    if corner not in CORNERS4:
+        return jsonify({"ok": False, "error": "unknown corner"}), 400
+    if layer not in LAYER_KEYS:
+        return jsonify({"ok": False, "error": "unknown layer"}), 400
+
+    # Manual pin: the client sends the pixel it clicked (used when the tag can't be
+    # auto-detected at this level). No camera read, no robot motion.
+    data = request.get_json(silent=True) or {}
+    px = data.get("px")
+    if isinstance(px, dict) and px.get("x") is not None and px.get("y") is not None:
+        cam_uv = data.get("cam") or {}
+        try:
+            uv = {"x": round(float(px["x"]), 1), "y": round(float(px["y"]), 1),
+                  "nx": None if cam_uv.get("nx") is None else round(float(cam_uv["nx"]), 4),
+                  "ny": None if cam_uv.get("ny") is None else round(float(cam_uv["ny"]), 4)}
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "bad pixel"}), 400
+        _corner_layers[corner][layer] = uv
+        _save_corner_layers()
+        _live.bump()
+        return jsonify({"ok": True, "corner": corner, "layer": layer, "uv": uv, "manual": True})
+
+    cam = _webcam()
+    if cam is None or not _webcam_on():
+        return jsonify({"ok": False, "error": "webcam is off"}), 409
+
+    if layer == "screen":
+        tag_id = CORNER_TAGS[corner]
+        uv = _read_tag_uv(cam, tag_id)
+        if uv is None:
+            return jsonify({"ok": False, "error": f"corner tag #{tag_id} not seen"}), 409
+    else:
+        err = _prereq_error()
+        if err:
+            return jsonify({"ok": False, "error": err}), 409
+        p = _robot_xy.get(corner)
+        if not p or p["x"] is None or p["y"] is None:
+            return jsonify({"ok": False, "error": f"{corner} robot coordinates are missing"}), 409
+        z = _levels.get(layer)
+        if z is None:
+            return jsonify({"ok": False, "error": f"{layer} level is not set"}), 409
+        ok, reason = _cartesian().move_to(p["x"], p["y"], z)
+        if not ok:
+            return jsonify({"ok": False, "error": f"move to {corner} failed: {reason}"}), 502
+        uv = _read_tag_uv(cam, HEAD_TAG)
+        if uv is None:
+            return jsonify({"ok": False, "error": f"head tag #{HEAD_TAG} not seen at {layer} level"}), 409
+
+    _corner_layers[corner][layer] = uv
+    _save_corner_layers()
+    _live.bump()
+    return jsonify({"ok": True, "corner": corner, "layer": layer, "uv": uv})
+
+
 # ---- click-to-move: video pixel -> robot move + pointer tag -----------------
 @bp.route("/api/click", methods=["POST"])
 def click_point():
-    """Map a clicked video pixel through the 4 calibrated corners to robot XY (and
-    move the head there) and to playground XZ (drop a green pointer tag, id 5)."""
+    """Map a clicked video pixel through the four SCREEN-layer corners (the corner
+    tags on the work surface) to robot XY (and move the head there) and to
+    playground XZ (drop a green pointer tag, id 5). Source = surface plane, so the
+    click, the corners and the tool tip all live on the same plane."""
     if not _HAS_CV:
         return jsonify({"ok": False, "error": "opencv needed for the click mapping"}), 503
     data = request.get_json(silent=True) or {}
@@ -576,20 +702,23 @@ def click_point():
     if not isinstance(px, dict) or px.get("x") is None or px.get("y") is None:
         return jsonify({"ok": False, "error": "bad pixel"}), 400
 
+    pf = _playfield()
+    pf_areas = {a.get("name"): a for a in pf.list_areas()} if pf is not None else {}
     src, rob, pg = [], [], []
     have_pg = True
     for n in ("TL", "TR", "BR", "BL"):
-        c = _calib.get(n)
-        if not c or not c.get("head_px") or c["head_px"].get("x") is None:
-            return jsonify({"ok": False, "error": f"{n} is not calibrated yet"}), 409
-        src.append([float(c["head_px"]["x"]), float(c["head_px"]["y"])])
-        r = c.get("robot")
+        sn = MIRROR_LR[n]                      # camera is from underneath -> mirror the screen tag
+        s = _corner_layers[sn].get("screen")
+        if not s or s.get("x") is None:
+            return jsonify({"ok": False, "error": f"{sn} screen layer is not recorded yet"}), 409
+        src.append([float(s["x"]), float(s["y"])])
+        r = _robot_xy.get(n)
         if not r or r.get("x") is None or r.get("y") is None:
             return jsonify({"ok": False, "error": f"{n} has no robot coordinates"}), 409
         rob.append([float(r["x"]), float(r["y"])])
-        p = c.get("playground")
-        if p and p.get("x") is not None:
-            pg.append([float(p["x"]), float(p["z"])])
+        a = pf_areas.get(n)
+        if a and a.get("x") is not None:
+            pg.append([float(a["x"]), float(a["z"])])
         else:
             have_pg = False
 
