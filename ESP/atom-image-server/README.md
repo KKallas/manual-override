@@ -19,6 +19,11 @@ push to it as raw **RGB565** bitmap data.
 4. **SEND → DEVICE** packs the framed pixels to RGB565 (big-endian, 32768 bytes)
    and POSTs them to `/frame`; the firmware `pushImage()`s them to the panel.
 
+The last frame is **mirrored to flash** (LittleFS), so a reboot or power-cycle
+comes back up showing the same image instead of the status screen. Tap the
+screen-button to recall the WiFi/IP status; it returns to the frame on the next
+push or reboot.
+
 ## Serial console (client mode)
 
 Open the serial monitor at **115200** (`pio device monitor`) and type:
@@ -58,11 +63,24 @@ either back in later.
 | Method | Path     | Body                                   | Effect                          |
 |--------|----------|----------------------------------------|---------------------------------|
 | GET    | `/`      | —                                      | serves the framing UI           |
-| POST   | `/frame` | multipart file `frame`, 32768 B RGB565 | draws the frame to the LCD      |
+| GET    | `/state` | —                                      | JSON: marker id, frame + battery state |
+| POST   | `/frame` | multipart file `frame`, 32768 B RGB565 | draws the frame, saves it to flash |
 
 `/frame` uses the core `WebServer` multipart **upload** handler, which is
 binary-safe and needs no async-web dependency. The page sends the bytes as a
-`FormData` blob.
+`FormData` blob. An optional `?mid=<n>` query records which ArUco marker the
+frame is, so `/state` can report it back (the atom-manager host sends this).
+
+`/state` returns the device's current state for polling clients:
+
+```json
+{ "markerId": 3, "hasFrame": true, "battery": { "mv": 4050, "pct": 83 } }
+```
+
+- `markerId` — ArUco id of the displayed frame, or `-1` if unknown.
+- `hasFrame` — whether a full frame is stored/displayed.
+- `battery` — pack voltage in millivolts and a rough 0–100 % (1S LiPo,
+  3.3 V → 0 %, 4.2 V → 100 %), read from the GPIO 8 ADC (2:1 divider).
 
 ## Build & flash
 

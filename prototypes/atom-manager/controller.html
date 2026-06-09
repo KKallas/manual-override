@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Atom Manager — Controller</title>
+<style>
+  /* base palette + components come from the shared /theme.css (linked below);
+     this only adds layout specific to the device list + console. */
+  :root { --bg:#0d0f0d; --line:#2a3128; --ink:#c8d4c0; --dim:#5e6b58; --hot:#b6ff3a; }
+  * { box-sizing: border-box; }
+  body { margin:0; color: var(--ink); }
+  header { padding: 12px 18px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; gap: 12px; }
+  header h1 { font-size: 15px; margin: 0; }
+  main { max-width: 880px; margin: 0 auto; padding: 18px; }
+  .bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .wifi { display: flex; gap: 8px; align-items: center; color: var(--dim);
+    font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  .wifi input { width: 130px; padding: 5px 8px; }
+  #msg { font-size: 12px; }
+
+  /* panels: match the cartesian look — padded card + small uppercase heading
+     (the shared theme styles colors but not size/padding, so set them here) */
+  .panel { padding: 16px 18px; }
+  .panel h2 { font-size: 12px; margin: 0 0 12px; }
+  .hint { color: var(--dim); font-size: 11px; letter-spacing: .04em; margin: -4px 0 12px; }
+
+  .device { margin-bottom: 12px; }
+  .dhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .port { font-family: ui-monospace, Menlo, monospace; color: var(--hot); font-size: 13px; }
+  .badge { font-size: 9px; border: 1px solid var(--hot); color: var(--hot); padding: 1px 6px;
+    border-radius: 999px; letter-spacing: .12em; text-transform: uppercase; }
+  .badge.other { border-color: var(--line); color: var(--dim); }
+  .desc { color: var(--dim); font-size: 12px; }
+  .dctl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .dstat { font-size: 12px; margin-left: 4px; }
+  .dstat.ok { color: var(--hot); } .dstat.err { color: #ff5b3a; } .dstat.busy { color: #ffb13a; }
+
+  .empty { color: var(--dim); padding: 30px; text-align: center; letter-spacing: .06em; }
+  #console { background:#0c0e0c; border:1px solid var(--line); border-radius:6px; padding:10px;
+    height: 240px; overflow:auto; white-space: pre-wrap; margin:0;
+    font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--ink); }
+  .err { color:#ff5b3a; }
+  /* status line under the units list — regular size, wraps cleanly */
+  #msg, #unitsMsg, #credMsg, .dstat { overflow-wrap: anywhere; min-width: 0; }
+  #unitsMsg { display: block; font-size: 12px; margin-top: 10px; }
+
+  /* units — styled like the cartesian "saved locations" rows, selectable */
+  #units { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; }
+  .unit { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer;
+    background:#13161c; border:1px solid var(--line); border-radius:8px; padding:7px 10px; }
+  .unit.active { border-color: var(--hot); box-shadow: inset 0 0 0 1px var(--hot); }
+  .unum { color: var(--dim); font-size: 12px; width: 26px; font-variant-numeric: tabular-nums; }
+  .unit.active .unum { color: var(--hot); }
+  .uip { width: 130px; padding: 3px 5px; }
+  .ustat { display:flex; align-items:center; gap:6px; min-width:84px; font-size:12px; color:var(--dim); }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--dim); display:inline-block; }
+  .dot.on { background: var(--hot); box-shadow:0 0 6px var(--hot); }
+  .dot.off { background:#ff5b3a; }
+  .ubat { min-width:74px; font-size:11px; color:var(--dim); font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, Menlo, monospace; }
+  .ubat.low { color:#ff5b3a; }
+  .usend { display:flex; align-items:center; gap:6px; margin-left:auto; color:var(--dim);
+    font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  .umid, .ubri { width:50px; padding:3px 5px; text-align:right; font-size:12px; }
+  .ucol { width:30px; height:22px; padding:0; border:1px solid var(--line); border-radius:4px;
+    background:none; cursor:pointer; vertical-align:middle; }
+
+  /* foldable Setup section */
+  .setup { margin-top: 4px; }
+  .setup > summary { cursor: pointer; list-style: none; padding: 10px 14px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--pad);
+    color: var(--dim); text-transform: uppercase; letter-spacing: .1em; font-size: 12px; }
+  .setup > summary::-webkit-details-marker { display: none; }
+  .setup > summary::before { content: "▸ "; color: var(--dim); }
+  .setup[open] > summary { border-color: var(--hot); color: var(--hot); margin-bottom: 14px; }
+  .setup[open] > summary::before { content: "▾ "; color: var(--hot); }
+  .dctl .assign { color: var(--hot); border-color: var(--line); }
+  .dctl .assign:disabled { color: var(--dim); }
+</style>
+  <link rel="stylesheet" href="/theme.css" />
+</head>
+<body>
+<header>
+  <h1>Atom Manager</h1>
+  <span class="sub">attached AtomS3R devices</span>
+</header>
+<main>
+  <!-- Units: always visible -->
+  <section class="panel">
+    <h2>Units</h2>
+    <div class="hint">networked · polled every 15s · click a row to select the active slot</div>
+    <div id="units"></div>
+    <div id="unitsMsg" class="muted"></div>
+  </section>
+
+  <!-- Setup: serial flashing + WiFi, folds away -->
+  <details class="setup">
+    <summary>Setup — serial devices &amp; WiFi</summary>
+    <div class="bar">
+      <button id="refresh" title="Re-scan the computer's USB serial ports for attached Atoms">Rescan ports</button>
+      <span class="wifi">
+        ssid <input id="ssid" type="text" placeholder="network" />
+        pass <input id="pass" type="password" placeholder="password" autocomplete="off" />
+        <span id="credMsg"></span>
+      </span>
+      <span id="msg" class="muted"></span>
+    </div>
+
+    <div id="devices"></div>
+
+    <section class="panel">
+      <h2>Console <span id="consolePort" class="muted" style="text-transform:none;letter-spacing:0"></span></h2>
+      <pre id="console"></pre>
+    </section>
+  </details>
+</main>
+
+<script>
+const BASE = location.pathname.replace(/\/[^/]*$/, '/');
+const U = p => BASE + p.replace(/^\//, '');
+const el = id => document.getElementById(id);
+const devicesEl = el('devices'), consoleEl = el('console'), consolePort = el('consolePort');
+const ssidEl = el('ssid'), passEl = el('pass');
+let activeSlot = null;        // selected unit row (id) for "assign IP -> slot"
+const lastIp = {};            // port -> last IP that device reported over serial
+
+function msg(t, cls) { el('msg').textContent = t; el('msg').className = cls || 'muted'; }
+async function postJSON(path, body) {
+  try {
+    const r = await fetch(U(path), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body) });
+    return await r.json();
+  } catch (_) { return { ok: false, error: 'offline' }; }
+}
+
+function setDStat(port, text, cls) {
+  const s = devicesEl.querySelector(`.device[data-port="${CSS.escape(port)}"] .dstat`);
+  if (s) { s.textContent = text; s.className = 'dstat' + (cls ? ' ' + cls : ''); }
+}
+function disableDev(port, on) {
+  devicesEl.querySelectorAll(`.device[data-port="${CSS.escape(port)}"] button`)
+    .forEach(b => b.disabled = on);
+}
+function toConsole(port, text) { consolePort.textContent = port; consoleEl.textContent = text || ''; }
+
+// ---- device list -----------------------------------------------------------
+async function refresh() {
+  msg('scanning…');
+  let r;
+  try { r = await (await fetch(U('api/devices'))).json(); } catch (_) { r = { ok: false, error: 'offline' }; }
+  if (!r.ok) { msg(r.error || 'failed', 'err'); }
+  else msg(r.devices.length ? `${r.devices.length} device${r.devices.length > 1 ? 's' : ''}` : '');
+  const devs = (r.devices) || [];
+  if (!devs.length) {
+    devicesEl.innerHTML = '<div class="empty">No serial devices. Plug in an Atom over USB-C and hit Refresh.</div>';
+    return;
+  }
+  devicesEl.innerHTML = '';
+  for (const d of devs) {
+    const card = document.createElement('section');
+    card.className = 'panel device';
+    card.dataset.port = d.port;
+    const idtxt = [d.description, (d.vid ? `${d.vid}:${d.pid}` : '')].filter(Boolean).join(' · ');
+    card.innerHTML =
+      `<div class="dhead">
+         <span class="port">${d.port}</span>
+         <span class="badge${d.is_atom ? '' : ' other'}">${d.is_atom ? 'ATOM' : 'SERIAL'}</span>
+         <span class="desc">${idtxt}</span>
+       </div>
+       <div class="dctl">
+         <button data-act="wifi">Set WiFi</button>
+         <button data-act="ip">Get IP</button>
+         <button class="assign" data-act="assign" disabled
+           title="Assign this device's IP to the selected unit slot">→ unit</button>
+         <button data-act="flash">Flash</button>
+         <span class="dstat muted">${d.flashing ? 'flashing…' : ''}</span>
+       </div>`;
+    card.querySelector('[data-act="wifi"]').onclick = () => setWifi(d.port);
+    card.querySelector('[data-act="ip"]').onclick = () => getIp(d.port);
+    card.querySelector('[data-act="assign"]').onclick = () => assignToSlot(d.port);
+    card.querySelector('[data-act="flash"]').onclick = () => flash(d.port);
+    devicesEl.appendChild(card);
+    if (d.flashing) { disableDev(d.port, true); poll(d.port); }
+  }
+  updateAssignButtons();   // restore enabled/label state after the rebuild
+}
+el('refresh').onclick = refresh;
+
+// ---- per-device actions ----------------------------------------------------
+async function getIp(port) {
+  setDStat(port, 'reading…', 'busy');
+  const r = await postJSON('api/ip', { port });
+  if (!r.ok) { setDStat(port, r.error, 'err'); return; }
+  toConsole(port, r.output);
+  if (r.ip) { lastIp[port] = r.ip; updateAssignButtons(); }
+  setDStat(port, r.ip ? ('IP ' + r.ip) : 'no IP', r.ip ? 'ok' : 'err');
+}
+
+async function setWifi(port) {
+  await saveCreds();                                   // persist field values first
+  if (!ssidEl.value.trim()) { msg('enter an SSID above first', 'err'); return; }
+  setDStat(port, 'joining…', 'busy');
+  const r = await postJSON('api/wifi', { port });      // server uses the saved creds
+  if (!r.ok) { setDStat(port, r.error, 'err'); return; }
+  toConsole(port, r.output);
+  if (r.ip) { lastIp[port] = r.ip; updateAssignButtons(); }
+  setDStat(port, r.ip ? ('IP ' + r.ip) : 'no IP (check creds)', r.ip ? 'ok' : 'err');
+}
+
+async function flash(port) {
+  setDStat(port, 'flashing…', 'busy');
+  disableDev(port, true);
+  toConsole(port, '');
+  const r = await postJSON('api/flash', { port });
+  if (!r.ok) { setDStat(port, r.error, 'err'); disableDev(port, false); return; }
+  poll(port);
+}
+
+function poll(port) {
+  const t = setInterval(async () => {
+    let s;
+    try { s = await (await fetch(U('api/flash-status?port=' + encodeURIComponent(port)))).json(); }
+    catch (_) { return; }
+    if (consolePort.textContent === port || !consolePort.textContent) {
+      consolePort.textContent = port; consoleEl.textContent = s.log || '';
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+    if (s.status !== 'running') {
+      clearInterval(t);
+      const ok = s.status === 'done';
+      setDStat(port, ok ? 'flashed ✓' : 'flash failed', ok ? 'ok' : 'err');
+      disableDev(port, false);
+      setTimeout(refresh, 1500);   // the port may re-enumerate after a flash
+    }
+  }, 1000);
+}
+
+// ---- saved WiFi credentials (password lives server-side, never shown) ------
+const credMsg = el('credMsg');
+async function loadCreds() {
+  try {
+    const c = await (await fetch(U('api/wifi-creds'))).json();
+    ssidEl.value = c.ssid || '';
+    passEl.placeholder = c.has_password ? 'saved — blank keeps it' : 'password';
+    credMsg.textContent = c.has_password ? '🔒 saved' : '';
+  } catch (_) {}
+}
+async function saveCreds() {
+  const c = await postJSON('api/wifi-creds', { ssid: ssidEl.value.trim(), password: passEl.value });
+  if (c && c.ok) {
+    passEl.value = '';                                   // never keep the password in the field
+    passEl.placeholder = c.has_password ? 'saved — blank keeps it' : 'password';
+    credMsg.textContent = c.has_password ? '🔒 saved' : '';
+  }
+}
+ssidEl.onchange = saveCreds;
+passEl.onchange = saveCreds;
+
+// ---- units (10 networked slots, polled server-side every 15s) --------------
+const unitsEl = el('units');
+let unitsBuilt = false;
+function buildUnits(units) {
+  unitsEl.innerHTML = '';
+  for (const u of units) {
+    const row = document.createElement('div');
+    row.className = 'unit'; row.dataset.id = u.id;
+    row.innerHTML =
+      `<span class="unum">${String(u.id + 1).padStart(2, '0')}</span>
+       <input class="uip" type="text" placeholder="192.168.x.x" />
+       <span class="ustat"><i class="dot"></i><span class="utext">—</span></span>
+       <span class="ubat" title="battery (from device)">—</span>
+       <span class="usend">aruco
+         <input class="umid" type="number" min="0" max="5" value="${u.mid ?? 0}" />
+         bri <input class="ubri" type="number" min="0" max="255" value="${u.bri ?? 255}" />
+         col <input class="ucol" type="color" value="${u.col ?? '#ffffff'}" title="tag color" />
+         <button class="ubtn">Send</button></span>`;
+    const ipi = row.querySelector('.uip');
+    ipi.value = u.ip || '';
+    ipi.onchange = () => setUnitIp(u.id, ipi.value.trim());
+    row.querySelector('.ubtn').onclick = () =>
+      sendAruco(u.id, row.querySelector('.umid').value,
+                row.querySelector('.ubri').value, row.querySelector('.ucol').value);
+    row.onclick = () => selectSlot(u.id);   // click anywhere on the row to select it
+    unitsEl.appendChild(row);
+  }
+  unitsBuilt = true;
+  if (activeSlot != null) selectSlot(activeSlot);   // keep the highlight after a rebuild
+}
+
+// ---- row selection + "assign IP -> active slot" ----------------------------
+function selectSlot(id) {
+  activeSlot = id;
+  unitsEl.querySelectorAll('.unit').forEach(r => r.classList.toggle('active', +r.dataset.id === id));
+  updateAssignButtons();
+}
+function updateAssignButtons() {
+  devicesEl.querySelectorAll('[data-act="assign"]').forEach(b => {
+    const port = b.closest('.device').dataset.port;
+    b.disabled = !lastIp[port] || activeSlot == null;
+    b.textContent = activeSlot != null ? `→ unit ${activeSlot + 1}` : '→ unit';
+  });
+}
+async function assignToSlot(port) {
+  if (!lastIp[port]) { setDStat(port, 'get an IP first', 'err'); return; }
+  if (activeSlot == null) { msg('select a unit row first', 'err'); return; }
+  await setUnitIp(activeSlot, lastIp[port]);
+  setDStat(port, `→ unit ${activeSlot + 1} (${lastIp[port]})`, 'ok');
+}
+function paintUnits(units) {
+  for (const u of units) {
+    const row = unitsEl.querySelector(`.unit[data-id="${u.id}"]`); if (!row) continue;
+    const ipi = row.querySelector('.uip');
+    if (document.activeElement !== ipi) ipi.value = u.ip || '';
+    const midi = row.querySelector('.umid'), brii = row.querySelector('.ubri');
+    const coli = row.querySelector('.ucol');
+    if (document.activeElement !== midi && u.mid != null) midi.value = u.mid;
+    if (document.activeElement !== brii && u.bri != null) brii.value = u.bri;
+    if (document.activeElement !== coli && u.col) coli.value = u.col;
+    const dot = row.querySelector('.dot'), txt = row.querySelector('.utext');
+    if (!u.ip) { dot.className = 'dot'; txt.textContent = '—'; }
+    else if (u.online) { dot.className = 'dot on'; txt.textContent = 'online'; }
+    else { dot.className = 'dot off'; txt.textContent = 'offline'; }
+    const bat = row.querySelector('.ubat');
+    if (u.bat && u.bat.mv != null) {
+      const pct = u.bat.pct != null ? `${u.bat.pct}%` : '';
+      bat.textContent = `${pct} ${(u.bat.mv / 1000).toFixed(2)}V`.trim();
+      bat.classList.toggle('low', u.bat.pct != null && u.bat.pct <= 15);
+    } else { bat.textContent = '—'; bat.classList.remove('low'); }
+  }
+}
+async function refreshUnits() {
+  let r; try { r = await (await fetch(U('api/units'))).json(); } catch (_) { return; }
+  if (!r.units) return;
+  if (!unitsBuilt) buildUnits(r.units);
+  paintUnits(r.units);
+}
+async function setUnitIp(id, ip) {
+  try {
+    await fetch(U(`api/units/${id}`), { method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip }) });
+  } catch (_) {}
+  setTimeout(refreshUnits, 400);
+}
+async function sendAruco(id, mid, bri, col) {
+  el('unitsMsg').textContent = `sending #${mid} → unit ${id + 1}…`; el('unitsMsg').className = 'muted';
+  const r = await postJSON(`api/units/${id}/aruco`,
+    { id: parseInt(mid, 10) || 0, brightness: parseInt(bri, 10), color: col });
+  el('unitsMsg').textContent = r.ok
+    ? `sent aruco #${r.id} (bri ${r.brightness}, ${r.color}) → unit ${id + 1}`
+    : `unit ${id + 1}: ${r.error || 'failed'}`;
+  el('unitsMsg').className = r.ok ? 'muted' : 'err';
+}
+
+// ---- boot ------------------------------------------------------------------
+loadCreds();
+refresh();
+refreshUnits();
+setInterval(refreshUnits, 5000);   // reflect the server-side 15s poll
+</script>
+</body>
+</html>

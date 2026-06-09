@@ -16,12 +16,23 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Preferences.h>
+#include <LittleFS.h>
 
 #include "index_html.h"
 
 static const uint16_t FRAME_W = 128;
 static const uint16_t FRAME_H = 128;
 static const size_t   FRAME_BYTES = (size_t)FRAME_W * FRAME_H * 2;  // 32768
+
+// The last pushed frame is mirrored to flash so the panel restores it on boot.
+static const char* FRAME_PATH = "/frame.bin";
+
+// Battery sense ADC. AtomS3R / AtomS3 read the pack through a 2:1 divider on
+// GPIO 8 (the older Atom series uses GPIO 33). analogReadMilliVolts() already
+// applies the eFuse calibration, so we just double it back to pack volts.
+static const int      BAT_ADC_PIN = 8;
+static const int      BAT_FULL_MV = 4200;  // 1S LiPo at 100%
+static const int      BAT_EMPTY_MV = 3300; // treat as 0%
 
 // SoftAP fallback credentials. Password must be >= 8 chars, or "" for open.
 static const char* AP_SSID = "AtomFramer";
@@ -34,7 +45,8 @@ Preferences prefs;
 
 static uint8_t frameBuf[FRAME_BYTES];
 static size_t  frameLen = 0;     // bytes received so far in the current upload
-static bool    frameOk  = false; // last upload was exactly FRAME_BYTES
+static bool    frameOk  = false; // a full frame is currently stored/displayed
+static int     markerId = -1;    // ArUco id of the stored frame (-1 = unknown)
 
 static String  lineBuf;          // serial line accumulator
 static String  pendingSsid;      // ssid we're currently trying to join
@@ -44,6 +56,50 @@ static uint32_t staDeadline = 0;
 static bool apActive() {
   auto m = WiFi.getMode();
   return m == WIFI_AP || m == WIFI_AP_STA;
+}
+
+// ---- frame display + persistence -------------------------------------------
+// Push frameBuf to the panel. The page packs RGB565 big-endian (high byte
+// first); typing the source as swap565_t lets M5GFX convert from that byte
+// order to the panel's native order itself (reading it as a plain uint16
+// rotates the channels: red->blue, green->red, blue->green).
+static void pushFrame() {
+  M5.Display.startWrite();
+  M5.Display.pushImage(0, 0, FRAME_W, FRAME_H, (const m5gfx::swap565_t*)frameBuf);
+  M5.Display.endWrite();
+}
+
+// Mirror the current frame (and its marker id) to flash so a reboot restores it.
+static void saveFrame() {
+  File f = LittleFS.open(FRAME_PATH, "w");
+  if (!f) { Serial.println("save: open failed"); return; }
+  size_t n = f.write(frameBuf, FRAME_BYTES);
+  f.close();
+  prefs.putInt("mid", markerId);
+  if (n != FRAME_BYTES) Serial.printf("save: short write %u/%u\n", (unsigned)n, (unsigned)FRAME_BYTES);
+}
+
+// Load a previously saved frame into frameBuf. Returns true if a full frame was
+// restored; the caller pushes it to the panel.
+static bool loadFrame() {
+  if (!LittleFS.exists(FRAME_PATH)) return false;
+  File f = LittleFS.open(FRAME_PATH, "r");
+  if (!f) return false;
+  size_t n = f.read(frameBuf, FRAME_BYTES);
+  f.close();
+  if (n != FRAME_BYTES) return false;
+  markerId = prefs.getInt("mid", -1);
+  return true;
+}
+
+// ---- battery ---------------------------------------------------------------
+static int batteryMilliVolts() {
+  return (int)analogReadMilliVolts(BAT_ADC_PIN) * 2;  // undo the 2:1 divider
+}
+
+static int batteryPercent(int mv) {
+  int pct = (mv - BAT_EMPTY_MV) * 100 / (BAT_FULL_MV - BAT_EMPTY_MV);
+  return pct < 0 ? 0 : (pct > 100 ? 100 : pct);
 }
 
 // ---- on-screen status ------------------------------------------------------
@@ -102,7 +158,7 @@ static void startAP() {
   WiFi.mode(WIFI_AP);
   WiFi.softAP(AP_SSID, AP_PASS);
   Serial.printf("SoftAP \"%s\"  http://%s/\n", AP_SSID, WiFi.softAPIP().toString().c_str());
-  showStatus();
+  if (!frameOk) showStatus();  // keep a restored frame on screen; status is on the button
 }
 
 static void startSTA(const String& ssid, const String& pass, bool save) {
@@ -116,7 +172,7 @@ static void startSTA(const String& ssid, const String& pass, bool save) {
   staConnecting = true;
   staDeadline = millis() + STA_TIMEOUT_MS;
   Serial.printf("joining \"%s\"... (waiting for DHCP)\n", ssid.c_str());
-  showStatus();
+  if (!frameOk) showStatus();  // keep a restored frame on screen; status is on the button
 }
 
 // Watch a pending STA join; report the IP once DHCP lands, or fall back to AP.
@@ -126,7 +182,7 @@ static void pollSTA() {
     staConnecting = false;
     Serial.println("connected.");
     reportIP();
-    showStatus();
+    if (frameOk) pushFrame(); else showStatus();  // don't wipe a restored frame
   } else if ((int32_t)(millis() - staDeadline) >= 0) {
     staConnecting = false;
     Serial.println("join timed out — starting SoftAP.");
@@ -198,20 +254,28 @@ static void handleFrameUpload() {
   }
 }
 
-// Runs after the upload completes; pushes the frame if it was the right size.
+// Runs after the upload completes; pushes the frame if it was the right size,
+// then mirrors it to flash so it survives a reboot. An optional ?mid=<n> query
+// arg records which ArUco marker this frame is, so GET /state can report it.
 static void handleFrameDone() {
   if (!frameOk) {
     server.send(400, "text/plain", "expected 32768 bytes of RGB565");
     return;
   }
-  // The page packs RGB565 big-endian (high byte first). Type the source as
-  // swap565_t so M5GFX converts from that byte order to the panel's native order
-  // itself — no guessing setSwapBytes / host endianness. (Reading the bytes as a
-  // plain uint16 is what rotated the channels: red->blue, green->red, blue->green.)
-  M5.Display.startWrite();
-  M5.Display.pushImage(0, 0, FRAME_W, FRAME_H, (const m5gfx::swap565_t*)frameBuf);
-  M5.Display.endWrite();
+  markerId = server.hasArg("mid") ? server.arg("mid").toInt() : -1;
+  pushFrame();
+  saveFrame();
   server.send(200, "text/plain", "OK");
+}
+
+// GET /state: current device state for the host poller / local GUI.
+static void handleState() {
+  int mv = batteryMilliVolts();
+  String s = "{\"markerId\":" + String(markerId)
+           + ",\"hasFrame\":" + (frameOk ? "true" : "false")
+           + ",\"battery\":{\"mv\":" + String(mv)
+           + ",\"pct\":" + String(batteryPercent(mv)) + "}}";
+  server.send(200, "application/json", s);
 }
 
 void setup() {
@@ -219,20 +283,18 @@ void setup() {
   M5.begin(cfg);
   M5.Display.setRotation(0);
 
-  // Boot color self-test: native red|green|blue bars, drawn with M5GFX color
-  // constants (independent of the HTTP upload path). If these are NOT red, green,
-  // blue left-to-right, the panel's own color order is the fault; if they ARE
-  // correct, any color problem is in the pushed data format instead.
-  {
-    int w = M5.Display.width() / 3, h = M5.Display.height();
-    M5.Display.fillRect(0, 0, w, h, TFT_RED);
-    M5.Display.fillRect(w, 0, w, h, TFT_GREEN);
-    M5.Display.fillRect(2 * w, 0, M5.Display.width() - 2 * w, h, TFT_BLUE);
-    delay(1500);
-  }
+  // Battery ADC: 12-bit, 2:1 divider on GPIO 8 (see batteryMilliVolts()).
+  pinMode(BAT_ADC_PIN, INPUT);
+  analogReadResolution(12);
 
   Serial.begin(115200);
   prefs.begin("wifi", false);
+
+  // Restore the last image from flash (if any) and paint it immediately, so the
+  // panel comes straight up showing the frame — no boot animation, no status
+  // screen, no WiFi wait. Format on first mount.
+  if (!LittleFS.begin(true)) Serial.println("LittleFS mount failed — frame won't persist");
+  if (loadFrame()) { frameOk = true; pushFrame(); }
 
   // Bring WiFi up FIRST — this initialises the lwIP/TCP-IP stack. Starting the
   // web server before any WiFi.mode() call asserts "Invalid mbox" in lwIP.
@@ -241,6 +303,7 @@ void setup() {
   else startAP();
 
   server.on("/", HTTP_GET, handleRoot);
+  server.on("/state", HTTP_GET, handleState);
   // POST /frame: (responder, upload-handler) — the upload handler fires first.
   server.on("/frame", HTTP_POST, handleFrameDone, handleFrameUpload);
   server.begin();
