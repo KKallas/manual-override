@@ -81,6 +81,20 @@
     padding:10px; height:130px; overflow-y:auto; white-space:pre-wrap; }
   .log-err{color:var(--err);} .log-ok{color:var(--ok);} .log-info{color:var(--muted);}
   .hint { color:var(--muted); font-size:12px; margin-top:8px; }
+  select { background:#0c0e12; border:1px solid var(--line); color:var(--txt);
+    padding:8px 10px; border-radius:6px; font:inherit; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+  .seg button { border:none; border-radius:0; padding:8px 14px; background:#13161c; color:var(--muted); }
+  .seg button.active { background:var(--accent); color:#fff; }
+  .seg button:not(:last-child) { border-right:1px solid var(--line); }
+  .relayStat { margin-top:10px; font-size:12px; display:none; align-items:center; gap:10px; flex-wrap:wrap; }
+  .relayStat.show { display:flex; }
+  .relayStat .side { font-weight:600; text-transform:capitalize; }
+  .relayStat .side.purple { color:#b07bff; }
+  .relayStat .side.green { color:#36c46b; }
+  .relayStat .hold { color:var(--ok); }
+  .relayStat .nohold { color:var(--warn); }
+  .relayStat .estop { color:var(--err); font-weight:600; }
 </style>
   <link rel="stylesheet" href="/theme.css" />
 </head>
@@ -97,7 +111,19 @@
   <section class="panel">
     <h2>Connection</h2>
     <div class="row">
+      <span class="hint" style="margin:0">Link</span>
+      <span class="seg" id="linkSeg">
+        <button type="button" data-link="direct" class="active">Direct</button>
+        <button type="button" data-link="relay">Relay</button>
+      </span>
+      <!-- Direct: talk to the MG400 by IP. -->
       <input type="text" id="ip" value="192.168.1.6" />
+      <!-- Relay: forward to a remote game-master relay over HTTP. -->
+      <input type="text" id="relayHost" value="http://localhost:8000" style="width:200px;display:none" />
+      <select id="relaySide" style="display:none">
+        <option value="purple">Purple</option>
+        <option value="green">Green</option>
+      </select>
       <button id="btnConnect" class="primary">Connect</button>
       <button id="btnDisconnect" disabled>Disconnect</button>
       <span style="flex:1"></span>
@@ -105,7 +131,13 @@
       <button id="btnDisable" disabled>Disable</button>
       <button id="btnClear" disabled>Clear Error</button>
     </div>
-    <div class="hint">Robot must be in API mode — see
+    <div class="relayStat" id="relayStat">
+      <span class="side" id="relaySideTxt">—</span>
+      <span id="relayHoldTxt"></span>
+      <span id="relayLeaseTxt"></span>
+      <span id="relayEstopTxt"></span>
+    </div>
+    <div class="hint" id="connHint">Robot must be in API mode — see
       docs/operations/dobot-api-mode.md. Connect opens control 29999 · motion
       30003 · feedback 30004.</div>
   </section>
@@ -306,6 +338,30 @@ function setControlsEnabled(on) {
   document.getElementById("btnConnect").disabled = on;
 }
 
+// Relay link status line: side (purple/green), whether we hold the floor, the
+// remaining lease, and an E-STOP / "held by other side" warning. Hidden in
+// direct mode.
+function applyRelayStatus(s) {
+  const bar = document.getElementById("relayStat");
+  if (s.link !== "relay") { bar.classList.remove("show"); return; }
+  bar.classList.add("show");
+  const side = s.side || "—";
+  const sideTxt = document.getElementById("relaySideTxt");
+  sideTxt.textContent = "Side: " + side;
+  sideTxt.className = "side " + (side === "purple" || side === "green" ? side : "");
+  const holds = s.holder && s.side && s.holder === s.side;
+  const hold = document.getElementById("relayHoldTxt");
+  hold.textContent = holds ? "● you hold the floor"
+    : (s.holder ? `held by ${s.holder}` : "no holder");
+  hold.className = holds ? "hold" : "nohold";
+  const lease = document.getElementById("relayLeaseTxt");
+  lease.textContent = (typeof s.lease_secs === "number")
+    ? `lease ${s.lease_secs.toFixed(1)} s` : "";
+  const estop = document.getElementById("relayEstopTxt");
+  estop.textContent = s.estop ? "⚠ E-STOP active" : "";
+  estop.className = "estop";
+}
+
 async function poll() { applyStatus(await api("/api/status")); }   // one-shot pull
 function applyStatus(s) {
   const connPill = document.getElementById("connPill");
@@ -316,6 +372,8 @@ function applyStatus(s) {
   document.getElementById("modePill").className =
     "pill " + (s.error ? "error" : (s.enabled ? "on" : "off"));
   if (s.connected !== connected) setControlsEnabled(s.connected);
+
+  applyRelayStatus(s);
 
   document.getElementById("sFeed").textContent = s.feedback_ok ? "OK (8 ms)" : "—";
   document.getElementById("sMode").textContent = (s.robot_mode ?? "—") + " · " + (s.mode_name || "");
@@ -452,11 +510,37 @@ async function doEstop() {
   report("E-STOP", await api("/api/estop", {}));
 }
 
+// Connection link mode: "direct" (IP) or "relay" (remote game-master). Toggling
+// just swaps which inputs are shown; Connect sends the matching JSON body.
+let linkMode = "direct";
+function setLinkMode(mode) {
+  linkMode = mode;
+  document.querySelectorAll("#linkSeg button").forEach(b =>
+    b.classList.toggle("active", b.dataset.link === mode));
+  const relay = mode === "relay";
+  document.getElementById("ip").style.display = relay ? "none" : "";
+  document.getElementById("relayHost").style.display = relay ? "" : "none";
+  document.getElementById("relaySide").style.display = relay ? "" : "none";
+  document.getElementById("connHint").textContent = relay
+    ? "Relay link: commands forward to the game-master relay over HTTP (no robot on this LAN). Pick your side, then Connect to take the floor."
+    : "Robot must be in API mode — see docs/operations/dobot-api-mode.md. "
+      + "Connect opens control 29999 · motion 30003 · feedback 30004.";
+}
+
 function wire() {
+  document.querySelectorAll("#linkSeg button").forEach(b =>
+    b.onclick = () => setLinkMode(b.dataset.link));
   document.getElementById("btnConnect").onclick = async () => {
-    const ip = document.getElementById("ip").value.trim();
-    log(`Connecting to ${ip} …`);
-    report("connect", await api("/api/connect", { ip }));
+    if (linkMode === "relay") {
+      const host = document.getElementById("relayHost").value.trim();
+      const side = document.getElementById("relaySide").value;
+      log(`Connecting to relay ${host} as ${side} …`);
+      report("connect (relay)", await api("/api/connect", { mode:"relay", host, side }));
+    } else {
+      const ip = document.getElementById("ip").value.trim();
+      log(`Connecting to ${ip} …`);
+      report("connect", await api("/api/connect", { mode:"direct", ip }));
+    }
   };
   document.getElementById("btnDisconnect").onclick = async () =>
     report("disconnect", await api("/api/disconnect", {}));
@@ -514,6 +598,7 @@ async function init() {
   buildAxes();
   buildSlots();
   wire();
+  setLinkMode("direct");
   setControlsEnabled(false);
   poll();   // initial paint
   const es = new EventSource(BASE + "api/events");   // live pushes; auto-reconnects
