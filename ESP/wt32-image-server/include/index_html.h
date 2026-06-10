@@ -94,6 +94,11 @@ static const char INDEX_HTML[] PROGMEM = R"=====(<!DOCTYPE html>
     border:1px solid var(--line);padding:8px;min-width:0}
   .hsurl:focus{outline:none;border-color:var(--hot)}
   .hint2{font-size:10px;color:var(--dim);letter-spacing:.04em}
+  .peers{display:flex;flex-direction:column;gap:4px;font-size:11px}
+  .peerrow{display:flex;gap:8px;align-items:baseline;cursor:pointer}
+  .peerrow:hover .pn{text-decoration:underline}
+  .peerrow .pn{color:var(--hot);font-weight:700}
+  .peerrow .pip{color:var(--dim);font-size:10px}
 </style>
 </head>
 <body>
@@ -169,7 +174,15 @@ static const char INDEX_HTML[] PROGMEM = R"=====(<!DOCTYPE html>
         <input class="hsurl" data-cell="3" placeholder="bottom-right · 1-4 or URL">
       </div>
       <button id="saveBtns">SAVE HOTSPOTS</button>
-      <div class="hint2">just <b>1–4</b> = show that slot here · <b>http://other-ip/show?slot=0</b> = flip another unit</div>
+      <div class="hint2">just <b>1–4</b> = show that slot here · <b>red_oak:1</b> = another unit by name</div>
+    </div>
+
+    <div class="div"></div>
+
+    <div class="group">
+      <span class="label">Network — I am <b id="devName" style="color:var(--hot)">…</b></span>
+      <div id="peers" class="peers"><span class="hint2">discovering…</span></div>
+      <div class="hint2">click a peer to drop <b>name:1</b> into the focused hotspot field</div>
     </div>
 
     <div class="div"></div>
@@ -616,6 +629,7 @@ async function loadState(){
     const s = await (await fetch('/state')).json();
     if(Array.isArray(s.filled)) lastFilled = s.filled;
     if(typeof s.slot === 'number') activeSlot = s.slot;
+    if(s.name) document.getElementById('devName').textContent = s.name;
     buildSlotBar();
     fillHotspotInputs();
     if(!editing) viewSlot(activeSlot);   // show the device's current slot (cached)
@@ -649,12 +663,36 @@ async function showOnDevice(){
 document.getElementById('saveBtns').onclick = saveHotspots;
 document.getElementById('showDev').onclick = showOnDevice;
 
+// ---- fleet peers ----
+let lastField = null;
+document.querySelectorAll('.hsurl').forEach(i=> i.addEventListener('focus', ()=> lastField=i));
+async function loadPeers(){
+  let list; try{ list = await (await fetch('/peers')).json(); }catch(_){ return; }
+  const box = document.getElementById('peers');
+  if(!list.length){ box.innerHTML = '<span class="hint2">no other devices seen yet</span>'; return; }
+  box.innerHTML = '';
+  for(const p of list){
+    const row = document.createElement('div');
+    row.className = 'peerrow';
+    row.innerHTML = '<span class="pn"></span><span class="pip"></span>';
+    row.querySelector('.pn').textContent = p.name;
+    row.querySelector('.pip').textContent = p.ip + ' · ' + p.age + 's';
+    row.onclick = ()=>{
+      if(lastField){ lastField.value = p.name+':1'; lastField.focus(); setStatus('Put '+p.name+':1 — edit the slot # and SAVE HOTSPOTS.', 'ok'); }
+      else setStatus('Focus a hotspot field first, then click a peer.', 'err');
+    };
+    box.appendChild(row);
+  }
+}
+
 // ---- boot ----
 resizeView();
 setStatus('Load an image to begin.');
 buildSlotBar();
 loadState();
 loadButtons();
+loadPeers();
+setInterval(loadPeers, 5000);
 </script>
 </body>
 </html>

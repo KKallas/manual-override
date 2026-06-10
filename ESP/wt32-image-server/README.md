@@ -37,8 +37,9 @@ Each slot has a 2×2 grid of touch cells (top-left, top-right, bottom-left,
 bottom-right). A cell's value decides what a tap does:
 
 - **`1`–`4`** — show that slot **on this device** (1-based). The simplest case.
+- **`red_oak:2`** — show slot 2 on the fleet device **named** `red_oak` (see *Naming*).
 - `/show?slot=1` — also this device (0-based), handled locally.
-- `http://192.168.1.50/show?slot=0` — flips **another** unit to its slot 1.
+- `http://192.168.1.50/show?slot=0` — flips **another** unit to its slot 1 (explicit IP).
 
 Self actions (a bare number or `/show?…`) are handled **locally** — no HTTP call
 to ourselves (the single-threaded web server would deadlock on a self-request);
@@ -62,11 +63,29 @@ the device actually holds.
 | GET    | `/show`         | `?slot=N`                               | display stored slot N (the hotspot target)|
 | GET    | `/buttons`      | —                                       | the 16-line hotspot URL table            |
 | POST   | `/buttons`      | text body, 16 lines                     | replace the hotspot URL table            |
+| GET    | `/peers`        | —                                       | JSON list of discovered fleet devices    |
+| GET    | `/name`         | —                                       | this device's name                       |
+| POST   | `/name`         | text body                               | rename this device                       |
+
+## Naming & discovery
+
+Each device picks a persistent random **`<colour>_<tree>`** name (e.g. `red_oak`)
+on first boot and broadcasts `"<name> <ip>"` over **UDP port 50505** every ~8 s,
+while listening to build a name→IP table of the fleet. So you can address peers
+by **name** (`red_oak:2`) in a hotspot instead of a brittle IP — names are shown
+on each device's status screen and in the framer page's **Network** list (click a
+peer there to drop `name:1` into the focused field).
+
+Because the table refreshes from live broadcasts (90 s TTL) and STA mode
+auto-reconnects, **swapping the WiFi infrastructure** (same SSID, new router) just
+works: each unit rejoins, re-announces its new IP, and `red_oak:2` keeps resolving
+— back to normal in well under a minute. Rename via `POST /name`, the framer page,
+or the serial `name <new>` command.
 
 `/state` returns:
 
 ```json
-{ "slot": 0, "slots": 4, "filled": [true,false,false,false], "hasFrame": true, "battery": null }
+{ "name": "red_oak", "slot": 0, "slots": 4, "filled": [true,false,false,false], "hasFrame": true, "battery": null }
 ```
 
 `battery` is `null` — the WT32-SC01 is USB-powered with no battery divider by

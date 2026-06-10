@@ -36,8 +36,9 @@ short fires only after the 1.5 s double-click window passes, so it can become a
 double instead.) Each action value is interpreted like the WT32 hotspots:
 
 - **`1`–`4`** — show that slot **on this device** (handled locally).
+- **`red_oak:2`** — show slot 2 on the fleet device **named** `red_oak` (see *Naming*).
 - `/show?slot=1` — also this device (0-based).
-- `http://192.168.1.50/show?slot=0` — flips **another** unit.
+- `http://192.168.1.50/show?slot=0` — flips **another** unit (explicit IP).
 
 An **unconfigured long-press** falls back to showing WiFi/IP status on the LCD.
 Actions are stored as 12 lines (`slot*3 + gesture`, gesture = short/long/double)
@@ -89,6 +90,21 @@ either back in later.
 | GET    | `/show`    | `?slot=N`                               | display stored slot N (the gesture target)|
 | GET    | `/buttons` | —                                       | the 12-line gesture-action table         |
 | POST   | `/buttons` | text body, 12 lines                     | replace the gesture-action table         |
+| GET    | `/peers`   | —                                       | JSON list of discovered fleet devices    |
+| GET    | `/name`    | — / text body (POST)                    | get / set this device's name             |
+
+## Naming & discovery
+
+Each device picks a persistent random **`<colour>_<tree>`** name (e.g. `red_oak`)
+on first boot and broadcasts `"<name> <ip>"` over **UDP port 50505** every ~8 s,
+listening to build a fleet name→IP table. Address peers by **name** (`red_oak:2`)
+in a gesture instead of an IP — the name shows on the LCD status screen and in the
+framer page's **Network** list (click a peer to drop `name:1` into the focused
+field). The table refreshes from live broadcasts (90 s TTL) and STA auto-reconnects,
+so **swapping the WiFi infrastructure** (same SSID) recovers in under a minute.
+Rename via `POST /name`, the framer page, or the serial `name <new>` command.
+This is the same discovery module as [`wt32-image-server`](../wt32-image-server)
+(`names_discovery.h`).
 
 `/frame` uses the core `WebServer` multipart **upload** handler, which is
 binary-safe and needs no async-web dependency. The page sends the bytes as a
@@ -99,7 +115,7 @@ this, with no `slot`, so it keeps pushing to the current slot).
 `/state` returns the device's current state for polling clients:
 
 ```json
-{ "slot": 0, "slots": 4, "filled": [true,false,false,false], "markerId": 3, "hasFrame": true, "battery": { "mv": 4050, "pct": 83 } }
+{ "name": "red_oak", "slot": 0, "slots": 4, "filled": [true,false,false,false], "markerId": 3, "hasFrame": true, "battery": { "mv": 4050, "pct": 83 } }
 ```
 
 - `slot` / `filled` — the current slot and which of the 4 are stored.

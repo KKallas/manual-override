@@ -35,9 +35,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 MANIFEST = {
     "name": "Webcam",
-    "description": "Live OpenCV camera feed with ArUco (DICT_4X4_50) tracking: a "
-                   "debounced list of tags (id, x, y, rotation) at /api/tags, for "
-                   "other prototypes. Needs opencv-python (see requirements.txt).",
+    "description": "Live OpenCV camera feed with ArUco tracking (printed DICT_4X4_50 "
+                   "tags, plus the Atom-screen 3x3 set as ids 100-105): a debounced "
+                   "list of tags (id, x, y, rotation) at /api/tags, for other "
+                   "prototypes. Needs opencv-python (see requirements.txt).",
     "default_page": "controller",   # the config screen the hub embeds
     "pages": [
         {"path": "controller", "label": "Controller"},
@@ -81,27 +82,47 @@ DETECT_MAX_W = 960       # downscale wide frames for fast detection (coords resc
 _aruco_dict = cv2.aruco.getPredefinedDictionary(TAG_DICT)
 _detector = cv2.aruco.ArucoDetector(_aruco_dict, cv2.aruco.DetectorParameters())
 
+# Second, coarse dictionary used by the Atom screens: atom-manager renders markers
+# with cv2.aruco.extendDictionary(6, 3); we build it identically here so we can read
+# them. Their ids are shifted by SCREEN_BASE so they never collide with the printed
+# DICT_4X4_50 tags (corners 1-4, head 10, ...): screen marker N appears as 100 + N.
+SCREEN_NMARKERS = 6
+SCREEN_BITS = 3
+SCREEN_BASE = 100
+_screen_dict = cv2.aruco.extendDictionary(SCREEN_NMARKERS, SCREEN_BITS)
+_screen_detector = cv2.aruco.ArucoDetector(_screen_dict, cv2.aruco.DetectorParameters())
+
+
+def _collect(dets, corners, ids, scale, w, h, id_offset=0):
+    """Fold detectMarkers() output into `dets` in full-res coords; ids are shifted
+    by `id_offset` so markers from different dictionaries don't clash."""
+    if ids is None:
+        return
+    for c, mid in zip(corners, ids.flatten()):
+        pts = c.reshape(4, 2) / scale            # back to full-res pixels
+        cx, cy = pts.mean(axis=0)
+        dx, dy = pts[1] - pts[0]                  # top edge -> orientation
+        dets[id_offset + int(mid)] = {
+            "x": float(cx), "y": float(cy),
+            "nx": float(cx / w), "ny": float(cy / h),
+            "rot": float(math.degrees(math.atan2(dy, dx))),
+            "corners": pts,
+        }
+
 
 def _detect(frame):
-    """Detect markers; return {id: {x, y, nx, ny, rot, corners}} in full-res
-    pixel coords (plus normalised nx/ny in 0..1, rotation in degrees)."""
+    """Detect markers from BOTH dictionaries; return {id: {x, y, nx, ny, rot,
+    corners}} in full-res pixel coords. Printed DICT_4X4_50 tags keep their ids;
+    Atom-screen (3x3) markers come back as SCREEN_BASE + id (100..105)."""
     h, w = frame.shape[:2]
     scale = DETECT_MAX_W / w if w > DETECT_MAX_W else 1.0
     small = cv2.resize(frame, None, fx=scale, fy=scale) if scale != 1.0 else frame
     gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
-    corners, ids, _ = _detector.detectMarkers(gray)
     dets = {}
-    if ids is not None:
-        for c, mid in zip(corners, ids.flatten()):
-            pts = c.reshape(4, 2) / scale            # back to full-res pixels
-            cx, cy = pts.mean(axis=0)
-            dx, dy = pts[1] - pts[0]                  # top edge -> orientation
-            dets[int(mid)] = {
-                "x": float(cx), "y": float(cy),
-                "nx": float(cx / w), "ny": float(cy / h),
-                "rot": float(math.degrees(math.atan2(dy, dx))),
-                "corners": pts,
-            }
+    c, i, _ = _detector.detectMarkers(gray)
+    _collect(dets, c, i, scale, w, h)                       # printed 4x4 tags
+    c, i, _ = _screen_detector.detectMarkers(gray)
+    _collect(dets, c, i, scale, w, h, SCREEN_BASE)          # Atom-screen markers
     return dets
 
 
