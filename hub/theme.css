@@ -1,0 +1,114 @@
+/* Manual Override — shared prototype theme (the "ATOM FRAMER" look).
+ *
+ * Served by the hub at /theme.css and linked from every page AFTER its own
+ * <style> block, so these rules win cascade ties and impose a uniform look:
+ * dark grid backdrop, monospace type, lime (--hot) accent. Pages keep their own
+ * page-specific layout rules; this only re-skins the shared palette + the common
+ * components (header / .panel / button / .pill / inputs / tables / stats / log).
+ *
+ * It works without rewriting each controller because they're token-driven: the
+ * :root below redefines both the framer tokens and the aliases the controllers
+ * already reference (--panel/--accent/--ok/--warn/--err/--purple/--estop/--blue).
+ */
+
+:root {
+  /* core framer palette */
+  --bg:#0d0f0d; --line:#2a3128; --ink:#c8d4c0; --dim:#5e6b58;
+  --hot:#b6ff3a; --pad:#1b1f1a; --grid:#1a1e18;
+  /* semantic (kept distinct from the accent so status still reads) */
+  --ok:#7cff9b; --warn:#ffb13a; --err:#ff5b3a; --estop:#ff3b30;
+  /* aliases the prototype controllers reference */
+  --txt:var(--ink); --muted:var(--dim); --panel:#15181f; --accent:var(--hot);
+  --purple:#c08bff; --blue:var(--hot);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "DM Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* ---- header ------------------------------------------------------------- */
+header { border-bottom: 1px solid var(--line); background: rgba(13,15,13,.85); }
+header h1 { font-weight: 700; letter-spacing: .26em; text-transform: uppercase;
+  color: var(--hot); }
+header .sub { color: var(--dim); letter-spacing: .14em; text-transform: uppercase;
+  font-size: 11px; }
+header a, .hdrlink { color: var(--hot); }
+
+/* ---- panels / cards ----------------------------------------------------- */
+.panel, section.panel {
+  background: rgba(21,24,31,.55); border: 1px solid var(--line); border-radius: 8px;
+}
+.panel h2 { color: var(--dim); text-transform: uppercase; letter-spacing: .12em; }
+
+/* ---- buttons ------------------------------------------------------------ */
+button, a.btn, label.btn {
+  background: var(--pad); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 5px; font: inherit; letter-spacing: .1em; text-transform: uppercase;
+  cursor: pointer; transition: .12s;
+  /* ~30% more compact than the pages' defaults (font-size after `font:` so the
+     shorthand doesn't reset it) */
+  font-size: 11px; padding: 5px 9px;
+}
+button:hover, a.btn:hover, label.btn:hover { border-color: var(--hot); color: var(--hot); }
+button.primary, button.accent, a.btn.accent, a.btn.primary {
+  background: var(--hot); border-color: var(--hot); color: #0d0f0d; font-weight: 700;
+}
+button.primary:hover, button.accent:hover, a.btn.accent:hover {
+  background: #c9ff5a; color: #0d0f0d;
+}
+button.ok { border-color: var(--ok); color: var(--ok); }
+button.ok:hover { background: var(--ok); color: #0d0f0d; }
+button.stop, button.del, button.estop { border-color: var(--err); color: var(--err); }
+button.stop:hover, button.del:hover, button.estop:hover { background: var(--err); color: #0d0f0d; }
+button:disabled { opacity: .35; cursor: not-allowed; border-color: var(--line); color: var(--dim); }
+
+/* ---- status pills ------------------------------------------------------- */
+.pill { border: 1px solid var(--line); background: var(--pad); color: var(--dim);
+  text-transform: uppercase; letter-spacing: .1em; }
+.pill .dot { background: currentColor; }
+.pill.on, .pill.run, .pill.ok { color: var(--ok); border-color: var(--ok); }
+.pill.idle, .pill.off { color: var(--dim); }
+.pill.err, .pill.error { color: var(--err); border-color: var(--err); }
+.pill.warn { color: var(--warn); border-color: var(--warn); }
+
+/* ---- stat tiles --------------------------------------------------------- */
+.stat { background: rgba(21,24,31,.55); border: 1px solid var(--line); }
+.stat .k { color: var(--dim); text-transform: uppercase; letter-spacing: .1em; }
+.stat .v { color: var(--ink); }
+
+/* ---- form controls ------------------------------------------------------ */
+input[type=text], input[type=password], input[type=number], input:not([type]),
+select, textarea {
+  background: #0c0e0c; border: 1px solid var(--line); color: var(--ink);
+  border-radius: 5px; font-family: inherit; font-size: 12px;
+  /* explicit size — `font: inherit` here would reset inputs to the 16px body size */
+}
+input[type=text]:focus, input[type=password]:focus, input[type=number]:focus,
+input:not([type]):focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--hot);
+}
+input[type=range] { accent-color: var(--hot); }
+
+/* ---- tables ------------------------------------------------------------- */
+th { color: var(--dim); text-transform: uppercase; letter-spacing: .08em;
+  border-bottom: 1px solid var(--line); }
+td { border-bottom: 1px solid #1c2018; }
+
+/* ---- misc helpers ------------------------------------------------------- */
+.muted, .hint, .note { color: var(--dim); }
+a { color: var(--hot); }
+code { color: var(--hot); }
+
+#log { background: #0c0e0c; border: 1px solid var(--line); color: var(--ink);
+  font-family: ui-monospace, Menlo, monospace; }
+.log-err { color: var(--err); }
+.log-ok { color: var(--ok); }
+.log-info { color: var(--dim); }
