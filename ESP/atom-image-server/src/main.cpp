@@ -17,6 +17,7 @@
 #include <Preferences.h>
 #include <LittleFS.h>
 
+#include "names_discovery.h"
 #include "index_html.h"
 
 static const uint16_t FRAME_W = 128;
@@ -164,7 +165,23 @@ static void doAction(String url) {
     return;
   }
   if (url.startsWith("http://") || url.startsWith("https://")) { fireGet(url); return; }
-  Serial.println("action: unsupported self target: " + url);
+  // "name:slot" — resolve a fleet name to its IP (slot is 1-based, like the UI).
+  int colon = url.indexOf(':');
+  if (colon > 0) {
+    String nm = url.substring(0, colon);
+    String rest = url.substring(colon + 1); rest.trim();
+    bool restNum = rest.length() > 0;
+    for (size_t i = 0; i < rest.length(); i++) if (!isDigit(rest[i])) restNum = false;
+    if (restNum) {
+      int sl = rest.toInt();
+      if (nm == disco::name()) { if (!loadSlot(sl - 1)) Serial.println("self slot empty"); return; }
+      IPAddress ip;
+      if (disco::lookup(nm, ip)) fireGet("http://" + ip.toString() + "/show?slot=" + String(sl - 1));
+      else Serial.println("action: name not found: " + nm);
+      return;
+    }
+  }
+  Serial.println("action: unsupported target: " + url);
 }
 
 // ---- battery ---------------------------------------------------------------
@@ -183,7 +200,7 @@ static void showStatus() {
   M5.Display.setTextColor(TFT_GREEN, TFT_BLACK);
   M5.Display.setTextSize(1);
   M5.Display.setCursor(3, 3);
-  M5.Display.println("ATOM FRAMER");
+  M5.Display.println(disco::name());
   M5.Display.setTextColor(0x8410, TFT_BLACK);  // dim grey
   if (WiFi.status() == WL_CONNECTED) {
     M5.Display.println("STA " + WiFi.SSID());
@@ -243,6 +260,7 @@ static void startSTA(const String& ssid, const String& pass, bool save) {
   }
   pendingSsid = ssid;
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);    // rejoin automatically after a WiFi-infra swap
   WiFi.begin(ssid.c_str(), pass.c_str());
   staConnecting = true;
   staDeadline = millis() + STA_TIMEOUT_MS;
@@ -272,6 +290,12 @@ static void handleSerialLine(String line) {
   if (line.equalsIgnoreCase("ip"))     { reportIP();  return; }
   if (line.equalsIgnoreCase("status")) { reportIP();  return; }
   if (line.equalsIgnoreCase("help"))   { printHelp(); return; }
+  if (line.equalsIgnoreCase("name"))   { Serial.println("name: " + disco::name()); return; }
+  if (line.length() > 5 && line.substring(0, 5).equalsIgnoreCase("name ")) {
+    String nm = line.substring(5); nm.trim();
+    if (nm.length()) { disco::setName(nm); Serial.println("renamed: " + disco::name()); }
+    return;
+  }
   if (line.equalsIgnoreCase("ap")) {
     prefs.remove("ssid");
     prefs.remove("pass");
@@ -433,7 +457,8 @@ static void handleState() {
     if (i < NUM_SLOTS - 1) filled += ",";
   }
   filled += "]";
-  String s = "{\"slot\":" + String(curSlot)
+  String s = "{\"name\":\"" + disco::name() + "\""
+           + ",\"slot\":" + String(curSlot)
            + ",\"slots\":" + String(NUM_SLOTS)
            + ",\"filled\":" + filled
            + ",\"markerId\":" + String(markerId)
@@ -441,6 +466,17 @@ static void handleState() {
            + ",\"battery\":{\"mv\":" + String(mv)
            + ",\"pct\":" + String(batteryPercent(mv)) + "}}";
   server.send(200, "application/json", s);
+}
+
+static void handlePeers() { server.send(200, "application/json", disco::peersJson()); }
+
+static void handleNameGet() { server.send(200, "text/plain", disco::name()); }
+
+static void handleNamePost() {
+  String nm = server.arg("plain"); nm.trim();
+  if (!nm.length()) { server.send(400, "text/plain", "empty name"); return; }
+  disco::setName(nm);
+  server.send(200, "text/plain", disco::name());
 }
 
 void setup() {
@@ -469,8 +505,13 @@ void setup() {
   if (savedSsid.length()) startSTA(savedSsid, prefs.getString("pass", ""), false);
   else startAP();
 
+  disco::begin();   // random name (persisted) + UDP discovery, after WiFi is up
+
   server.on("/", HTTP_GET, handleRoot);
   server.on("/state", HTTP_GET, handleState);
+  server.on("/peers", HTTP_GET, handlePeers);
+  server.on("/name", HTTP_GET, handleNameGet);
+  server.on("/name", HTTP_POST, handleNamePost);
   server.on("/show", HTTP_GET, handleShow);
   server.on("/buttons", HTTP_GET, handleButtonsGet);
   server.on("/buttons", HTTP_POST, handleButtonsPost);
@@ -480,7 +521,7 @@ void setup() {
   server.begin();
 
   Serial.println();
-  Serial.println("ATOM FRAMER ready.");
+  Serial.printf("ATOM FRAMER ready — name \"%s\".\n", disco::name().c_str());
   printHelp();
 }
 
@@ -489,5 +530,6 @@ void loop() {
   server.handleClient();
   pumpSerial();
   pollSTA();
-  pumpButton();   // short / long / double click -> the current slot's actions
+  disco::loop();   // UDP announce + peer table upkeep
+  pumpButton();    // short / long / double click -> the current slot's actions
 }
