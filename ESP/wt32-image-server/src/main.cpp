@@ -1,108 +1,118 @@
-// AtomS3R web image server — a 4-slot image kiosk with single-button gestures.
+// WT32-SC01 (V3.2) framer — a 4-slot, touch-navigable image kiosk.
 //
-// Holds 4 128x128 RGB565 images in flash. The displayed slot is switched with a
-// simple HTTP GET (GET /show?slot=N). The AtomS3R has one button, so each slot
-// maps three button gestures to HTTP GET actions: short click (<500 ms), long
-// click (>1500 ms), and double click (two shorts within 2000 ms). A gesture URL
-// of "2" shows slot 2 here; "/show?slot=1" is also local; "http://other/…" drives
-// another unit. Still speaks atom-manager's /frame (?mid), /state (markerId,
-// battery) so the host keeps working — it just pushes to the current slot.
+// Holds 4 full-screen 320x480 RGB565 images in flash. The displayed slot is
+// switched with a simple HTTP GET (GET /show?slot=N), so a browser, curl or
+// another unit can flip its page. Each slot has an invisible 2x2 grid of touch
+// hotspots; each cell can carry an HTTP GET URL. Tapping a cell fires that GET —
+// a leading "/" targets this device itself (change own page), an absolute
+// http://... URL targets another unit on the network (drive the fleet).
 //
-// Serial console (115200, USB-CDC): wifi <ssid>:<password> / ip / status / ap.
+// WiFi: boots into SoftAP unless STA credentials were saved, then auto-joins.
+// Serial console (115200, UART0):
+//   wifi <ssid>:<password>   join a network (saved, auto-reconnects on boot)
+//   ip / status              print the current IP / mode
+//   ap                       forget wifi + start SoftAP
+//   help
+//
+// HTTP API:
+//   GET  /                serves the framer UI
+//   GET  /state           { slot, slots, filled[], hasFrame, battery }
+//   POST /frame?slot=N     upload 307200 B RGB565 into slot N, store + display
+//   GET  /show?slot=N      display slot N (the button target)
+//   GET  /buttons          read the 16-line hotspot URL table
+//   POST /buttons          write the hotspot URL table
 
-#include <M5Unified.h>
+#include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <LittleFS.h>
 
+#include "lgfx_wt32.h"
 #include "index_html.h"
 
-static const uint16_t FRAME_W = 128;
-static const uint16_t FRAME_H = 128;
-static const size_t   FRAME_BYTES = (size_t)FRAME_W * FRAME_H * 2;  // 32768
+// Native panel resolution — the frame is pushed full-screen, 1:1.
+static const uint16_t FRAME_W = PANEL_W;             // 320
+static const uint16_t FRAME_H = PANEL_H;             // 480
+static const size_t   FRAME_BYTES = (size_t)FRAME_W * FRAME_H * 2;  // 307200
 
 static const int   NUM_SLOTS = 4;
-static const int   GESTURES  = 3;            // short / long / double per slot
+static const int   CELLS     = 4;            // 2x2 hotspots per slot
 static const char* BUTTONS_PATH = "/buttons.txt";
 static String slotPath(int n) { return "/" + String(n) + ".bin"; }
 
-// Single-button gesture thresholds.
-static const uint32_t SHORT_MAX_MS = 500;    // release before this = short click
-static const uint32_t LONG_MIN_MS  = 700;    // held at least this  = long click
-static const uint32_t DOUBLE_MS    = 1500;   // 2nd short within this of 1st = double
-
-// Battery sense ADC. AtomS3R / AtomS3 read the pack through a 2:1 divider on
-// GPIO 8 (the older Atom series uses GPIO 33). analogReadMilliVolts() already
-// applies the eFuse calibration, so we just double it back to pack volts.
-static const int      BAT_ADC_PIN = 8;
-static const int      BAT_FULL_MV = 4200;  // 1S LiPo at 100%
-static const int      BAT_EMPTY_MV = 3300; // treat as 0%
-
 // SoftAP fallback credentials. Password must be >= 8 chars, or "" for open.
-static const char* AP_SSID = "AtomFramer";
-static const char* AP_PASS = "atomframer";
+static const char* AP_SSID = "WT32Framer";
+static const char* AP_PASS = "wt32framer";
 
-static const uint32_t STA_TIMEOUT_MS = 20000;  // give up on a join after this
+static const uint32_t STA_TIMEOUT_MS = 20000;
 
+// Battery sense: the WT32-SC01 is USB-powered and exposes no battery divider by
+// default, so /state reports battery: null. If you wire a 2:1 divider to an ADC
+// pin, set it here (and analogReadResolution/pinMode in setup) to enable it.
+static const int BAT_ADC_PIN = -1;
+
+// Text colours (RGB565).
+static const uint16_t COL_BLACK = 0x0000;
+static const uint16_t COL_GREEN = 0x07E0;
+static const uint16_t COL_GREY  = 0x8410;
+
+LGFX_WT32 tft;
 WebServer server(80);
 Preferences prefs;
 
-static uint8_t frameBuf[FRAME_BYTES];
-static size_t  frameLen = 0;     // bytes received so far in the current upload
-static bool    frameOk  = false; // a full frame is currently stored/displayed
-static int     markerId = -1;    // ArUco id of the current slot (-1 = unknown)
+static uint8_t* frameBuf = nullptr;  // FRAME_BYTES, allocated in PSRAM (300 KB)
+static size_t  frameLen = 0;
+static bool    frameOk  = false; // frameBuf currently holds a valid displayed frame
 static int     curSlot  = 0;
 static bool    slotFilled[NUM_SLOTS] = { false };
 
-static String  lineBuf;          // serial line accumulator
-static String  pendingSsid;      // ssid we're currently trying to join
-static bool    staConnecting = false;
+static String   lineBuf;
+static String   pendingSsid;
+static bool     staConnecting = false;
 static uint32_t staDeadline = 0;
+static bool     wasTouched = false;
 
 static bool apActive() {
   auto m = WiFi.getMode();
   return m == WIFI_AP || m == WIFI_AP_STA;
 }
 
-// ---- frame display + persistence -------------------------------------------
-// Push frameBuf to the panel. The page packs RGB565 big-endian (high byte
-// first); typing the source as swap565_t lets M5GFX convert from that byte
-// order to the panel's native order itself (reading it as a plain uint16
-// rotates the channels: red->blue, green->red, blue->green).
+// ---- frame display + slot storage ------------------------------------------
+// Push the full-screen frame to the panel, 1:1. The page packs RGB565
+// big-endian, so type the source as swap565_t and let LovyanGFX convert to the
+// panel's native byte order (a plain uint16 read rotates the channels).
 static void pushFrame() {
-  M5.Display.startWrite();
-  M5.Display.pushImage(0, 0, FRAME_W, FRAME_H, (const m5gfx::swap565_t*)frameBuf);
-  M5.Display.endWrite();
+  if (!frameBuf) return;
+  tft.startWrite();
+  tft.pushImage(0, 0, FRAME_W, FRAME_H, (const lgfx::swap565_t*)frameBuf);
+  tft.endWrite();
 }
-
-static String midKey(int n) { return "mid" + String(n); }
 
 static void refreshFilled() {
   for (int i = 0; i < NUM_SLOTS; i++) slotFilled[i] = LittleFS.exists(slotPath(i));
 }
 
-// Write frameBuf (and the current marker id) to slot n.
+// Write frameBuf to slot n's file.
 static void saveSlot(int n) {
   File f = LittleFS.open(slotPath(n), "w");
   if (!f) { Serial.println("save: open failed"); return; }
   size_t w = f.write(frameBuf, FRAME_BYTES);
   f.close();
-  prefs.putInt(midKey(n).c_str(), markerId);
   if (w != FRAME_BYTES) Serial.printf("save: short write %u/%u\n", (unsigned)w, (unsigned)FRAME_BYTES);
-  else { slotFilled[n] = true; }
+  else { slotFilled[n] = true; Serial.printf("saved slot %d\n", n); }
 }
 
 // Load slot n into frameBuf, display it, and make it the current slot.
 static bool loadSlot(int n) {
-  if (n < 0 || n >= NUM_SLOTS || !LittleFS.exists(slotPath(n))) return false;
+  if (n < 0 || n >= NUM_SLOTS || !frameBuf) return false;
+  if (!LittleFS.exists(slotPath(n))) return false;
   File f = LittleFS.open(slotPath(n), "r");
   if (!f) return false;
   size_t r = f.read(frameBuf, FRAME_BYTES);
   f.close();
   if (r != FRAME_BYTES) return false;
-  markerId = prefs.getInt(midKey(n).c_str(), -1);
   curSlot = n;
   frameOk = true;
   prefs.putInt("slot", curSlot);
@@ -110,17 +120,16 @@ static bool loadSlot(int n) {
   return true;
 }
 
-// ---- hotspot / gesture URL table -------------------------------------------
-// /buttons.txt is NUM_SLOTS*GESTURES newline-separated lines (slot*GESTURES + g,
-// g = 0 short / 1 long / 2 double); an empty line means that gesture has no
-// action. Read all GESTURES urls for a slot.
-static void readSlotUrls(int slot, String out[GESTURES]) {
-  for (int i = 0; i < GESTURES; i++) out[i] = "";
+// ---- hotspot URL table -----------------------------------------------------
+// /buttons.txt is NUM_SLOTS*CELLS newline-separated lines (slot*CELLS + cell);
+// an empty line means that cell has no action. Read all CELLS urls for a slot.
+static void readSlotUrls(int slot, String out[CELLS]) {
+  for (int i = 0; i < CELLS; i++) out[i] = "";
   File f = LittleFS.open(BUTTONS_PATH, "r");
   if (!f) return;
-  int base = slot * GESTURES;
+  int base = slot * CELLS;
   int line = 0;
-  while (f.available() && line < base + GESTURES) {
+  while (f.available() && line < base + CELLS) {
     String l = f.readStringUntil('\n');
     if (line >= base) { l.trim(); out[line - base] = l; }
     line++;
@@ -128,9 +137,10 @@ static void readSlotUrls(int slot, String out[GESTURES]) {
   f.close();
 }
 
-// Fire an outbound HTTP GET to another unit. Blocking, but only for a button
-// press. Never aim this at our own IP — the single-threaded WebServer would
-// deadlock on a self-request; self actions are handled locally in doAction().
+// Fire an outbound HTTP GET to another unit. Blocking, but only for a tap.
+// NOTE: never point this at our own IP — the WebServer runs single-threaded in
+// loop(), so a self-request would deadlock (we'd block here instead of serving
+// it). Self actions are handled locally in doHotspot() instead.
 static void fireGet(const String& url) {
   Serial.println("GET " + url);
   HTTPClient http;
@@ -145,60 +155,63 @@ static void fireGet(const String& url) {
   }
 }
 
-// Run a gesture action. Self page-switches are done locally (no self HTTP):
-//   "2"            -> show slot 2 here (bare number 1..NUM_SLOTS)
-//   "/show?slot=1" -> show slot 1 here (0-based, self)
-//   "http://ip/…"  -> GET another unit
-static void doAction(String url) {
+// Run a hotspot action. Self page-switches are done locally (no HTTP round-trip
+// to ourselves); only cross-device targets go out over HTTP:
+//   "2"               -> show slot 2 locally (bare number 1..NUM_SLOTS)
+//   "/show?slot=1"     -> show slot 1 locally (0-based, self)
+//   "http://ip/..."    -> GET another unit
+static void doHotspot(String url) {
   url.trim();
   if (!url.length()) return;
+
   bool numeric = true;
   for (size_t i = 0; i < url.length(); i++) if (!isDigit(url[i])) { numeric = false; break; }
-  if (numeric) {
+  if (numeric) {                                  // bare 1..NUM_SLOTS = show that slot
     int n = url.toInt();
     if (n >= 1 && n <= NUM_SLOTS) { if (!loadSlot(n - 1)) Serial.printf("slot %d empty\n", n); }
     return;
   }
-  if (url.startsWith("/show?slot=")) {
+  if (url.startsWith("/show?slot=")) {            // self show (0-based)
     if (!loadSlot(url.substring(11).toInt())) Serial.println("self slot empty");
     return;
   }
-  if (url.startsWith("http://") || url.startsWith("https://")) { fireGet(url); return; }
-  Serial.println("action: unsupported self target: " + url);
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    fireGet(url);                                 // another unit
+    return;
+  }
+  Serial.println("hotspot: unsupported self action: " + url);
 }
 
-// ---- battery ---------------------------------------------------------------
-static int batteryMilliVolts() {
-  return (int)analogReadMilliVolts(BAT_ADC_PIN) * 2;  // undo the 2:1 divider
-}
-
-static int batteryPercent(int mv) {
-  int pct = (mv - BAT_EMPTY_MV) * 100 / (BAT_FULL_MV - BAT_EMPTY_MV);
+// ---- battery (optional) ----------------------------------------------------
+static bool batteryEnabled() { return BAT_ADC_PIN >= 0; }
+static int  batteryMilliVolts() { return (int)analogReadMilliVolts(BAT_ADC_PIN) * 2; }
+static int  batteryPercent(int mv) {
+  int pct = (mv - 3300) * 100 / (4200 - 3300);
   return pct < 0 ? 0 : (pct > 100 ? 100 : pct);
 }
 
 // ---- on-screen status ------------------------------------------------------
 static void showStatus() {
-  M5.Display.fillScreen(TFT_BLACK);
-  M5.Display.setTextColor(TFT_GREEN, TFT_BLACK);
-  M5.Display.setTextSize(1);
-  M5.Display.setCursor(3, 3);
-  M5.Display.println("ATOM FRAMER");
-  M5.Display.setTextColor(0x8410, TFT_BLACK);  // dim grey
+  tft.fillScreen(COL_BLACK);
+  tft.setTextColor(COL_GREEN, COL_BLACK);
+  tft.setTextSize(2);
+  tft.setCursor(6, 6);
+  tft.println("WT32 FRAMER");
+  tft.setTextColor(COL_GREY, COL_BLACK);
   if (WiFi.status() == WL_CONNECTED) {
-    M5.Display.println("STA " + WiFi.SSID());
-    M5.Display.setTextColor(TFT_GREEN, TFT_BLACK);
-    M5.Display.println(WiFi.localIP().toString());
+    tft.println("STA " + WiFi.SSID());
+    tft.setTextColor(COL_GREEN, COL_BLACK);
+    tft.println(WiFi.localIP().toString());
   } else if (staConnecting) {
-    M5.Display.println("joining");
-    M5.Display.println(pendingSsid);
+    tft.println("joining");
+    tft.println(pendingSsid);
   } else if (apActive()) {
-    M5.Display.printf("AP %s\n", AP_SSID);
-    if (AP_PASS[0]) M5.Display.printf("pw %s\n", AP_PASS);
-    M5.Display.setTextColor(TFT_GREEN, TFT_BLACK);
-    M5.Display.println(WiFi.softAPIP().toString());
+    tft.printf("AP %s\n", AP_SSID);
+    if (AP_PASS[0]) tft.printf("pw %s\n", AP_PASS);
+    tft.setTextColor(COL_GREEN, COL_BLACK);
+    tft.println(WiFi.softAPIP().toString());
   } else {
-    M5.Display.println("offline");
+    tft.println("offline");
   }
 }
 
@@ -233,7 +246,7 @@ static void startAP() {
   WiFi.mode(WIFI_AP);
   WiFi.softAP(AP_SSID, AP_PASS);
   Serial.printf("SoftAP \"%s\"  http://%s/\n", AP_SSID, WiFi.softAPIP().toString().c_str());
-  if (!frameOk) showStatus();  // keep a restored frame on screen; status is on the button
+  if (!frameOk) showStatus();  // keep a displayed slot on screen
 }
 
 static void startSTA(const String& ssid, const String& pass, bool save) {
@@ -247,17 +260,16 @@ static void startSTA(const String& ssid, const String& pass, bool save) {
   staConnecting = true;
   staDeadline = millis() + STA_TIMEOUT_MS;
   Serial.printf("joining \"%s\"... (waiting for DHCP)\n", ssid.c_str());
-  if (!frameOk) showStatus();  // keep a restored frame on screen; status is on the button
+  if (!frameOk) showStatus();  // keep a displayed slot on screen
 }
 
-// Watch a pending STA join; report the IP once DHCP lands, or fall back to AP.
 static void pollSTA() {
   if (!staConnecting) return;
   if (WiFi.status() == WL_CONNECTED) {
     staConnecting = false;
     Serial.println("connected.");
     reportIP();
-    if (frameOk) pushFrame(); else showStatus();  // don't wipe a restored frame
+    if (frameOk) pushFrame(); else showStatus();  // don't wipe the displayed slot
   } else if ((int32_t)(millis() - staDeadline) >= 0) {
     staConnecting = false;
     Serial.println("join timed out — starting SoftAP.");
@@ -280,7 +292,6 @@ static void handleSerialLine(String line) {
     return;
   }
 
-  // "wifi ssid:pass", or a bare "ssid:pass" line.
   String creds;
   if (line.length() > 5 && line.substring(0, 5).equalsIgnoreCase("wifi ")) {
     creds = line.substring(5);
@@ -308,46 +319,37 @@ static void pumpSerial() {
   }
 }
 
-// ---- single-button gestures ------------------------------------------------
-static uint32_t pressStart   = 0;
-static bool     shortPending = false;
-static uint32_t firstShortAt = 0;
-
-// Run the current slot's action for gesture g (0 short / 1 long / 2 double).
-// An unconfigured long-press falls back to showing WiFi/IP status on the LCD.
-static void runGesture(int g) {
-  String urls[GESTURES];
-  readSlotUrls(curSlot, urls);
-  String url = urls[g];
-  Serial.printf("gesture %d -> \"%s\"\n", g, url.c_str());
-  if (url.length()) doAction(url);
-  else if (g == 1) showStatus();
+// Briefly flash the given hotspot cells, then restore the image, as tap feedback.
+static void flashCells(const bool cells[CELLS]) {
+  int cw = tft.width() / 2, ch = tft.height() / 2;
+  for (int i = 0; i < CELLS; i++) if (cells[i]) {
+    int cx = (i % 2) * cw, cy = (i / 2) * ch;
+    tft.fillRect(cx, cy, cw, ch, COL_GREY);
+  }
+  delay(60);
+  pushFrame();
 }
 
-// Classify BtnA press/release timing into short / long / double and fire it. A
-// short release is held back until the double-click window passes (so it can
-// become a double instead); a 500–1500 ms release is in neither band, ignored.
-static void pumpButton() {
-  if (M5.BtnA.wasPressed())  pressStart = millis();
-  if (M5.BtnA.wasReleased()) {
-    uint32_t dur = millis() - pressStart;
-    if (dur >= LONG_MIN_MS) {
-      shortPending = false;
-      runGesture(1);                                   // long
-    } else if (dur < SHORT_MAX_MS) {
-      if (shortPending && (millis() - firstShortAt) <= DOUBLE_MS) {
-        shortPending = false;
-        runGesture(2);                                 // double
-      } else {
-        shortPending = true;
-        firstShortAt = millis();
-      }
+// On a touch press, map (x,y) to a 2x2 cell and run that cell's action (if set).
+// Cells that share the same endpoint flash together so they read as one button.
+static void pumpTouch() {
+  int32_t x, y;
+  bool touched = tft.getTouch(&x, &y);
+  if (touched && !wasTouched) {
+    int col = (x * 2) / tft.width();   if (col > 1) col = 1; if (col < 0) col = 0;
+    int row = (y * 2) / tft.height();  if (row > 1) row = 1; if (row < 0) row = 0;
+    int cell = row * 2 + col;
+    String urls[CELLS];
+    readSlotUrls(curSlot, urls);
+    String url = urls[cell];
+    if (url.length()) {
+      bool same[CELLS];
+      for (int i = 0; i < CELLS; i++) same[i] = (urls[i].length() && urls[i] == url);
+      flashCells(same);
+      doHotspot(url);
     }
   }
-  if (shortPending && (millis() - firstShortAt) > DOUBLE_MS) {
-    shortPending = false;
-    runGesture(0);                                     // single short
-  }
+  wasTouched = touched;
 }
 
 // ---- HTTP handlers ---------------------------------------------------------
@@ -360,35 +362,35 @@ static void handleFrameUpload() {
   HTTPUpload& up = server.upload();
   if (up.status == UPLOAD_FILE_START) {
     frameLen = 0;
-    frameOk = false;
   } else if (up.status == UPLOAD_FILE_WRITE) {
+    if (!frameBuf) return;                                       // no PSRAM — drop it
     size_t n = up.currentSize;
     if (frameLen + n > FRAME_BYTES) n = FRAME_BYTES - frameLen;  // clamp overflow
     memcpy(frameBuf + frameLen, up.buf, n);
     frameLen += n;
-  } else if (up.status == UPLOAD_FILE_END) {
-    frameOk = (frameLen == FRAME_BYTES);
   }
 }
 
 // Runs after the upload completes; stores the frame into the target slot
-// (?slot=N, default = current) and displays it. ?mid=<n> records the ArUco id.
+// (?slot=N, default = current) and displays it.
 static void handleFrameDone() {
-  if (!frameOk) {
-    server.send(400, "text/plain", "expected 32768 bytes of RGB565");
+  if (frameLen != FRAME_BYTES) {
+    server.send(400, "text/plain", "expected 307200 bytes of RGB565");
     return;
   }
   int slot = server.hasArg("slot") ? server.arg("slot").toInt() : curSlot;
   if (slot < 0 || slot >= NUM_SLOTS) slot = curSlot;
-  markerId = server.hasArg("mid") ? server.arg("mid").toInt() : -1;
   saveSlot(slot);
   curSlot = slot;
+  frameOk = true;
   prefs.putInt("slot", curSlot);
   pushFrame();
   server.send(200, "text/plain", "OK slot " + String(slot));
 }
 
-// GET /frame?slot=N — stream a slot's raw 32768-byte RGB565 back (read-back).
+// GET /frame?slot=N — stream a slot's raw 307200-byte RGB565 back, so the framer
+// page can show what's currently stored on a refresh. Streamed from flash (not
+// via the single frameBuf) so any slot can be read without disturbing the display.
 static void handleFrameGet() {
   int slot = server.hasArg("slot") ? server.arg("slot").toInt() : curSlot;
   if (slot < 0 || slot >= NUM_SLOTS) { server.send(400, "text/plain", "slot 0..3"); return; }
@@ -399,7 +401,7 @@ static void handleFrameGet() {
   f.close();
 }
 
-// GET /show?slot=N — display a stored slot. This is the gesture GET target.
+// GET /show?slot=N — display a stored slot. This is the hotspot GET target.
 static void handleShow() {
   int slot = server.hasArg("slot") ? server.arg("slot").toInt() : -1;
   if (slot < 0 || slot >= NUM_SLOTS) { server.send(400, "text/plain", "slot 0..3"); return; }
@@ -423,10 +425,13 @@ static void handleButtonsPost() {
   server.send(200, "text/plain", "OK");
 }
 
-// GET /state: current device state. Keeps markerId + battery for atom-manager,
-// adds the current slot and which slots are filled.
+// GET /state: current device state for clients / the framer UI.
 static void handleState() {
-  int mv = batteryMilliVolts();
+  String battery = "null";
+  if (batteryEnabled()) {
+    int mv = batteryMilliVolts();
+    battery = "{\"mv\":" + String(mv) + ",\"pct\":" + String(batteryPercent(mv)) + "}";
+  }
   String filled = "[";
   for (int i = 0; i < NUM_SLOTS; i++) {
     filled += slotFilled[i] ? "true" : "false";
@@ -436,35 +441,36 @@ static void handleState() {
   String s = "{\"slot\":" + String(curSlot)
            + ",\"slots\":" + String(NUM_SLOTS)
            + ",\"filled\":" + filled
-           + ",\"markerId\":" + String(markerId)
            + ",\"hasFrame\":" + (frameOk ? "true" : "false")
-           + ",\"battery\":{\"mv\":" + String(mv)
-           + ",\"pct\":" + String(batteryPercent(mv)) + "}}";
+           + ",\"battery\":" + battery + "}";
   server.send(200, "application/json", s);
 }
 
 void setup() {
-  auto cfg = M5.config();
-  M5.begin(cfg);
-  M5.Display.setRotation(0);
-
-  // Battery ADC: 12-bit, 2:1 divider on GPIO 8 (see batteryMilliVolts()).
-  pinMode(BAT_ADC_PIN, INPUT);
-  analogReadResolution(12);
-
   Serial.begin(115200);
+
+  tft.init();
+  tft.setRotation(0);
+  tft.setBrightness(255);
+  tft.fillScreen(COL_BLACK);
+
+  if (batteryEnabled()) { pinMode(BAT_ADC_PIN, INPUT); analogReadResolution(12); }
+
+  // The 300 KB frame buffer doesn't fit in internal DRAM — it lives in PSRAM.
+  frameBuf = (uint8_t*)ps_malloc(FRAME_BYTES);
+  if (!frameBuf) Serial.println("FATAL: no PSRAM for frame buffer — pushes will be ignored");
+
   prefs.begin("wifi", false);
 
   // Mount flash and restore the last-shown slot immediately, so the panel comes
-  // straight up on its page — no boot animation, no status screen, no WiFi wait.
+  // straight up on its page — no status screen, no WiFi wait.
   if (!LittleFS.begin(true)) Serial.println("LittleFS mount failed — slots won't persist");
   refreshFilled();
   curSlot = prefs.getInt("slot", 0);
   if (curSlot < 0 || curSlot >= NUM_SLOTS) curSlot = 0;
   if (slotFilled[curSlot]) loadSlot(curSlot);   // displays it and sets frameOk
 
-  // Bring WiFi up FIRST — this initialises the lwIP/TCP-IP stack. Starting the
-  // web server before any WiFi.mode() call asserts "Invalid mbox" in lwIP.
+  // Bring WiFi up before the web server (lwIP init order).
   String savedSsid = prefs.getString("ssid", "");
   if (savedSsid.length()) startSTA(savedSsid, prefs.getString("pass", ""), false);
   else startAP();
@@ -475,19 +481,17 @@ void setup() {
   server.on("/buttons", HTTP_GET, handleButtonsGet);
   server.on("/buttons", HTTP_POST, handleButtonsPost);
   server.on("/frame", HTTP_GET, handleFrameGet);
-  // POST /frame: (responder, upload-handler) — the upload handler fires first.
   server.on("/frame", HTTP_POST, handleFrameDone, handleFrameUpload);
   server.begin();
 
   Serial.println();
-  Serial.println("ATOM FRAMER ready.");
+  Serial.println("WT32 FRAMER ready.");
   printHelp();
 }
 
 void loop() {
-  M5.update();
   server.handleClient();
   pumpSerial();
   pollSTA();
-  pumpButton();   // short / long / double click -> the current slot's actions
+  pumpTouch();
 }

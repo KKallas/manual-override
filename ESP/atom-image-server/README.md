@@ -1,28 +1,48 @@
 # atom-image-server
 
 Turns an [M5Stack AtomS3R](https://docs.m5stack.com/en/core/AtomS3R) into a
-network image frame: it serves a web UI and displays whatever 128×128 image you
-push to it as raw **RGB565** bitmap data.
+4-slot image **kiosk**: it holds four 128×128 RGB565 images, switches between
+them over HTTP, and maps the single button's gestures to HTTP GET actions — the
+AtomS3R sibling of [`wt32-image-server`](../wt32-image-server) (which uses a 2×2
+touch grid instead of one button). Still speaks the atom-manager protocol.
 
-- **MCU/display:** ESP32-S3, 0.85" 128×128 IPS LCD
+- **MCU/display:** ESP32-S3, 0.85" 128×128 IPS LCD, one button
 - **Framework:** Arduino + [M5Unified](https://github.com/m5stack/M5Unified) (M5GFX)
 - **Build:** [PlatformIO](https://platformio.org/)
 
 ## How it works
 
-1. On boot the device starts a WiFi **SoftAP** (or auto-joins a saved network —
-   see *Serial console* below) and prints the SSID / IP on the LCD.
-2. Connect to that network and open the device IP (`http://192.168.4.1/` in AP
-   mode, or the DHCP address in client mode).
-3. The **ATOM FRAMER** page loads an image, lets you pan/zoom into the lime
-   128×128 device frame, and shows an exact device preview.
-4. **SEND → DEVICE** packs the framed pixels to RGB565 (big-endian, 32768 bytes)
-   and POSTs them to `/frame`; the firmware `pushImage()`s them to the panel.
+1. On boot the device restores the last-shown slot and displays it (or starts a
+   WiFi **SoftAP** + status screen if no slot is filled).
+2. Connect and open the device IP (`http://192.168.4.1/` in AP mode, or the DHCP
+   address in client mode).
+3. In the **ATOM FRAMER** page: pick a **slot (1–4)**, frame an image,
+   **SEND → SLOT** (stores + shows it). Edit that slot's gesture actions and
+   **SAVE GESTURES**.
+4. Slots persist in flash (LittleFS); the displayed slot survives reboot.
 
-The last frame is **mirrored to flash** (LittleFS), so a reboot or power-cycle
-comes back up showing the same image instead of the status screen. Tap the
-screen-button to recall the WiFi/IP status; it returns to the frame on the next
-push or reboot.
+## Button gestures
+
+The AtomS3R has one button. Per slot, three gestures map to HTTP GET actions:
+
+| gesture       | timing                              |
+|---------------|-------------------------------------|
+| short click   | release **< 0.5 s**                 |
+| long click    | held **> 0.7 s**                    |
+| double click  | two short clicks within **1.5 s**   |
+
+(A release between 0.5 s and 0.7 s is in neither band and is ignored. The single
+short fires only after the 1.5 s double-click window passes, so it can become a
+double instead.) Each action value is interpreted like the WT32 hotspots:
+
+- **`1`–`4`** — show that slot **on this device** (handled locally).
+- `/show?slot=1` — also this device (0-based).
+- `http://192.168.1.50/show?slot=0` — flips **another** unit.
+
+An **unconfigured long-press** falls back to showing WiFi/IP status on the LCD.
+Actions are stored as 12 lines (`slot*3 + gesture`, gesture = short/long/double)
+in `/buttons.txt`. The framer page reads the stored bitmap back
+(`GET /frame?slot=N`) and shows it on open / slot switch.
 
 ## Serial console (client mode)
 
@@ -60,24 +80,30 @@ either back in later.
 
 ## Endpoints
 
-| Method | Path     | Body                                   | Effect                          |
-|--------|----------|----------------------------------------|---------------------------------|
-| GET    | `/`      | —                                      | serves the framing UI           |
-| GET    | `/state` | —                                      | JSON: marker id, frame + battery state |
-| POST   | `/frame` | multipart file `frame`, 32768 B RGB565 | draws the frame, saves it to flash |
+| Method | Path       | Body / query                            | Effect                                   |
+|--------|------------|-----------------------------------------|------------------------------------------|
+| GET    | `/`        | —                                       | serves the framing UI                    |
+| GET    | `/state`   | —                                       | JSON: slot, filled[], marker id, battery |
+| POST   | `/frame`   | `?slot=N&mid=M`, multipart `frame` 32768 B | store into slot N, show it            |
+| GET    | `/frame`   | `?slot=N`                               | stream slot N's raw RGB565 back (read-back)|
+| GET    | `/show`    | `?slot=N`                               | display stored slot N (the gesture target)|
+| GET    | `/buttons` | —                                       | the 12-line gesture-action table         |
+| POST   | `/buttons` | text body, 12 lines                     | replace the gesture-action table         |
 
 `/frame` uses the core `WebServer` multipart **upload** handler, which is
 binary-safe and needs no async-web dependency. The page sends the bytes as a
-`FormData` blob. An optional `?mid=<n>` query records which ArUco marker the
-frame is, so `/state` can report it back (the atom-manager host sends this).
+`FormData` blob. `?slot=N` (default = current) picks the target slot; `?mid=<n>`
+records the ArUco marker so `/state` can report it (the atom-manager host sends
+this, with no `slot`, so it keeps pushing to the current slot).
 
 `/state` returns the device's current state for polling clients:
 
 ```json
-{ "markerId": 3, "hasFrame": true, "battery": { "mv": 4050, "pct": 83 } }
+{ "slot": 0, "slots": 4, "filled": [true,false,false,false], "markerId": 3, "hasFrame": true, "battery": { "mv": 4050, "pct": 83 } }
 ```
 
-- `markerId` — ArUco id of the displayed frame, or `-1` if unknown.
+- `slot` / `filled` — the current slot and which of the 4 are stored.
+- `markerId` — ArUco id of the current slot, or `-1` if unknown.
 - `hasFrame` — whether a full frame is stored/displayed.
 - `battery` — pack voltage in millivolts and a rough 0–100 % (1S LiPo,
   3.3 V → 0 %, 4.2 V → 100 %), read from the GPIO 8 ADC (2:1 divider).
@@ -109,7 +135,8 @@ calls in `setup()` for `WiFi.begin(ssid, pass)` and report `WiFi.localIP()`.
 
 ## Notes
 
-- RGB565 is packed **big-endian** by the page; the firmware calls
-  `M5.Display.setSwapBytes(true)` before `pushImage`. If colors look swapped on a
-  different panel, flip that flag.
-- Tap the screen-button to recall the AP info on the LCD.
+- RGB565 is packed **big-endian** by the page; the firmware types the source as
+  `m5gfx::swap565_t` so M5GFX converts to the panel's native order.
+- A **long-press with no action configured** shows the WiFi/IP status on the LCD.
+- Gesture timings (`SHORT_MAX_MS` / `LONG_MIN_MS` / `DOUBLE_MS`) are constants at
+  the top of [`src/main.cpp`](src/main.cpp).
