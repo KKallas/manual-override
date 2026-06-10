@@ -1,6 +1,6 @@
-// The "ATOM FRAMER" web UI, served from flash at "/".
-// Adapted from the standalone exporter: adds a SEND -> DEVICE action that POSTs
-// the packed 128x128 RGB565 bytes to POST /frame on this device.
+// The "WT32 FRAMER" web UI, served from flash at "/".
+// Frames a 320x480 RGB565 image, sends it to one of 4 device slots, and edits
+// the per-slot 2x2 touch hotspot URLs (POST /frame?slot, /show, /buttons).
 #pragma once
 #include <pgmspace.h>
 
@@ -9,7 +9,7 @@ static const char INDEX_HTML[] PROGMEM = R"=====(<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ATOM FRAMER — 128×128 RGB565</title>
+<title>WT32 FRAMER — 320×480 RGB565</title>
 <style>
   :root{
     --bg:#0d0f0d; --panel:#15181500; --ink:#c8d4c0; --dim:#5e6b58;
@@ -57,7 +57,7 @@ static const char INDEX_HTML[] PROGMEM = R"=====(<!DOCTYPE html>
   .label{font-size:10px;letter-spacing:.28em;color:var(--dim);text-transform:uppercase}
   .preview-box{align-self:center;position:relative}
   #preview{
-    width:192px;height:192px;image-rendering:pixelated;
+    width:160px;height:240px;image-rendering:pixelated;
     border:1px solid var(--hot);background:#000;display:block;
     box-shadow:0 0 0 4px var(--pad),0 0 24px rgba(182,255,58,.15);
   }
@@ -89,18 +89,17 @@ static const char INDEX_HTML[] PROGMEM = R"=====(<!DOCTYPE html>
   .slotbtn.filled::after{content:"";position:absolute;top:4px;right:4px;width:6px;height:6px;
     border-radius:50%;background:var(--hot)}
   .slotbtn.active.filled::after{background:#0d0f0d}
-  .gline{display:flex;align-items:center;gap:8px}
-  .gline .gname{flex:0 0 96px;font-size:10px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase}
-  .gline .gurl{flex:1;min-width:0;font:inherit;font-size:11px;background:var(--pad);color:var(--ink);
-    border:1px solid var(--line);padding:7px 8px}
-  .gline .gurl:focus{outline:none;border-color:var(--hot)}
+  .hsgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .hsurl{font:inherit;font-size:11px;background:var(--pad);color:var(--ink);
+    border:1px solid var(--line);padding:8px;min-width:0}
+  .hsurl:focus{outline:none;border-color:var(--hot)}
   .hint2{font-size:10px;color:var(--dim);letter-spacing:.04em}
 </style>
 </head>
 <body>
 <header>
-  <h1>ATOM&nbsp;FRAMER</h1>
-  <span class="sub">128×128 · 4 SLOTS · BUTTON GESTURES</span>
+  <h1>WT32&nbsp;FRAMER</h1>
+  <span class="sub">320×480 · RGB565 · LIVE PUSH</span>
 </header>
 
 <div class="wrap">
@@ -129,8 +128,8 @@ static const char INDEX_HTML[] PROGMEM = R"=====(<!DOCTYPE html>
 
     <div class="group preview-box">
       <span class="label" style="align-self:center">Device Preview</span>
-      <canvas id="preview" width="128" height="128"></canvas>
-      <div class="preview-cap">EXACTLY WHAT THE M5 SHOWS</div>
+      <canvas id="preview" width="320" height="480"></canvas>
+      <div class="preview-cap">EXACTLY WHAT THE WT32 SHOWS</div>
     </div>
 
     <div class="group">
@@ -162,20 +161,23 @@ static const char INDEX_HTML[] PROGMEM = R"=====(<!DOCTYPE html>
     <div class="div"></div>
 
     <div class="group">
-      <span class="label">Button gestures · slot <span id="gSlot">1</span></span>
-      <div class="gline"><span class="gname">Short ·&lt;0.5s</span><input class="gurl" data-g="0" placeholder="1-4 or URL"></div>
-      <div class="gline"><span class="gname">Long ·&gt;0.7s</span><input class="gurl" data-g="1" placeholder="1-4 or URL (empty = show IP)"></div>
-      <div class="gline"><span class="gname">Double</span><input class="gurl" data-g="2" placeholder="1-4 or URL"></div>
-      <button id="saveBtns">SAVE GESTURES</button>
+      <span class="label">Hotspots · slot <span id="hsSlot">1</span> · 2×2</span>
+      <div class="hsgrid">
+        <input class="hsurl" data-cell="0" placeholder="top-left · 1-4 or URL">
+        <input class="hsurl" data-cell="1" placeholder="top-right · 1-4 or URL">
+        <input class="hsurl" data-cell="2" placeholder="bottom-left · 1-4 or URL">
+        <input class="hsurl" data-cell="3" placeholder="bottom-right · 1-4 or URL">
+      </div>
+      <button id="saveBtns">SAVE HOTSPOTS</button>
       <div class="hint2">just <b>1–4</b> = show that slot here · <b>http://other-ip/show?slot=0</b> = flip another unit</div>
     </div>
 
     <div class="div"></div>
 
     <div class="meta">
-      <b>OUT:</b> 128×128 px · RGB565 BE<br>
-      <b>SLOTS:</b> 4 · <b>GESTURES:</b> short/long/double<br>
-      <b>SIZE:</b> 32768 bytes (.dat)<br>
+      <b>OUT:</b> 320×480 px · RGB565 BE<br>
+      <b>SLOTS:</b> 4 · <b>HOTSPOTS:</b> 2×2<br>
+      <b>SIZE:</b> 307200 bytes (.dat)<br>
       <b>POST:</b> /frame?slot=N (multipart)
     </div>
   </aside>
@@ -183,7 +185,8 @@ static const char INDEX_HTML[] PROGMEM = R"=====(<!DOCTYPE html>
 
 <script>
 "use strict";
-const SIZE = 128;
+const FW = 320, FH = 480;        // device frame: width x height
+const BYTES = FW * FH * 2;       // RGB565 payload size
 
 // ---- state ----
 const view = document.getElementById('view');
@@ -194,11 +197,11 @@ const status = document.getElementById('status');
 const scaleOut = document.getElementById('scaleOut');
 const zoomSlider = document.getElementById('zoom');
 
-let img = null;          // source HTMLImageElement / ImageBitmap-ish (use Image)
+let img = null;          // source HTMLImageElement
 let scale = 1;           // source px -> screen px
 let ox = 0, oy = 0;      // top-left of source in screen coords (canvas space)
 let dragging = false, lastX = 0, lastY = 0;
-let frameRect = {x:0,y:0,s:0}; // lime box on screen (square, side s, top-left x,y)
+let frameRect = {x:0,y:0,w:0,h:0}; // lime box on screen (FW:FH aspect)
 
 function setStatus(msg, cls){ status.textContent = msg; status.className = 'status' + (cls?(' '+cls):''); }
 
@@ -211,10 +214,13 @@ function resizeView(){
 }
 window.addEventListener('resize', resizeView);
 
-// The device frame is a fixed square centered in the stage.
+// The device frame keeps the FW:FH aspect, centred and filling most of the stage.
 function computeFrame(){
-  const side = Math.min(view.width, view.height) * 0.6;
-  frameRect = { x:(view.width-side)/2, y:(view.height-side)/2, s:side };
+  const margin = 0.85;
+  const availW = view.width * margin, availH = view.height * margin;
+  let h = availH, w = h * FW / FH;
+  if (w > availW) { w = availW; h = w * FH / FW; }
+  frameRect = { x:(view.width-w)/2, y:(view.height-h)/2, w, h };
 }
 
 // ---- drawing ----
@@ -229,18 +235,18 @@ function draw(){
   vctx.fillStyle = 'rgba(8,10,8,0.72)';
   vctx.beginPath();
   vctx.rect(0,0,view.width,view.height);
-  vctx.rect(frameRect.x, frameRect.y, frameRect.s, frameRect.s);
+  vctx.rect(frameRect.x, frameRect.y, frameRect.w, frameRect.h);
   vctx.fill('evenodd');
   vctx.restore();
   // frame border
   vctx.strokeStyle = '#b6ff3a';
   vctx.lineWidth = 1.5;
-  vctx.strokeRect(frameRect.x+0.5, frameRect.y+0.5, frameRect.s, frameRect.s);
+  vctx.strokeRect(frameRect.x+0.5, frameRect.y+0.5, frameRect.w, frameRect.h);
   // corner ticks
   vctx.strokeStyle = '#b6ff3a';
   const t = 10;
-  const cs = [[frameRect.x,frameRect.y,1,1],[frameRect.x+frameRect.s,frameRect.y,-1,1],
-              [frameRect.x,frameRect.y+frameRect.s,1,-1],[frameRect.x+frameRect.s,frameRect.y+frameRect.s,-1,-1]];
+  const cs = [[frameRect.x,frameRect.y,1,1],[frameRect.x+frameRect.w,frameRect.y,-1,1],
+              [frameRect.x,frameRect.y+frameRect.h,1,-1],[frameRect.x+frameRect.w,frameRect.y+frameRect.h,-1,-1]];
   vctx.lineWidth = 2.5;
   for(const [cx,cy,dx,dy] of cs){
     vctx.beginPath();
@@ -250,17 +256,18 @@ function draw(){
   renderPreview();
 }
 
-// Render the 128x128 preview by sampling the source region under the frame.
+// Render the FWxFH preview by sampling the source region under the frame.
 function renderPreview(){
   if(!img) return;   // no source loaded — keep the device read-back shown
-  pctx.clearRect(0,0,SIZE,SIZE);
+  pctx.clearRect(0,0,FW,FH);
   // source coords of frame's top-left and size
   const sx = (frameRect.x - ox) / scale;
   const sy = (frameRect.y - oy) / scale;
-  const ss = frameRect.s / scale;
+  const sw = frameRect.w / scale;
+  const sh = frameRect.h / scale;
   pctx.imageSmoothingEnabled = true;
-  pctx.fillStyle = '#000'; pctx.fillRect(0,0,SIZE,SIZE);
-  pctx.drawImage(img, sx, sy, ss, ss, 0, 0, SIZE, SIZE);
+  pctx.fillStyle = '#000'; pctx.fillRect(0,0,FW,FH);
+  pctx.drawImage(img, sx, sy, sw, sh, 0, 0, FW, FH);
 }
 
 // ---- interaction ----
@@ -305,19 +312,18 @@ zoomSlider.addEventListener('input', ()=>{
 document.getElementById('fit').onclick = ()=> fitMode('fit');
 document.getElementById('fill').onclick = ()=> fitMode('fill');
 document.getElementById('one').onclick = ()=>{
-  scale = frameRect.s / SIZE; // 1 device px = 1 source px inside frame
+  scale = frameRect.w / FW; // 1 device px = 1 source px inside frame
   centerImage(); syncZoomUI(); draw();
 };
 function fitMode(mode){
   if(!img) return;
-  const fitScale = frameRect.s / Math.max(img.width, img.height);
-  const fillScale = frameRect.s / Math.min(img.width, img.height);
-  scale = mode==='fit' ? fitScale : fillScale;
+  const sw = frameRect.w / img.width, sh = frameRect.h / img.height;
+  scale = mode==='fit' ? Math.min(sw,sh) : Math.max(sw,sh);
   centerImage(); syncZoomUI(); draw();
 }
 function centerImage(){
-  ox = frameRect.x + frameRect.s/2 - img.width*scale/2;
-  oy = frameRect.y + frameRect.s/2 - img.height*scale/2;
+  ox = frameRect.x + frameRect.w/2 - img.width*scale/2;
+  oy = frameRect.y + frameRect.h/2 - img.height*scale/2;
 }
 
 // ---- loading source image ----
@@ -345,11 +351,11 @@ function enableControls(on){
 }
 
 // ============================================================
-//  RGB565 packing  (big-endian: high byte first, M5GFX default)
+//  RGB565 packing  (big-endian: high byte first, M5GFX/LovyanGFX swap565)
 // ============================================================
 function previewToRGB565(){
-  const id = pctx.getImageData(0,0,SIZE,SIZE).data;
-  const out = new Uint8Array(SIZE*SIZE*2);
+  const id = pctx.getImageData(0,0,FW,FH).data;
+  const out = new Uint8Array(BYTES);
   let j=0;
   for(let i=0;i<id.length;i+=4){
     const r=id[i], g=id[i+1], b=id[i+2];
@@ -365,13 +371,6 @@ function downloadBlob(blob, name){
   a.href=URL.createObjectURL(blob); a.download=name;
   document.body.appendChild(a); a.click(); a.remove();
 }
-
-document.getElementById('saveDat').onclick = ()=>{
-  if(!img) return;
-  const dat = previewToRGB565();
-  downloadBlob(new Blob([dat],{type:'application/octet-stream'}), 'frame.dat');
-  setStatus('Exported frame.dat (32768 bytes).', 'ok');
-};
 
 // ============================================================
 //  SEND -> DEVICE : POST the packed RGB565 to /frame (multipart,
@@ -403,7 +402,7 @@ document.getElementById('sendDev').onclick = sendToDevice;
 
 // ============================================================
 //  PNG with embedded private "daTa" chunk
-//  We render the 128x128 preview to a PNG, then splice in a
+//  We render the FWxFH preview to a PNG, then splice in a
 //  custom ancillary chunk carrying the raw RGB565 bytes.
 // ============================================================
 
@@ -461,7 +460,7 @@ function injectChunk(pngBuf, chunk){
 
 document.getElementById('savePng').onclick = ()=>{
   if(!img) return;
-  // 1. the visible 128x128 preview becomes the PNG image itself
+  // 1. the visible FWxFH preview becomes the PNG image itself
   pv.toBlob(blob=>{
     blob.arrayBuffer().then(buf=>{
       const dat = previewToRGB565();            // truth = raw bytes
@@ -493,10 +492,10 @@ document.getElementById('filePng').addEventListener('change', e=>{
     // Always also load the visible image so the operator sees it & can re-frame.
     loadImageFromURL(URL.createObjectURL(f));
 
-    if(found && found.length === SIZE*SIZE*2){
+    if(found && found.length === BYTES){
       // stash recovered data so EXPORT .DAT yields the exact original bytes
       recoveredDat = new Uint8Array(found);
-      setStatus('PNG loaded — embedded RGB565 recovered (32768 B).', 'ok');
+      setStatus('PNG loaded — embedded RGB565 recovered ('+BYTES+' B).', 'ok');
     }else{
       recoveredDat = null;
       setStatus('PNG loaded (no embedded data — re-frame & save).', 'ok');
@@ -506,27 +505,22 @@ document.getElementById('filePng').addEventListener('change', e=>{
 
 // If we recovered exact bytes, EXPORT .DAT should prefer them over re-sampling.
 let recoveredDat = null;
-// Override export to use recovered bytes when the frame hasn't been touched:
 document.getElementById('saveDat').onclick = ()=>{
   if(!img) return;
   const dat = recoveredDat ? recoveredDat : previewToRGB565();
   downloadBlob(new Blob([dat],{type:'application/octet-stream'}), 'frame.dat');
-  setStatus('Exported frame.dat (32768 bytes)'+(recoveredDat?' — from embedded data.':'.'), 'ok');
+  setStatus('Exported frame.dat ('+BYTES+' bytes)'+(recoveredDat?' — from embedded data.':'.'), 'ok');
 };
-// any reframing invalidates recovered bytes
+// any reframing invalidates recovered bytes and counts as an edit
 ['mousemove','wheel'].forEach(ev=>view.addEventListener(ev, ()=>{ if(dragging||ev==='wheel'){ recoveredDat=null; editing=true; } }));
 
 // ============================================================
-//  Slots + button gestures
+//  Slots + hotspots
 // ============================================================
-const NSLOTS = 4, NGEST = 3, BYTES = SIZE*SIZE*2;
+const NSLOTS = 4, NCELLS = 4;
 let activeSlot = 0;
 let lastFilled = [false,false,false,false];
-let gestureLines = new Array(NSLOTS*NGEST).fill(''); // slot*NGEST + gesture
-const sessionImg = {};       // slot -> HTMLImageElement (full-res session original)
-const sessionFrame = {};     // slot -> {ox,oy,scale} framing of that original
-const slotCache = {};        // slot -> HTMLImageElement (low-res device read-back)
-let editing = false;         // true once the user loads/reframes their own image
+let buttonLines = new Array(NSLOTS*NCELLS).fill(''); // slot*NCELLS + cell
 
 function buildSlotBar(){
   const bar = document.getElementById('slotbar');
@@ -540,34 +534,49 @@ function buildSlotBar(){
     bar.appendChild(b);
   }
 }
-function fillGestureInputs(){
-  document.getElementById('gSlot').textContent = (activeSlot+1);
-  document.querySelectorAll('.gurl').forEach(inp=>{
-    inp.value = gestureLines[activeSlot*NGEST + (+inp.dataset.g)] || '';
+function fillHotspotInputs(){
+  document.getElementById('hsSlot').textContent = (activeSlot+1);
+  document.querySelectorAll('.hsurl').forEach(inp=>{
+    const cell = +inp.dataset.cell;
+    inp.value = buttonLines[activeSlot*NCELLS + cell] || '';
   });
 }
 function selectSlot(n){
   activeSlot = n;
   buildSlotBar();
-  fillGestureInputs();
-  if(!editing) viewSlot(n);
+  fillHotspotInputs();
+  if(!editing) viewSlot(n);   // show the stored image (cached), unless mid-edit
 }
 
-// Decode big-endian RGB565 bytes into an offscreen canvas (SIZE x SIZE).
+// sessionImg holds the full-res ORIGINAL image the user loaded/sent for a slot
+// this session — preferred over the device read-back so we never downgrade to the
+// low-res copy while the crisp source is still in memory.
+const sessionImg = {};       // slot -> HTMLImageElement (full-res original)
+const sessionFrame = {};     // slot -> {ox,oy,scale} framing of that original
+// slotCache holds the device bitmap, buffered as a PNG Image once per reload, used
+// only when there's no session original (e.g. after a page reload).
+const slotCache = {};        // slot -> HTMLImageElement (low-res read-back)
+let editing = false;         // true once the user loads/reframes their own image
+
+// Decode big-endian RGB565 bytes into an offscreen canvas (FW x FH).
 function rgb565ToCanvas(bytes){
-  const c = document.createElement('canvas'); c.width = SIZE; c.height = SIZE;
+  const c = document.createElement('canvas'); c.width = FW; c.height = FH;
   const cx = c.getContext('2d');
-  const id = cx.createImageData(SIZE, SIZE);
+  const id = cx.createImageData(FW, FH);
   let j=0;
   for(let i=0;i<bytes.length;i+=2){
     const v = (bytes[i]<<8) | bytes[i+1];
     const r5=(v>>11)&0x1F, g6=(v>>5)&0x3F, b5=v&0x1F;
-    id.data[j++]=(r5*255/31)|0; id.data[j++]=(g6*255/63)|0; id.data[j++]=(b5*255/31)|0; id.data[j++]=255;
+    id.data[j++] = (r5*255/31)|0;
+    id.data[j++] = (g6*255/63)|0;
+    id.data[j++] = (b5*255/31)|0;
+    id.data[j++] = 255;
   }
-  cx.putImageData(id,0,0);
+  cx.putImageData(id, 0, 0);
   return c;
 }
-// Fetch a slot's bytes once, buffer as a PNG Image, cache it.
+
+// Fetch a slot's bytes once, buffer as a PNG Image, and cache it.
 async function fetchSlotImage(slot){
   if(slotCache[slot]) return slotCache[slot];
   const buf = await (await fetch('/frame?slot='+slot)).arrayBuffer();
@@ -578,9 +587,11 @@ async function fetchSlotImage(slot){
   slotCache[slot] = im;
   return im;
 }
-// Show a slot's stored image in the large stage + preview (from cache).
+
+// Show a slot in the large stage + preview. Prefer the session's full-res
+// original; only fall back to the device read-back when there's no other source.
 async function viewSlot(slot){
-  if(sessionImg[slot]){               // prefer the full-res original from this session
+  if(sessionImg[slot]){
     img = sessionImg[slot]; recoveredDat = null; editing = false;
     enableControls(true);
     const fr = sessionFrame[slot];
@@ -589,15 +600,15 @@ async function viewSlot(slot){
     setStatus('Slot '+(slot+1)+' (session original, full-res — reframe & re-send anytime).', 'ok');
     return;
   }
-  if(!lastFilled[slot]){ img=null; enableControls(false); pctx.clearRect(0,0,SIZE,SIZE); draw(); setStatus('Slot '+(slot+1)+' is empty — load an image and SEND.'); return; }
+  if(!lastFilled[slot]){ img=null; enableControls(false); pctx.clearRect(0,0,FW,FH); draw(); setStatus('Slot '+(slot+1)+' is empty — load an image and SEND.'); return; }
   try{
     const im = await fetchSlotImage(slot);
-    if(editing || sessionImg[slot]) return;
+    if(editing || sessionImg[slot]) return;   // a source appeared while fetching
     img = im; recoveredDat = null;
     enableControls(true);
-    fitMode('fill');                  // low-res read-back, covers the area
+    fitMode('fill');               // low-res read-back, covers the 320x480 area
     setStatus('Slot '+(slot+1)+' (from device, low-res). Load an image to replace.', 'ok');
-  }catch(e){ /* offline or empty */ }
+  }catch(e){ /* offline or empty — leave as is */ }
 }
 
 async function loadState(){
@@ -606,43 +617,44 @@ async function loadState(){
     if(Array.isArray(s.filled)) lastFilled = s.filled;
     if(typeof s.slot === 'number') activeSlot = s.slot;
     buildSlotBar();
-    fillGestureInputs();
-    if(!editing) viewSlot(activeSlot);
+    fillHotspotInputs();
+    if(!editing) viewSlot(activeSlot);   // show the device's current slot (cached)
   }catch(_){ buildSlotBar(); }
 }
-async function loadGestures(){
+async function loadButtons(){
   try{
     const txt = await (await fetch('/buttons')).text();
     const lines = txt.split('\n');
-    for(let i=0;i<NSLOTS*NGEST;i++) gestureLines[i] = (lines[i]||'').replace(/\r$/,'');
+    for(let i=0;i<NSLOTS*NCELLS;i++) buttonLines[i] = (lines[i]||'').replace(/\r$/,'');
   }catch(_){}
-  fillGestureInputs();
+  fillHotspotInputs();
 }
-async function saveGestures(){
-  document.querySelectorAll('.gurl').forEach(inp=>{
-    gestureLines[activeSlot*NGEST + (+inp.dataset.g)] = inp.value.trim();
+async function saveHotspots(){
+  document.querySelectorAll('.hsurl').forEach(inp=>{
+    buttonLines[activeSlot*NCELLS + (+inp.dataset.cell)] = inp.value.trim();
   });
   try{
     const r = await fetch('/buttons', { method:'POST',
-      headers:{'Content-Type':'text/plain'}, body: gestureLines.join('\n') });
-    setStatus(r.ok ? 'Gestures saved.' : 'Save failed: HTTP '+r.status, r.ok?'ok':'err');
+      headers:{'Content-Type':'text/plain'}, body: buttonLines.join('\n') });
+    setStatus(r.ok ? 'Hotspots saved.' : 'Save failed: HTTP '+r.status, r.ok?'ok':'err');
   }catch(e){ setStatus('Save failed — page must be served by the device.', 'err'); }
 }
 async function showOnDevice(){
   try{
     const r = await fetch('/show?slot='+activeSlot);
-    setStatus(r.ok ? 'Showing slot '+(activeSlot+1)+' on device.' : 'Slot '+(activeSlot+1)+' is empty — send an image first.', r.ok?'ok':'err');
+    if(r.ok){ setStatus('Showing slot '+(activeSlot+1)+' on device.', 'ok'); }
+    else setStatus('Slot '+(activeSlot+1)+' is empty — send an image first.', 'err');
   }catch(e){ setStatus('Show failed — page must be served by the device.', 'err'); }
 }
-document.getElementById('saveBtns').onclick = saveGestures;
+document.getElementById('saveBtns').onclick = saveHotspots;
 document.getElementById('showDev').onclick = showOnDevice;
 
 // ---- boot ----
 resizeView();
+setStatus('Load an image to begin.');
 buildSlotBar();
 loadState();
-loadGestures();
-setStatus('Load an image to begin.');
+loadButtons();
 </script>
 </body>
 </html>
