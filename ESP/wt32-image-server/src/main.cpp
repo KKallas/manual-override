@@ -29,6 +29,7 @@
 #include <Preferences.h>
 #include <LittleFS.h>
 
+#include "names_discovery.h"
 #include "lgfx_wt32.h"
 #include "index_html.h"
 
@@ -176,10 +177,26 @@ static void doHotspot(String url) {
     return;
   }
   if (url.startsWith("http://") || url.startsWith("https://")) {
-    fireGet(url);                                 // another unit
+    fireGet(url);                                 // explicit URL to another unit
     return;
   }
-  Serial.println("hotspot: unsupported self action: " + url);
+  // "name:slot" — resolve a fleet name to its IP (slot is 1-based, like the UI).
+  int colon = url.indexOf(':');
+  if (colon > 0) {
+    String nm = url.substring(0, colon);
+    String rest = url.substring(colon + 1); rest.trim();
+    bool restNum = rest.length() > 0;
+    for (size_t i = 0; i < rest.length(); i++) if (!isDigit(rest[i])) restNum = false;
+    if (restNum) {
+      int sl = rest.toInt();
+      if (nm == disco::name()) { if (!loadSlot(sl - 1)) Serial.println("self slot empty"); return; }
+      IPAddress ip;
+      if (disco::lookup(nm, ip)) fireGet("http://" + ip.toString() + "/show?slot=" + String(sl - 1));
+      else Serial.println("hotspot: name not found: " + nm);
+      return;
+    }
+  }
+  Serial.println("hotspot: unsupported action: " + url);
 }
 
 // ---- battery (optional) ----------------------------------------------------
@@ -196,7 +213,7 @@ static void showStatus() {
   tft.setTextColor(COL_GREEN, COL_BLACK);
   tft.setTextSize(2);
   tft.setCursor(6, 6);
-  tft.println("WT32 FRAMER");
+  tft.println(disco::name());
   tft.setTextColor(COL_GREY, COL_BLACK);
   if (WiFi.status() == WL_CONNECTED) {
     tft.println("STA " + WiFi.SSID());
@@ -256,6 +273,7 @@ static void startSTA(const String& ssid, const String& pass, bool save) {
   }
   pendingSsid = ssid;
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);    // rejoin automatically after a WiFi-infra swap
   WiFi.begin(ssid.c_str(), pass.c_str());
   staConnecting = true;
   staDeadline = millis() + STA_TIMEOUT_MS;
@@ -284,6 +302,12 @@ static void handleSerialLine(String line) {
   if (line.equalsIgnoreCase("ip"))     { reportIP();  return; }
   if (line.equalsIgnoreCase("status")) { reportIP();  return; }
   if (line.equalsIgnoreCase("help"))   { printHelp(); return; }
+  if (line.equalsIgnoreCase("name"))   { Serial.println("name: " + disco::name()); return; }
+  if (line.length() > 5 && line.substring(0, 5).equalsIgnoreCase("name ")) {
+    String nm = line.substring(5); nm.trim();
+    if (nm.length()) { disco::setName(nm); Serial.println("renamed: " + disco::name()); }
+    return;
+  }
   if (line.equalsIgnoreCase("ap")) {
     prefs.remove("ssid");
     prefs.remove("pass");
@@ -438,12 +462,24 @@ static void handleState() {
     if (i < NUM_SLOTS - 1) filled += ",";
   }
   filled += "]";
-  String s = "{\"slot\":" + String(curSlot)
+  String s = "{\"name\":\"" + disco::name() + "\""
+           + ",\"slot\":" + String(curSlot)
            + ",\"slots\":" + String(NUM_SLOTS)
            + ",\"filled\":" + filled
            + ",\"hasFrame\":" + (frameOk ? "true" : "false")
            + ",\"battery\":" + battery + "}";
   server.send(200, "application/json", s);
+}
+
+static void handlePeers() { server.send(200, "application/json", disco::peersJson()); }
+
+static void handleNameGet() { server.send(200, "text/plain", disco::name()); }
+
+static void handleNamePost() {
+  String nm = server.arg("plain"); nm.trim();
+  if (!nm.length()) { server.send(400, "text/plain", "empty name"); return; }
+  disco::setName(nm);
+  server.send(200, "text/plain", disco::name());
 }
 
 void setup() {
@@ -475,8 +511,13 @@ void setup() {
   if (savedSsid.length()) startSTA(savedSsid, prefs.getString("pass", ""), false);
   else startAP();
 
+  disco::begin();   // random name (persisted) + UDP discovery, after WiFi is up
+
   server.on("/", HTTP_GET, handleRoot);
   server.on("/state", HTTP_GET, handleState);
+  server.on("/peers", HTTP_GET, handlePeers);
+  server.on("/name", HTTP_GET, handleNameGet);
+  server.on("/name", HTTP_POST, handleNamePost);
   server.on("/show", HTTP_GET, handleShow);
   server.on("/buttons", HTTP_GET, handleButtonsGet);
   server.on("/buttons", HTTP_POST, handleButtonsPost);
@@ -493,5 +534,6 @@ void loop() {
   server.handleClient();
   pumpSerial();
   pollSTA();
+  disco::loop();   // UDP announce + peer table upkeep
   pumpTouch();
 }

@@ -95,6 +95,11 @@ static const char INDEX_HTML[] PROGMEM = R"=====(<!DOCTYPE html>
     border:1px solid var(--line);padding:7px 8px}
   .gline .gurl:focus{outline:none;border-color:var(--hot)}
   .hint2{font-size:10px;color:var(--dim);letter-spacing:.04em}
+  .peers{display:flex;flex-direction:column;gap:4px;font-size:11px}
+  .peerrow{display:flex;gap:8px;align-items:baseline;cursor:pointer}
+  .peerrow:hover .pn{text-decoration:underline}
+  .peerrow .pn{color:var(--hot);font-weight:700}
+  .peerrow .pip{color:var(--dim);font-size:10px}
 </style>
 </head>
 <body>
@@ -167,7 +172,15 @@ static const char INDEX_HTML[] PROGMEM = R"=====(<!DOCTYPE html>
       <div class="gline"><span class="gname">Long ·&gt;0.7s</span><input class="gurl" data-g="1" placeholder="1-4 or URL (empty = show IP)"></div>
       <div class="gline"><span class="gname">Double</span><input class="gurl" data-g="2" placeholder="1-4 or URL"></div>
       <button id="saveBtns">SAVE GESTURES</button>
-      <div class="hint2">just <b>1–4</b> = show that slot here · <b>http://other-ip/show?slot=0</b> = flip another unit</div>
+      <div class="hint2">just <b>1–4</b> = show that slot here · <b>red_oak:1</b> = another unit by name</div>
+    </div>
+
+    <div class="div"></div>
+
+    <div class="group">
+      <span class="label">Network — I am <b id="devName" style="color:var(--hot)">…</b></span>
+      <div id="peers" class="peers"><span class="hint2">discovering…</span></div>
+      <div class="hint2">click a peer to drop <b>name:1</b> into the focused gesture field</div>
     </div>
 
     <div class="div"></div>
@@ -605,6 +618,7 @@ async function loadState(){
     const s = await (await fetch('/state')).json();
     if(Array.isArray(s.filled)) lastFilled = s.filled;
     if(typeof s.slot === 'number') activeSlot = s.slot;
+    if(s.name) document.getElementById('devName').textContent = s.name;
     buildSlotBar();
     fillGestureInputs();
     if(!editing) viewSlot(activeSlot);
@@ -637,11 +651,35 @@ async function showOnDevice(){
 document.getElementById('saveBtns').onclick = saveGestures;
 document.getElementById('showDev').onclick = showOnDevice;
 
+// ---- fleet peers ----
+let lastField = null;
+document.querySelectorAll('.gurl').forEach(i=> i.addEventListener('focus', ()=> lastField=i));
+async function loadPeers(){
+  let list; try{ list = await (await fetch('/peers')).json(); }catch(_){ return; }
+  const box = document.getElementById('peers');
+  if(!list.length){ box.innerHTML = '<span class="hint2">no other devices seen yet</span>'; return; }
+  box.innerHTML = '';
+  for(const p of list){
+    const row = document.createElement('div');
+    row.className = 'peerrow';
+    row.innerHTML = '<span class="pn"></span><span class="pip"></span>';
+    row.querySelector('.pn').textContent = p.name;
+    row.querySelector('.pip').textContent = p.ip + ' · ' + p.age + 's';
+    row.onclick = ()=>{
+      if(lastField){ lastField.value = p.name+':1'; lastField.focus(); setStatus('Put '+p.name+':1 — edit the slot # and SAVE GESTURES.', 'ok'); }
+      else setStatus('Focus a gesture field first, then click a peer.', 'err');
+    };
+    box.appendChild(row);
+  }
+}
+
 // ---- boot ----
 resizeView();
 buildSlotBar();
 loadState();
 loadGestures();
+loadPeers();
+setInterval(loadPeers, 5000);
 setStatus('Load an image to begin.');
 </script>
 </body>
