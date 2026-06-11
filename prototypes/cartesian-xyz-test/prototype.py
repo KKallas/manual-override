@@ -79,6 +79,10 @@ _robot_lock = threading.Lock()
 _link = "direct"
 _relay_side = None
 CONTROL_MODE = "cartesian"
+# The hub hands us a HubContext via the optional hub_init hook below; we keep it
+# so we can reach the OPTIONAL game-link machine for relay defaults (host + team).
+# None until hub_init runs, and stays None in a plain hub without that hook.
+_hub_ctx = None
 # Sampled state (live pose/feedback from the arm), so the stream re-snapshots on
 # a short interval rather than on a bump. See prototypes/live.py.
 _live = live.LiveState()
@@ -173,6 +177,35 @@ def _clamp_pose(x, y, z, r):
     return x, y, z, r
 
 
+# ---- hub integration (optional game-link pre-fill) -------------------------
+def hub_init(ctx):
+    """Optional hook the hub calls once after all machines load, handing us a
+    HubContext. We only keep it so relay defaults can fall back to the player-side
+    game-link machine. Absent in deployments that don't use the hook."""
+    global _hub_ctx
+    _hub_ctx = ctx
+
+
+def _link_defaults():
+    """The relay host + side to pre-fill from the OPTIONAL game-link machine, as
+    {"host", "side"} (each None if game-link isn't installed/enabled). Never
+    raises — relay/direct mode work fine without game-link."""
+    out = {"host": None, "side": None}
+    ctx = _hub_ctx
+    if ctx is None:
+        return out
+    try:
+        gl = ctx.get_prototype("game-link")
+        if gl is None:
+            return out
+        sel = gl.link()
+        out["host"] = sel.get("host")
+        out["side"] = sel.get("team")   # game-link calls the side a "team"
+    except Exception:   # pragma: no cover - defensive; game-link is optional
+        pass
+    return out
+
+
 # ---- programmatic API (for other prototypes via the hub) -------------------
 # Lets e.g. the calibration prototype drive this same arm in workspace XYZ. The
 # arm must already be Connected + Enabled from this prototype's tab (that starts
@@ -260,12 +293,15 @@ def index():
 
 @bp.route("/api/config")
 def config():
+    # link_defaults pre-fill the relay Host + Side from the player-side game-link
+    # machine when it's installed (both null otherwise — the UI keeps its defaults).
     return jsonify(
         {
             "workspace": WORKSPACE,
             "radius_min": RADIUS_MIN,
             "radius_max": RADIUS_MAX,
             "default_ip": DEFAULT_IP,
+            "link_defaults": _link_defaults(),
         }
     )
 
@@ -327,7 +363,15 @@ def connect():
 
     if mode == "relay":
         host = data.get("host", "")
-        side = data.get("side", "purple")
+        side = data.get("side", "")
+        # If host/side weren't supplied, fall back to the player's game-link choice
+        # (optional machine); then to the legacy defaults. Keeps direct mode and an
+        # explicit relay request unchanged.
+        defaults = _link_defaults()
+        if not host:
+            host = defaults["host"] or ""
+        if not side:
+            side = defaults["side"] or "purple"
         if side not in ("purple", "green"):
             return _fail("side must be 'purple' or 'green'")
         with _robot_lock:

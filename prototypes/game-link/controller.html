@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Game Link</title>
+<link rel="stylesheet" href="/theme.css" />
+<style>
+  /* Page-local bits on top of the shared theme.css. */
+  main { max-width: 720px; margin: 0 auto; padding: 20px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .row + .row { margin-top:12px; }
+  input[type=text] { flex:1; min-width:200px; }
+  /* Team toggle: colour the active side with the team colour. */
+  .seg button.team-purple.active { background:var(--purple); border-color:var(--purple); color:#13161c; }
+  .seg button.team-green.active { background:var(--ok); border-color:var(--ok); color:#13161c; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr));
+    gap:10px; margin-top:14px; }
+  /* The big "who holds the floor" verdict pill. */
+  #verdict { font-size:18px; padding:10px 18px; }
+  .pill.hold { color:var(--ok); border-color:var(--ok); }
+  .pill.other { color:var(--warn); border-color:var(--warn); }
+  .pill.free { color:var(--dim); }
+  .hint { color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Game Link</h1>
+  <span class="sub">Player side · pick your team + the game-master host, watch the live relay link.</span>
+  <span id="conn" class="hint" style="margin-left:auto">…</span>
+</header>
+<main>
+  <section class="panel">
+    <h2>Your team</h2>
+    <div class="row">
+      <span class="seg" id="teamSeg">
+        <button type="button" class="team-purple" data-team="purple">Purple</button>
+        <button type="button" class="team-green" data-team="green">Green</button>
+      </span>
+      <span class="hint">This is the side you control on the relay.</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Game-master host</h2>
+    <div class="row">
+      <input type="text" id="host" placeholder="http://localhost:8000" />
+      <button id="btnSave" class="primary">Save</button>
+    </div>
+    <p class="hint" style="margin:10px 0 0">The address of the hub running the
+      <code>dobot-mg400-relay</code>. The joint / cartesian controllers pre-fill
+      their relay connection from this selection.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Relay status</h2>
+    <div class="row">
+      <span id="verdict" class="pill free"><span class="dot"></span><span id="verdictTxt">…</span></span>
+      <span id="leaseWrap" class="hint" style="display:none">lease <span id="lease">—</span>s</span>
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="k">Reachable</div><div class="v" id="reach">—</div></div>
+      <div class="stat"><div class="k">Arm</div><div class="v" id="arm">—</div></div>
+      <div class="stat"><div class="k">Holder</div><div class="v" id="holder">—</div></div>
+      <div class="stat"><div class="k">E-stop</div><div class="v" id="estop">—</div></div>
+    </div>
+    <p class="hint" id="errLine" style="margin:10px 0 0; display:none"></p>
+  </section>
+</main>
+
+<script>
+// Own API is resolved relative to this page (works under the hub mount).
+const BASE = location.pathname.replace(/\/[^/]*$/, '/');
+const U = p => BASE + p.replace(/^\//, '');
+const el = id => document.getElementById(id);
+
+let team = 'purple';          // last applied team (so we don't fight the toggle)
+let hostEditing = false;      // don't overwrite the field while the user types
+
+function setTeamUI(t) {
+  team = t;
+  document.querySelectorAll('#teamSeg button').forEach(b =>
+    b.classList.toggle('active', b.dataset.team === t));
+}
+
+async function postLink(body) {
+  try {
+    const r = await (await fetch(U('/api/link'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })).json();
+    return r;
+  } catch (_) { return null; }
+}
+
+// Team toggle applies immediately; the host field is applied on Save.
+document.querySelectorAll('#teamSeg button').forEach(b =>
+  b.onclick = () => { setTeamUI(b.dataset.team); postLink({ team: b.dataset.team }); });
+el('btnSave').onclick = () => postLink({ host: el('host').value.trim() });
+el('host').addEventListener('focus', () => { hostEditing = true; });
+el('host').addEventListener('blur', () => { hostEditing = false; });
+el('host').addEventListener('keydown', e => { if (e.key === 'Enter') el('btnSave').click(); });
+
+function applyStatus(s) {
+  el('conn').textContent = 'live';
+  // Don't fight the user: only reflect server team/host when they're not editing.
+  if (s.team && s.team !== team) setTeamUI(s.team);
+  if (!hostEditing && el('host').value !== s.host) el('host').value = s.host;
+
+  // The verdict pill: do YOU hold the floor, the other team, or is it free?
+  const v = el('verdict'), vt = el('verdictTxt');
+  if (!s.reachable) { v.className = 'pill err'; vt.textContent = 'NO RELAY'; }
+  else if (s.you_hold) { v.className = 'pill hold'; vt.textContent = 'YOU HOLD'; }
+  else if (s.other_holds) { v.className = 'pill other'; vt.textContent = 'HELD BY OTHER'; }
+  else { v.className = 'pill free'; vt.textContent = 'FREE'; }
+
+  // Lease seconds are only meaningful while YOU hold the floor.
+  const showLease = s.you_hold && s.lease_secs != null;
+  el('leaseWrap').style.display = showLease ? '' : 'none';
+  if (showLease) el('lease').textContent = (+s.lease_secs).toFixed(1);
+
+  el('reach').textContent = s.reachable ? 'yes' : 'no';
+  el('arm').textContent = !s.reachable ? '—'
+    : (s.arm_connected ? (s.arm_enabled ? 'enabled' : 'connected') : 'offline');
+  el('holder').textContent = s.holder || (s.reachable ? 'free' : '—');
+  el('estop').textContent = !s.reachable ? '—' : (s.estop ? 'LATCHED' : 'clear');
+
+  el('errLine').style.display = s.error ? '' : 'none';
+  if (s.error) el('errLine').textContent = s.error;
+}
+
+(async () => {
+  // Initial paint from the remembered selection, then live pushes.
+  try { applyStatus(await (await fetch(U('/api/status'))).json()); }
+  catch (_) { el('conn').textContent = 'offline'; }
+  const es = new EventSource(U('/api/events'));   // auto-reconnects
+  es.onmessage = e => { try { applyStatus(JSON.parse(e.data)); } catch (_) {} };
+  es.onerror = () => { el('conn').textContent = 'offline'; };
+})();
+</script>
+</body>
+</html>

@@ -596,6 +596,12 @@ async function init() {
   if (cfg.radius_min) radiusMin = cfg.radius_min;
   if (cfg.radius_max) radiusMax = cfg.radius_max;
   if (cfg.default_ip) document.getElementById("ip").value = cfg.default_ip;
+  // Pre-fill the relay Host + Side from the player-side game-link machine when it's
+  // installed (link_defaults; nulls otherwise → keep the existing defaults). The
+  // user can still change them; direct mode is untouched.
+  const ld = cfg.link_defaults || {};
+  if (ld.host) document.getElementById("relayHost").value = ld.host;
+  if (ld.side === "purple" || ld.side === "green") document.getElementById("relaySide").value = ld.side;
   buildAxes();
   buildSlots();
   wire();
