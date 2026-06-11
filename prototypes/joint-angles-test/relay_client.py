@@ -30,13 +30,24 @@ HTTP_TIMEOUT = 4.0      # per-request timeout (seconds)
 
 
 class RelayError(Exception):
-    """A relay request failed. `holder` names the side that owns the floor when
-    an acquire is rejected with 409, so the UI can say who's in control."""
+    """A relay request failed. `holder` is kept for call-site compatibility (the
+    controller catches RelayError.holder); with per-side arms there's no longer a
+    cross-side 409, so it is normally None."""
 
     def __init__(self, message, holder=None, status=None):
         self.holder = holder
         self.status = status
         super().__init__(message)
+
+
+# A blank per-side arm, used when the relay is starting up / a key is missing so
+# get_state() never throws on a partial state object.
+_BLANK_ARM = {
+    "connected": False, "enabled": False, "mode_name": "RELAY",
+    "joints": [0.0, 0.0, 0.0, 0.0], "pose": [0.0, 0.0, 0.0, 0.0],
+    "servo_active": False, "servo_error": None, "pump_mode": "off",
+    "control_mode": None, "ip": None, "target": None,
+}
 
 
 class RelayClient:
@@ -94,15 +105,11 @@ class RelayClient:
 
     # -- connection (lease) ---------------------------------------------------
     def connect(self):
-        """Acquire the floor for our side and start heartbeating. Raises
-        RelayError on 409 (someone else holds it) or if the relay is unreachable."""
+        """Acquire our side's arm and start heartbeating. Each side owns its own
+        arm now, so acquire never collides across sides — only a missing relay or a
+        genuinely bad request is an error. Raises RelayError in those cases."""
         status, body = self._post("/api/acquire",
                                   {"side": self.side, "mode": self.control_mode})
-        if status == 409:
-            holder = (body or {}).get("holder")
-            raise RelayError(
-                (body or {}).get("error", "relay is held by the other side"),
-                holder=holder, status=409)
         if status is None:
             raise RelayError("relay unreachable")
         if not body or not body.get("ok"):
@@ -153,18 +160,36 @@ class RelayClient:
             return 1 << 0   # DO index 1 -> bit 0
         return 0
 
+    def _our_arm_and_lease(self, rs):
+        """Pull OUR side's arm + lease out of the new two-arm relay state, defaulting
+        to a blank arm / blank lease if the relay is mid-startup or a key is missing.
+        Returns (arm_dict, lease_dict)."""
+        arms = (rs or {}).get("arms") or {}
+        sides = (rs or {}).get("sides") or {}
+        arm = arms.get(self.side) or {}
+        lease = sides.get(self.side) or {}
+        # Merge over the blank arm so every expected key exists even on a partial
+        # state object (relay starting up). Present keys win.
+        merged = dict(_BLANK_ARM)
+        merged.update(arm)
+        return merged, lease
+
     def get_state(self):
         """Return the controller-shaped status dict derived from the cached relay
-        state. Shape matches the direct driver's get_state() so _status_dict and
-        the existing UI keep working. Degrades gracefully (connected=False) when
-        no relay state has arrived yet."""
+        state, sourced from OUR side's arm + lease. Shape matches the direct driver's
+        get_state() so _status_dict and the existing UI keep working. Degrades
+        gracefully (connected=False) when no relay state has arrived yet."""
         with self._lock:
             rs = dict(self._relay_state) if self._relay_state else None
             have_token = self._token is not None
             hb_ok = self._hb_ok
-        arm = (rs or {}).get("arm") or {}
+        arm, lease = self._our_arm_and_lease(rs)
         pump_mode = arm.get("pump_mode", "off")
         connected = bool(have_token and hb_ok and arm.get("connected"))
+        # We own our own arm now: "holder" (for the controller UI's holder===side
+        # check) is OUR side while we're present/driving, else None.
+        present = bool(lease.get("present"))
+        holder = self.side if (have_token and hb_ok and present) else None
         return {
             "connected": connected,
             "robot_mode": 0,
@@ -173,7 +198,7 @@ class RelayClient:
             "error": bool(arm.get("servo_error")),
             "joints": list(arm.get("joints") or [0.0, 0.0, 0.0, 0.0]),
             "pose": list(arm.get("pose") or [0.0, 0.0, 0.0, 0.0]),
-            "target": (rs or {}).get("target"),
+            "target": arm.get("target"),
             "digital_in": 0,
             "digital_out": self._relay_pump_to_do_bits(pump_mode),
             "pump_mode": pump_mode,
@@ -182,16 +207,17 @@ class RelayClient:
             "servo_active": bool(arm.get("servo_active")),
             "servo_error": arm.get("servo_error"),
             # relay-only extras the UI surfaces for the relay link
-            "estop": bool((rs or {}).get("estop")),
-            "holder": (rs or {}).get("holder"),
-            "lease_secs": (rs or {}).get("lease_secs"),
+            "estop": bool((rs or {}).get("estop")),   # global
+            "holder": holder,
+            "lease_secs": lease.get("lease_secs"),
         }
 
     def get_target(self):
-        """The relay state's commanded target ([j1..j4]) or None."""
+        """OUR side's commanded target ([j1..j4]) or None."""
         with self._lock:
-            rs = self._relay_state
-        return (rs or {}).get("target") if rs else None
+            rs = dict(self._relay_state) if self._relay_state else None
+        arm, _ = self._our_arm_and_lease(rs)
+        return arm.get("target")
 
     # -- motion ---------------------------------------------------------------
     def set_target(self, j1, j2, j3, j4=None):

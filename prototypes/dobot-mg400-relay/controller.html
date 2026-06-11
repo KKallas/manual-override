@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MG400 Relay — Operator</title>
+<title>MG400 Relay — Operator (two arms)</title>
 <style>
   :root {
     --bg:#0f1115; --panel:#1a1d24; --line:#2a2f3a; --txt:#e6e9ef; --muted:#8a93a6;
@@ -17,21 +17,20 @@
     display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
   header h1 { font-size:16px; margin:0; font-weight:600; }
   header .sub { color:var(--muted); font-size:12px; }
-  main { max-width:880px; margin:0 auto; padding:20px; }
+  main { max-width:1000px; margin:0 auto; padding:20px; }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px;
     padding:16px 18px; margin-bottom:16px; }
   .panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em;
     color:var(--muted); margin:0 0 12px; }
   .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   input[type=text] { background:#0c0e12; border:1px solid var(--line); color:var(--txt);
-    padding:8px 10px; border-radius:6px; font:inherit; width:150px; }
+    padding:8px 10px; border-radius:6px; font:inherit; width:140px; }
   button { background:#232733; border:1px solid var(--line); color:var(--txt);
     padding:8px 14px; border-radius:6px; font:inherit; cursor:pointer; }
   button:hover:not(:disabled) { border-color:var(--accent); }
   button:disabled { opacity:.4; cursor:not-allowed; }
   button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
   button.ok { background:var(--ok); border-color:var(--ok); color:#04210f; }
-  button.warn { background:var(--warn); border-color:var(--warn); color:#2a1c00; font-weight:600; }
   button.estop { background:var(--estop); border-color:var(--estop); color:#fff;
     font-weight:700; font-size:15px; padding:14px 22px; letter-spacing:.04em; }
   .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px;
@@ -41,120 +40,88 @@
   .pill.off { color:var(--muted); }
   .pill.error { color:var(--err); } .pill.error .dot { background:var(--err); }
   .pill.warn { color:var(--warn); } .pill.warn .dot { background:var(--warn); }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
-  .stat { background:#13161c; border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
-  .stat .k { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
-  .stat .v { font-size:18px; font-variant-numeric:tabular-nums; margin-top:2px; }
   .estop-bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
   .hint { color:var(--muted); font-size:12px; margin-top:8px; }
-  .sides { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .sidecard { background:#13161c; border:1px solid var(--line); border-radius:10px; padding:14px; }
-  .sidecard.purple { border-color:#3a2a5a; }
-  .sidecard.green { border-color:#1f3a28; }
-  .sidecard h3 { margin:0 0 10px; font-size:14px; display:flex; align-items:center; gap:8px; }
+  .arms { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .armcard { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 18px; }
+  .armcard.purple { border-color:#3a2a5a; }
+  .armcard.green { border-color:#1f3a28; }
+  .armcard h2 { display:flex; align-items:center; gap:8px; font-size:14px;
+    text-transform:none; letter-spacing:0; color:var(--txt); margin:0 0 12px; }
   .swatch { width:11px; height:11px; border-radius:50%; }
   .swatch.purple { background:var(--purple); }
   .swatch.green { background:var(--green); }
-  .sidecard .line { display:flex; justify-content:space-between; font-size:13px;
-    padding:4px 0; border-bottom:1px solid #1b1f27; font-variant-numeric:tabular-nums; }
-  .sidecard .line:last-of-type { border-bottom:none; }
-  .sidecard .line .lab { color:var(--muted); }
-  .sidecard button.kick { margin-top:10px; width:100%; background:#2a1216;
+  .line { display:flex; justify-content:space-between; font-size:13px;
+    padding:5px 0; border-bottom:1px solid #1b1f27; font-variant-numeric:tabular-nums; }
+  .line:last-of-type { border-bottom:none; }
+  .line .lab { color:var(--muted); }
+  .armcard button.kick { margin-top:12px; width:100%; background:#2a1216;
     border-color:#5a2630; color:#ff8a96; }
-  .sidecard button.kick:hover { border-color:var(--err); }
+  .armcard button.kick:hover { border-color:var(--err); }
   code { color:var(--accent); }
-  @media (max-width:560px){ .sides { grid-template-columns:1fr; } }
+  @media (max-width:760px){ .arms { grid-template-columns:1fr; } }
 </style>
   <link rel="stylesheet" href="/theme.css" />
 </head>
 <body>
 <header>
   <h1>MG400 Relay — Operator</h1>
-  <span class="sub">Manual Override · game-master arbitration</span>
+  <span class="sub">Manual Override · two-arm game-master relay</span>
   <span style="flex:1"></span>
-  <span id="connPill" class="pill off"><span class="dot"></span><span id="connText">Disconnected</span></span>
   <span id="estopPill" class="pill off"><span class="dot"></span><span id="estopText">E-STOP clear</span></span>
 </header>
 
 <main>
   <section class="panel">
-    <h2>Connection</h2>
-    <div class="row">
-      <input type="text" id="ip" value="192.168.1.6" />
-      <button id="btnConnect" class="primary">Connect</button>
-      <button id="btnDisconnect">Disconnect</button>
-      <span style="flex:1"></span>
-      <button id="btnEnable" class="ok">Enable</button>
-      <button id="btnDisable">Disable</button>
-      <button id="btnClear">Clear</button>
-    </div>
-    <div class="hint">Robot must be in API mode — see docs/operations/dobot-api-mode.md.
-      <b>Clear</b> clears the robot error AND un-latches the E-STOP. <b>Enable</b>
-      starts the follower in the current holder's mode (or joint).</div>
-  </section>
-
-  <section class="panel">
-    <h2>Stop</h2>
+    <h2>Global stop</h2>
     <div class="estop-bar">
-      <button id="btnEstop" class="estop">■ EMERGENCY STOP</button>
-      <span class="hint">Latches E-STOP, stops the follower and cuts servo power.
-        Recover with <b>Clear</b> → <b>Enable</b>. Keyboard: <b>Esc</b>.</span>
+      <button id="btnEstop" class="estop">■ EMERGENCY STOP (both arms)</button>
+      <button id="btnClear" class="ok">Clear</button>
+      <span class="hint">E-STOP latches globally and stops BOTH arms.
+        <b>Clear</b> clears both arms' errors AND un-latches the E-STOP.
+        Recover with <b>Clear</b> → per-arm <b>Enable</b>. Keyboard: <b>Esc</b>.</span>
     </div>
   </section>
 
-  <section class="panel">
-    <h2>Arm status</h2>
-    <div class="grid">
-      <div class="stat"><div class="k">Connection</div><div class="v" id="sConn">—</div></div>
-      <div class="stat"><div class="k">Robot mode</div><div class="v" id="sMode">—</div></div>
-      <div class="stat"><div class="k">Servos</div><div class="v" id="sEnabled">—</div></div>
-      <div class="stat"><div class="k">Follower</div><div class="v" id="sFollower">—</div></div>
-      <div class="stat"><div class="k">Pump</div><div class="v" id="sPump">—</div></div>
-      <div class="stat"><div class="k">IP</div><div class="v" id="sIp">—</div></div>
-    </div>
-    <div class="grid" style="margin-top:10px">
-      <div class="stat"><div class="k">Joints J1–J4 (°)</div><div class="v" id="sJoints">—</div></div>
-      <div class="stat"><div class="k">Pose X/Y/Z/R</div><div class="v" id="sPose">—</div></div>
-    </div>
-    <div class="hint" id="servoErr" style="color:var(--err); display:none"></div>
-  </section>
-
-  <section class="panel">
-    <h2>Floor / arbitration</h2>
-    <div class="row">
-      <span class="lab" style="color:var(--muted); font-size:13px">Holder:</span>
-      <span id="holderPill" class="pill off"><span class="dot"></span><span id="holderText">none</span></span>
-      <span class="lab" style="color:var(--muted); font-size:13px; margin-left:10px">Lease:</span>
-      <span id="leaseVal" style="font-variant-numeric:tabular-nums">—</span>
-    </div>
-    <div class="sides" style="margin-top:14px">
-      <div class="sidecard purple" id="cardPurple">
-        <h3><span class="swatch purple"></span> Purple</h3>
-        <div class="line"><span class="lab">Present</span><span id="purplePresent">no</span></div>
-        <div class="line"><span class="lab">Holder</span><span id="purpleHolder">—</span></div>
-        <div class="line"><span class="lab">Lease left</span><span id="purpleLease">—</span></div>
-        <button type="button" class="kick" data-side="purple">Kick purple</button>
-      </div>
-      <div class="sidecard green" id="cardGreen">
-        <h3><span class="swatch green"></span> Green</h3>
-        <div class="line"><span class="lab">Present</span><span id="greenPresent">no</span></div>
-        <div class="line"><span class="lab">Holder</span><span id="greenHolder">—</span></div>
-        <div class="line"><span class="lab">Lease left</span><span id="greenLease">—</span></div>
-        <button type="button" class="kick" data-side="green">Kick green</button>
-      </div>
-    </div>
-    <div class="hint">Exactly one side holds the floor. A side is dropped if it stops
-      heartbeating for the lease window. <b>Kick</b> force-releases a side and
-      smooth-stops the arm. Clients connect via <code>/api/acquire</code> etc.</div>
-  </section>
+  <div class="arms" id="arms"></div>
 </main>
+
+<template id="armTpl">
+  <section class="armcard">
+    <h2><span class="swatch"></span> <span class="title"></span>
+      <span style="flex:1"></span>
+      <span class="pill off connPill"><span class="dot"></span><span class="connText">Disconnected</span></span>
+    </h2>
+    <div class="row">
+      <input type="text" class="ip" />
+      <button class="primary btnConnect">Connect</button>
+      <button class="btnDisconnect">Disconnect</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="ok btnEnable">Enable</button>
+      <button class="btnDisable">Disable</button>
+    </div>
+    <div style="margin-top:12px">
+      <div class="line"><span class="lab">Robot mode</span><span class="sMode">—</span></div>
+      <div class="line"><span class="lab">Servos</span><span class="sEnabled">—</span></div>
+      <div class="line"><span class="lab">Follower</span><span class="sFollower">—</span></div>
+      <div class="line"><span class="lab">Pump</span><span class="sPump">—</span></div>
+      <div class="line"><span class="lab">Joints J1–J4 (°)</span><span class="sJoints">—</span></div>
+      <div class="line"><span class="lab">Pose X/Y/Z/R</span><span class="sPose">—</span></div>
+      <div class="line"><span class="lab">Controller</span><span class="sPresent">—</span></div>
+      <div class="line"><span class="lab">Lease left</span><span class="sLease">—</span></div>
+    </div>
+    <div class="hint sServoErr" style="color:var(--err); display:none"></div>
+    <button type="button" class="kick btnKick">Kick controller</button>
+  </section>
+</template>
 
 <script>
 // Resolve API paths relative to this page's directory so the relay works wherever
 // the hub mounts it (e.g. /p/dobot-mg400-relay/).
 const BASE = location.pathname.replace(/\/[^/]*$/, "/");
 const U = p => BASE + p.replace(/^\//, "");
-const el = id => document.getElementById(id);
+const SIDES = ["purple", "green"];
 
 async function api(path, body) {
   const opts = { method: body !== undefined ? "POST" : "GET" };
@@ -169,76 +136,89 @@ async function api(path, body) {
 const fmtArr = (a, d) => Array.isArray(a)
   ? a.map(v => (typeof v === "number" ? v.toFixed(d) : v)).join(" / ") : "—";
 
-function applyState(s) {
-  const arm = s.arm || {};
-
-  // header pills
-  el("connPill").className = "pill " + (arm.connected ? "on" : "off");
-  el("connText").textContent = arm.connected ? "Connected" : "Disconnected";
-  el("estopPill").className = "pill " + (s.estop ? "error" : "off");
-  el("estopText").textContent = s.estop ? "E-STOP LATCHED" : "E-STOP clear";
-
-  // arm status
-  el("sConn").textContent = arm.connected ? "connected" : "—";
-  el("sMode").textContent = arm.mode_name || "—";
-  el("sEnabled").textContent = arm.enabled ? "ON" : "off";
-  el("sEnabled").style.color = arm.enabled ? "var(--ok)" : "var(--muted)";
-  el("sFollower").textContent = arm.servo_active
-    ? (arm.control_mode || "?") : "stopped";
-  el("sFollower").style.color = arm.servo_active ? "var(--ok)" : "var(--muted)";
-  el("sPump").textContent = arm.pump_mode || "—";
-  el("sPump").style.color = (arm.pump_mode && arm.pump_mode !== "off")
-    ? (arm.pump_mode === "conflict" ? "var(--err)" : "var(--ok)") : "var(--muted)";
-  el("sIp").textContent = arm.ip || "—";
-  el("sJoints").textContent = fmtArr(arm.joints, 1);
-  el("sPose").textContent = fmtArr(arm.pose, 1);
-
-  const se = el("servoErr");
-  if (arm.servo_error) { se.style.display = "block"; se.textContent = "Follower error: " + arm.servo_error; }
-  else se.style.display = "none";
-
-  // floor
-  const holder = s.holder;
-  el("holderPill").className = "pill " + (holder ? "on" : "off");
-  el("holderText").textContent = holder || "none";
-  el("leaseVal").textContent = holder ? (s.lease_secs || 0).toFixed(2) + " s" : "—";
-
-  // per-side cards
-  const sides = s.sides || {};
-  ["purple", "green"].forEach(side => {
-    const d = sides[side] || {};
-    const isHolder = holder === side;
-    el(side + "Present").textContent = d.present ? "yes" : "no";
-    el(side + "Present").style.color = d.present ? "var(--ok)" : "var(--muted)";
-    el(side + "Holder").textContent = isHolder ? "HOLDING" : "—";
-    el(side + "Holder").style.color = isHolder ? "var(--ok)" : "var(--muted)";
-    el(side + "Lease").textContent = isHolder ? (s.lease_secs || 0).toFixed(2) + " s" : "—";
+// Build the two arm cards once; keep node refs so we never rebuild DOM per frame.
+const cards = {};
+function buildCards(defaults) {
+  const host = document.getElementById("arms");
+  const tpl = document.getElementById("armTpl");
+  SIDES.forEach(side => {
+    const node = tpl.content.firstElementChild.cloneNode(true);
+    node.classList.add(side);
+    node.querySelector(".swatch").classList.add(side);
+    node.querySelector(".title").textContent = side[0].toUpperCase() + side.slice(1);
+    const q = sel => node.querySelector(sel);
+    const ip = q(".ip");
+    ip.value = (defaults && defaults[side]) || "";
+    q(".btnConnect").onclick = () => api("/api/connect", { side, ip: ip.value.trim() });
+    q(".btnDisconnect").onclick = () => api("/api/disconnect", { side });
+    q(".btnEnable").onclick = () => api("/api/enable", { side });
+    q(".btnDisable").onclick = () => api("/api/disable", { side });
+    q(".btnKick").onclick = () => api("/api/kick", { side });
+    host.appendChild(node);
+    cards[side] = {
+      connPill: q(".connPill"), connText: q(".connText"),
+      sMode: q(".sMode"), sEnabled: q(".sEnabled"), sFollower: q(".sFollower"),
+      sPump: q(".sPump"), sJoints: q(".sJoints"), sPose: q(".sPose"),
+      sPresent: q(".sPresent"), sLease: q(".sLease"), sServoErr: q(".sServoErr"),
+    };
   });
 }
 
-async function poll() { applyState(await api("/api/state")); }
+function applyArm(side, arm, sideInfo) {
+  const c = cards[side];
+  if (!c) return;
+  arm = arm || {}; sideInfo = sideInfo || {};
+
+  c.connPill.className = "pill connPill " + (arm.connected ? "on" : "off");
+  c.connText.textContent = arm.connected ? "Connected" : "Disconnected";
+
+  c.sMode.textContent = arm.mode_name || "—";
+  c.sEnabled.textContent = arm.enabled ? "ON" : "off";
+  c.sEnabled.style.color = arm.enabled ? "var(--ok)" : "var(--muted)";
+  c.sFollower.textContent = arm.servo_active ? (arm.control_mode || "?") : "stopped";
+  c.sFollower.style.color = arm.servo_active ? "var(--ok)" : "var(--muted)";
+  c.sPump.textContent = arm.pump_mode || "—";
+  c.sPump.style.color = (arm.pump_mode && arm.pump_mode !== "off")
+    ? (arm.pump_mode === "conflict" ? "var(--err)" : "var(--ok)") : "var(--muted)";
+  c.sJoints.textContent = fmtArr(arm.joints, 1);
+  c.sPose.textContent = fmtArr(arm.pose, 1);
+
+  c.sPresent.textContent = sideInfo.present ? "present" : "none";
+  c.sPresent.style.color = sideInfo.present ? "var(--ok)" : "var(--muted)";
+  c.sLease.textContent = sideInfo.present
+    ? (sideInfo.lease_secs || 0).toFixed(2) + " s" : "—";
+
+  if (arm.servo_error) {
+    c.sServoErr.style.display = "block";
+    c.sServoErr.textContent = "Follower error: " + arm.servo_error;
+  } else c.sServoErr.style.display = "none";
+}
+
+function applyState(s) {
+  if (!s) return;
+  const arms = s.arms || {};
+  const sides = s.sides || {};
+  document.getElementById("estopPill").className = "pill " + (s.estop ? "error" : "off");
+  document.getElementById("estopText").textContent = s.estop ? "E-STOP LATCHED" : "E-STOP clear";
+  SIDES.forEach(side => applyArm(side, arms[side], sides[side]));
+}
 
 function wire() {
-  el("btnConnect").onclick = async () =>
-    api("/api/connect", { ip: el("ip").value.trim() });
-  el("btnDisconnect").onclick = () => api("/api/disconnect", {});
-  el("btnEnable").onclick = () => api("/api/enable", {});
-  el("btnDisable").onclick = () => api("/api/disable", {});
-  el("btnClear").onclick = () => api("/api/clear", {});
-  el("btnEstop").onclick = () => api("/api/estop", {});
-  document.querySelectorAll("button.kick").forEach(b =>
-    b.onclick = () => api("/api/kick", { side: b.dataset.side }));
+  document.getElementById("btnEstop").onclick = () => api("/api/estop", {});
+  document.getElementById("btnClear").onclick = () => api("/api/clear", {});
   document.addEventListener("keydown", e => { if (e.key === "Escape") api("/api/estop", {}); });
 }
 
 async function init() {
   const cfg = await api("/api/config");
-  if (cfg.default_ip) el("ip").value = cfg.default_ip;
+  buildCards(cfg.default_ips || {});
   wire();
-  poll();   // initial paint
+  applyState(await api("/api/state"));   // initial paint
   const es = new EventSource(U("/api/events"));   // live pushes; auto-reconnects
   es.onmessage = e => { try { applyState(JSON.parse(e.data)); } catch (_) {} };
-  es.onerror = () => { el("connText").textContent = "stream offline"; };
+  es.onerror = () => {
+    SIDES.forEach(side => { if (cards[side]) cards[side].connText.textContent = "stream offline"; });
+  };
 }
 init();
 </script>

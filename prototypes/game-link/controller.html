@@ -16,18 +16,17 @@
   .seg button.team-green.active { background:var(--ok); border-color:var(--ok); color:#13161c; }
   .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr));
     gap:10px; margin-top:14px; }
-  /* The big "who holds the floor" verdict pill. */
-  #verdict { font-size:18px; padding:10px 18px; }
-  .pill.hold { color:var(--ok); border-color:var(--ok); }
-  .pill.other { color:var(--warn); border-color:var(--warn); }
-  .pill.free { color:var(--dim); }
+  /* Live verdict pills for YOUR arm (most states reuse theme.css .pill.* ). */
+  .pills { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .pills .pill { font-size:14px; padding:8px 14px; }
+  .pill.estop { color:#fff; background:var(--err); border-color:var(--err); }
   .hint { color:var(--muted); font-size:12px; }
 </style>
 </head>
 <body>
 <header>
   <h1>Game Link</h1>
-  <span class="sub">Player side · pick your team + the game-master host, watch the live relay link.</span>
+  <span class="sub">Player side · pick your team + the game-master host, watch your arm's live status.</span>
   <span id="conn" class="hint" style="margin-left:auto">…</span>
 </header>
 <main>
@@ -54,18 +53,15 @@
   </section>
 
   <section class="panel">
-    <h2>Relay status</h2>
-    <div class="row">
-      <span id="verdict" class="pill free"><span class="dot"></span><span id="verdictTxt">…</span></span>
+    <h2>Your arm</h2>
+    <div class="pills">
+      <span id="pillOnline" class="pill off"><span class="dot"></span><span id="pillOnlineTxt">ARM …</span></span>
+      <span id="pillEnabled" class="pill off"><span class="dot"></span><span id="pillEnabledTxt">…</span></span>
+      <span id="pillDriving" class="pill off"><span class="dot"></span><span id="pillDrivingTxt">…</span></span>
+      <span id="pillEstop" class="pill estop" style="display:none"><span class="dot"></span>E-STOP</span>
       <span id="leaseWrap" class="hint" style="display:none">lease <span id="lease">—</span>s</span>
     </div>
-    <div class="grid">
-      <div class="stat"><div class="k">Reachable</div><div class="v" id="reach">—</div></div>
-      <div class="stat"><div class="k">Arm</div><div class="v" id="arm">—</div></div>
-      <div class="stat"><div class="k">Holder</div><div class="v" id="holder">—</div></div>
-      <div class="stat"><div class="k">E-stop</div><div class="v" id="estop">—</div></div>
-    </div>
-    <p class="hint" id="errLine" style="margin:10px 0 0; display:none"></p>
+    <p class="hint" id="errLine" style="margin:12px 0 0; display:none"></p>
   </section>
 </main>
 
@@ -102,29 +98,44 @@ el('host').addEventListener('focus', () => { hostEditing = true; });
 el('host').addEventListener('blur', () => { hostEditing = false; });
 el('host').addEventListener('keydown', e => { if (e.key === 'Enter') el('btnSave').click(); });
 
+// Set a pill's class (keeping .pill) + text without rebuilding the node.
+function setPill(pillId, txtId, cls, text) {
+  const p = el(pillId);
+  if (p.className !== 'pill ' + cls) p.className = 'pill ' + cls;
+  const t = el(txtId);
+  if (t && t.textContent !== text) t.textContent = text;
+}
+
 function applyStatus(s) {
   el('conn').textContent = 'live';
   // Don't fight the user: only reflect server team/host when they're not editing.
   if (s.team && s.team !== team) setTeamUI(s.team);
   if (!hostEditing && el('host').value !== s.host) el('host').value = s.host;
 
-  // The verdict pill: do YOU hold the floor, the other team, or is it free?
-  const v = el('verdict'), vt = el('verdictTxt');
-  if (!s.reachable) { v.className = 'pill err'; vt.textContent = 'NO RELAY'; }
-  else if (s.you_hold) { v.className = 'pill hold'; vt.textContent = 'YOU HOLD'; }
-  else if (s.other_holds) { v.className = 'pill other'; vt.textContent = 'HELD BY OTHER'; }
-  else { v.className = 'pill free'; vt.textContent = 'FREE'; }
+  // Each side owns its OWN arm now — every pill reflects YOUR arm/side.
+  if (!s.reachable) {
+    setPill('pillOnline', 'pillOnlineTxt', 'err', 'NO RELAY');
+    setPill('pillEnabled', 'pillEnabledTxt', 'off', '—');
+    setPill('pillDriving', 'pillDrivingTxt', 'off', '—');
+  } else {
+    setPill('pillOnline', 'pillOnlineTxt',
+      s.your_arm_connected ? 'on' : 'off',
+      s.your_arm_connected ? 'ARM ONLINE' : 'ARM OFFLINE');
+    setPill('pillEnabled', 'pillEnabledTxt',
+      s.your_arm_enabled ? 'on' : 'warn',
+      s.your_arm_enabled ? 'ENABLED' : 'DISABLED');
+    setPill('pillDriving', 'pillDrivingTxt',
+      s.you_control ? 'on' : 'off',
+      s.you_control ? "YOU'RE DRIVING" : 'IDLE');
+  }
 
-  // Lease seconds are only meaningful while YOU hold the floor.
-  const showLease = s.you_hold && s.lease_secs != null;
+  // Global E-STOP warning (latched on the relay across both arms).
+  el('pillEstop').style.display = (s.reachable && s.estop) ? '' : 'none';
+
+  // Lease seconds are only meaningful while a controller drives YOUR side.
+  const showLease = s.reachable && s.you_control && s.lease_secs != null;
   el('leaseWrap').style.display = showLease ? '' : 'none';
   if (showLease) el('lease').textContent = (+s.lease_secs).toFixed(1);
-
-  el('reach').textContent = s.reachable ? 'yes' : 'no';
-  el('arm').textContent = !s.reachable ? '—'
-    : (s.arm_connected ? (s.arm_enabled ? 'enabled' : 'connected') : 'offline');
-  el('holder').textContent = s.holder || (s.reachable ? 'free' : '—');
-  el('estop').textContent = !s.reachable ? '—' : (s.estop ? 'LATCHED' : 'clear');
 
   el('errLine').style.display = s.error ? '' : 'none';
   if (s.error) el('errLine').textContent = s.error;

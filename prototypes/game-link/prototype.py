@@ -3,8 +3,10 @@ Game Link prototype — the player-side "machine" (a Flask blueprint).
 
 A player picks their TEAM (purple / green) and the game-master HOST (the address
 of the hub that runs the dobot-mg400-relay), and this machine remembers it and
-shows the live relay connection status: is the game-master reachable, is the arm
-connected/enabled, who holds the floor, and do YOU (your team) hold it.
+shows the live relay connection status for THEIR side: is the game-master
+reachable, is YOUR arm connected/enabled, are you driving it, and is the (global)
+E-STOP latched. The relay owns two arms (purple + green); each side drives its
+own arm concurrently, so there's no cross-side "who holds the floor" anymore.
 
 It is the player side's counterpart to the relay's operator GUI: it never owns the
 arm and never sends move/pump commands. It only READS the relay's published state
@@ -164,31 +166,34 @@ def _fail(error, **kw):
 
 def _status_dict():
     """A snapshot for GET /api/status and the SSE stream: the selection plus the
-    cached relay connection state, distilled for the UI. Reads only cached data —
-    no network I/O — so it never blocks the SSE lock."""
+    cached relay connection state for YOUR side, distilled for the UI. Reads only
+    cached data — no network I/O — so it never blocks the SSE lock.
+
+    The relay now owns TWO arms (purple + green); each side drives its own arm
+    concurrently. We report only the player's own side, sourced from
+    arms[team] and sides[team]. estop is global."""
     with _link_lock:
         team, host = _team, _host
     with _poll_lock:
         state, reachable, error = _relay_state, _reachable, _last_error
-    holder = arm_connected = arm_enabled = estop = lease_secs = None
+    your_arm_connected = your_arm_enabled = you_control = estop = lease_secs = None
     if state is not None:
-        holder = state.get("holder")
         estop = state.get("estop")
-        lease_secs = state.get("lease_secs")
-        arm = state.get("arm") or {}
-        arm_connected = arm.get("connected")
-        arm_enabled = arm.get("enabled")
+        arm = (state.get("arms") or {}).get(team) or {}
+        side = (state.get("sides") or {}).get(team) or {}
+        your_arm_connected = arm.get("connected")
+        your_arm_enabled = arm.get("enabled")
+        you_control = side.get("present")        # a controller holds your side
+        lease_secs = side.get("lease_secs")
     return {
         "team": team,
         "host": host,
         "reachable": reachable,
-        "holder": holder,
-        "you_hold": holder is not None and holder == team,
-        "other_holds": holder is not None and holder != team,
-        "arm_connected": arm_connected,
-        "arm_enabled": arm_enabled,
-        "estop": estop,
+        "your_arm_connected": your_arm_connected,
+        "your_arm_enabled": your_arm_enabled,
+        "you_control": you_control,
         "lease_secs": lease_secs,
+        "estop": estop,
         "error": error,
         "port": request.host.split(":")[-1] if ":" in request.host else None,
     }

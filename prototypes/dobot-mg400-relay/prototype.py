@@ -1,19 +1,29 @@
 """
-Dobot MG400 Relay — game-master arbitration server (a Flask blueprint).
+Dobot MG400 Relay — two-arm game-master relay server (a Flask blueprint).
 
-This machine OWNS the single MG400 connection and acts as a relay between two
-remote "sides" (purple / green). At most one side holds the floor at a time; the
-holder streams move/pump commands and the relay applies a safety filter (joint
-limits / reachable-workspace clamp mirrored from the joint and cartesian
-prototypes) before forwarding them to the arm. A watchdog frees the floor if the
-holder stops heartbeating.
+This machine OWNS TWO MG400 connections — one per side ("purple" / "green") — and
+relays each side's move/pump commands to ITS OWN arm. The two sides are fully
+INDEPENDENT and drive concurrently: purple's controller drives the purple arm
+while green's controller drives the green arm, with no blocking between sides.
+
+Per SIDE the relay still arbitrates: a side must *acquire* its arm and gets an
+opaque token + a lease; a per-side watchdog smooth-stops that side's arm if its
+holder stops heartbeating. This stops two tabs of the SAME side from fighting,
+but it NEVER blocks across sides (purple and green hold concurrently — no 409).
+
+Every command for a side passes the same safety filter (joint limits / reachable
+workspace clamp mirrored from the joint and cartesian prototypes) before it
+reaches that side's arm.
+
+A single GLOBAL E-STOP latch stops BOTH arms; `clear` un-latches it and clears
+both arms' errors.
 
 Loaded by hub.py; registered under /p/dobot-mg400-relay. No app.run() of its own —
-it only runs inside the hub server. It needs the robot reachable on the network to
-move anything; without it the operator GUI + every endpoint still work and
+it only runs inside the hub server. It needs each arm reachable on the network to
+move it; without a robot the operator GUI + every endpoint still work and
 move/pump fail cleanly with "Not connected".
 
-Put the robot in API mode first — see ../../docs/operations/dobot-api-mode.md.
+Put each robot in API mode first — see ../../docs/operations/dobot-api-mode.md.
 Safety: keep the hardware E-stop within reach; start with a low speed.
 """
 
@@ -33,21 +43,22 @@ from relay_arm import DobotMG400, DobotError  # noqa: E402
 
 MANIFEST = {
     "name": "Dobot MG400 Relay",
-    "description": "Game-master relay: owns the MG400 and arbitrates control "
-                   "between purple/green sides with a safety filter. Remote "
-                   "controllers connect via its HTTP API.",
+    "description": "Two-arm game-master relay: owns the purple and green MG400s "
+                   "and routes each side's commands to its OWN arm. The sides "
+                   "drive concurrently. Remote controllers connect via its HTTP API.",
     "default_page": "",
     "pages": [{"path": "", "label": "Relay (operator)"}],
 }
 bp = Blueprint("dobot_mg400_relay", __name__)
 
 # ---- configuration --------------------------------------------------------
-DEFAULT_IP = "192.168.1.6"
+# Per-side arm IPs (placeholders — operator-editable in the GUI / via /api/connect).
+DEFAULT_IPS = {"purple": "192.168.1.6", "green": "192.168.1.7"}
 
 SIDES = ("purple", "green")
 MODES = ("joint", "cartesian")
 LEASE_SECS = 2.0          # holder must heartbeat within this or it's dropped
-WATCHDOG_HZ = 5.0         # how often the watchdog checks the lease
+WATCHDOG_HZ = 5.0         # how often the watchdog checks each side's lease
 
 # Per-joint angle limits (degrees) — mirrored from joint-angles-test/prototype.py.
 JOINT_LIMITS = {
@@ -78,8 +89,9 @@ RAMP_SECS = 0.35        # follower ramp/brake time → accel = vel-cap / ramp-ti
 SUCK_DO_INDEX = 2
 BLOW_DO_INDEX = 1
 
-_robot = None
-_robot_lock = threading.Lock()   # guards (re)connecting the arm
+# Per-side arm connections, guarded by _arm_locks[side] (used while reconnecting).
+_robots = {s: None for s in SIDES}
+_arm_locks = {s: threading.Lock() for s in SIDES}
 # Sampled state (live feedback + lease seconds tick down), so the SSE stream
 # re-snapshots on a short interval rather than on a bump. See prototypes/live.py.
 _live = live.LiveState()
@@ -89,18 +101,17 @@ _live = live.LiveState()
 # Guarded by _arb_lock. NEVER do blocking arm socket I/O while holding this lock;
 # read what's needed under it, release, then talk to the arm.
 _arb_lock = threading.Lock()
-_estop = False                 # latched; cleared only by /api/clear
-_holder = None                 # "purple" | "green" | None
-_holder_mode = "joint"         # the mode the holder acquired with
+_estop = False                 # GLOBAL latch; stops BOTH arms; cleared by /api/clear
 _token_counter = 0             # bumps on every acquire → opaque per-side tokens
+# Per side: who (if anyone) holds it, the mode they acquired with, and their lease.
 _sides = {
-    s: {"present": False, "last_seen": 0.0, "token": None}
+    s: {"present": False, "last_seen": 0.0, "token": None, "mode": "joint"}
     for s in SIDES
 }
 
 
-def _current():
-    return _robot
+def _arm(side):
+    return _robots.get(side)
 
 
 def _clamp(v, lo, hi):
@@ -163,10 +174,10 @@ def _ensure_follower(robot, mode):
 
 
 # ---- lease / arbitration helpers (call with _arb_lock held) ----------------
-def _lease_secs_left_locked():
-    if _holder is None:
+def _lease_secs_left_locked(side):
+    if _sides[side]["token"] is None:
         return 0.0
-    left = LEASE_SECS - (time.time() - _sides[_holder]["last_seen"])
+    left = LEASE_SECS - (time.time() - _sides[side]["last_seen"])
     return max(0.0, left)
 
 
@@ -177,39 +188,49 @@ def _touch_locked(side):
 
 
 # ---- programmatic API (for other machines via the hub) ---------------------
-def arm_state():
+def arm_state(side):
+    """That side's arm sub-object (same shape as state['arms'][side])."""
+    if side not in SIDES:
+        raise ValueError(f"side must be one of {SIDES}")
+    return _arm_dict(side)
+
+
+def side_holder(side):
+    """The opaque token currently holding `side`, or None if free."""
+    if side not in SIDES:
+        raise ValueError(f"side must be one of {SIDES}")
+    with _arb_lock:
+        return _sides[side]["token"]
+
+
+def full_state():
     """The relay's full state object (same shape as GET /api/state)."""
     return _state_dict()
 
 
-def current_holder():
-    """Which side holds the floor right now: "purple" | "green" | None."""
-    with _arb_lock:
-        return _holder
-
-
 # ---- watchdog --------------------------------------------------------------
 def _watchdog_loop():
-    """~5 Hz: if the holder's lease expired, smooth-stop the arm and free the
-    floor (and mark that side not present). Arm I/O happens outside the lock."""
+    """~5 Hz: for EACH side, if its holder's lease expired, smooth-stop THAT side's
+    arm and free that side (mark not present). The other side is unaffected. Arm
+    I/O happens outside the lock."""
     period = 1.0 / WATCHDOG_HZ
     while True:
         time.sleep(period)
-        expired = None
+        expired = []
         with _arb_lock:
-            global _holder
-            if _holder is not None and _lease_secs_left_locked() <= 0.0:
-                expired = _holder
-                _sides[_holder]["present"] = False
-                _sides[_holder]["token"] = None
-                _holder = None
-        if expired is not None:
-            robot = _current()
+            for s in SIDES:
+                if _sides[s]["token"] is not None and _lease_secs_left_locked(s) <= 0.0:
+                    expired.append(s)
+                    _sides[s]["present"] = False
+                    _sides[s]["token"] = None
+        for s in expired:
+            robot = _arm(s)
             if robot is not None and robot.is_connected():
                 try:
                     robot.hold()      # smooth stop; keep servos enabled
                 except Exception:     # pragma: no cover - defensive
                     pass
+        if expired:
             _live.bump()
 
 
@@ -240,9 +261,9 @@ def _pump_mode(do_bits):
     return "off"
 
 
-def _arm_dict():
-    """The arm sub-object of the state (works with no robot connected)."""
-    robot = _current()
+def _arm_dict(side):
+    """The arm sub-object for one side (works with no robot connected)."""
+    robot = _arm(side)
     raw = DobotMG400._blank_state() if robot is None else robot.get_state()
     return {
         "connected": raw["connected"],
@@ -255,22 +276,26 @@ def _arm_dict():
         "pump_mode": _pump_mode(raw.get("digital_out", 0)),
         "control_mode": raw.get("control_mode"),
         "ip": None if robot is None else robot.ip,
+        "target": None if robot is None else robot.get_target(),
     }
 
 
 def _state_dict():
     """The full relay state (GET /api/state and the SSE stream)."""
-    robot = _current()
+    arms = {s: _arm_dict(s) for s in SIDES}
     with _arb_lock:
-        sides = {s: {"present": _sides[s]["present"],
-                     "last_seen": round(_sides[s]["last_seen"], 3)} for s in SIDES}
+        sides = {
+            s: {
+                "present": _sides[s]["present"],
+                "last_seen": round(_sides[s]["last_seen"], 3),
+                "lease_secs": round(_lease_secs_left_locked(s), 3),
+            }
+            for s in SIDES
+        }
         state = {
-            "arm": _arm_dict(),
+            "arms": arms,
             "estop": _estop,
-            "holder": _holder,
-            "lease_secs": round(_lease_secs_left_locked(), 3),
             "sides": sides,
-            "target": None if robot is None else robot.get_target(),
         }
     return state
 
@@ -288,7 +313,7 @@ def config():
         "workspace": WORKSPACE,
         "radius_min": RADIUS_MIN,
         "radius_max": RADIUS_MAX,
-        "default_ip": DEFAULT_IP,
+        "default_ips": DEFAULT_IPS,
         "sides": list(SIDES),
         "modes": list(MODES),
         "lease_secs": LEASE_SECS,
@@ -302,52 +327,70 @@ def state():
 
 @bp.route("/api/events")
 def events():
-    """Push the relay state (arm feedback, holder, lease, sides) ~5x/s while it
-    changes; the lease counts down so it changes every sample."""
+    """Push the relay state (both arms' feedback, sides, leases) ~5x/s while it
+    changes; the leases count down so it changes every sample."""
     return _live.stream(_state_dict, interval=0.2)
+
+
+# ---- side helpers ----------------------------------------------------------
+def _side_from(data):
+    side = (data or {}).get("side")
+    if side not in SIDES:
+        return None
+    return side
 
 
 # ---- operator endpoints (no token) ----------------------------------------
 @bp.route("/api/connect", methods=["POST"])
 def connect():
-    global _robot
-    ip = (request.json or {}).get("ip", DEFAULT_IP)
-    with _robot_lock:
-        if _robot is not None:
-            _robot.close()
-            _robot = None
+    """Connect THAT side's arm (replacing any existing connection for it)."""
+    data = request.json or {}
+    side = _side_from(data)
+    if side is None:
+        return _fail("side must be 'purple' or 'green'")
+    ip = data.get("ip") or DEFAULT_IPS[side]
+    with _arm_locks[side]:
+        if _robots[side] is not None:
+            _robots[side].close()
+            _robots[side] = None
         robot = DobotMG400(ip)
         try:
             robot.connect()
         except DobotError as e:
             return _fail(f"Could not connect to {ip}: {e}")
-        _robot = robot
+        _robots[side] = robot
     _live.bump()
-    return _ok(ip=ip)
+    return _ok(side=side, ip=ip)
 
 
 @bp.route("/api/disconnect", methods=["POST"])
 def disconnect():
-    global _robot
-    with _robot_lock:
-        if _robot is not None:
-            _robot.close()
-            _robot = None
+    """Disconnect that side's arm."""
+    side = _side_from(request.json or {})
+    if side is None:
+        return _fail("side must be 'purple' or 'green'")
+    with _arm_locks[side]:
+        if _robots[side] is not None:
+            _robots[side].close()
+            _robots[side] = None
     _live.bump()
-    return _ok()
+    return _ok(side=side)
 
 
 @bp.route("/api/enable", methods=["POST"])
 def enable():
-    """Enable + start the follower in the holder's mode (or default "joint").
-    Idempotent. Refused while estop is latched."""
-    robot = _current()
+    """Enable that side's arm + start its follower in its current mode (default
+    "joint"). Idempotent. Refused while the GLOBAL estop is latched."""
+    side = _side_from(request.json or {})
+    if side is None:
+        return _fail("side must be 'purple' or 'green'")
+    robot = _arm(side)
     if robot is None or not robot.is_connected():
         return _fail("Not connected")
     with _arb_lock:
         if _estop:
             return _fail("E-STOP latched — Clear first")
-        mode = _holder_mode if _holder is not None else "joint"
+        mode = _sides[side]["mode"] if _sides[side]["token"] is not None else "joint"
     try:
         robot.clear_error()
     except DobotError:
@@ -360,12 +403,16 @@ def enable():
         robot.start_servo(mode)
         _apply_motion(robot, mode)
     _live.bump()
-    return jsonify({"ok": errid == 0, "errid": errid, "resp": resp})
+    return jsonify({"ok": errid == 0, "errid": errid, "resp": resp, "side": side})
 
 
 @bp.route("/api/disable", methods=["POST"])
 def disable():
-    robot = _current()
+    """Stop that side's follower + disable that side's arm."""
+    side = _side_from(request.json or {})
+    if side is None:
+        return _fail("side must be 'purple' or 'green'")
+    robot = _arm(side)
     if robot is None or not robot.is_connected():
         return _fail("Not connected")
     robot.stop_servo()
@@ -374,82 +421,80 @@ def disable():
     except DobotError as e:
         return _fail(str(e), errid=e.errid)
     _live.bump()
-    return jsonify({"ok": errid == 0, "errid": errid, "resp": resp})
+    return jsonify({"ok": errid == 0, "errid": errid, "resp": resp, "side": side})
 
 
 @bp.route("/api/clear", methods=["POST"])
 def clear():
-    """Clear the robot error AND un-latch the estop so motion is allowed again."""
+    """Clear BOTH arms' errors AND un-latch the GLOBAL estop so motion is allowed
+    again on both sides."""
     global _estop
     with _arb_lock:
         _estop = False
-    robot = _current()
-    if robot is not None and robot.is_connected():
-        try:
-            robot.clear_error()
-        except DobotError as e:
-            _live.bump()
-            return _fail(str(e), errid=e.errid)
+    errors = {}
+    for s in SIDES:
+        robot = _arm(s)
+        if robot is not None and robot.is_connected():
+            try:
+                robot.clear_error()
+            except DobotError as e:
+                errors[s] = str(e)
     _live.bump()
+    if errors:
+        return _fail("clear_error failed on: " + ", ".join(errors), errors=errors)
     return _ok()
 
 
 @bp.route("/api/estop", methods=["POST"])
 def estop():
-    """Latch the estop, stop the follower, and emergency-stop the arm. Callable by
-    operator AND clients (no token)."""
+    """Latch the GLOBAL estop, stop the follower and emergency-stop BOTH arms.
+    Callable by operator AND clients (no token)."""
     global _estop
     with _arb_lock:
         _estop = True
-    robot = _current()
-    if robot is not None and robot.is_connected():
-        robot.stop_servo()
-        try:
-            robot.emergency_stop()
-        except DobotError:
-            pass
+    for s in SIDES:
+        robot = _arm(s)
+        if robot is not None and robot.is_connected():
+            robot.stop_servo()
+            try:
+                robot.emergency_stop()
+            except DobotError:
+                pass
     _live.bump()
     return _ok()
 
 
 @bp.route("/api/kick", methods=["POST"])
 def kick():
-    """Force-release a side if it holds the floor (smooth-stop the arm)."""
-    global _holder
-    side = (request.json or {}).get("side")
-    if side not in SIDES:
+    """Force-release that side's controller (smooth-stop that side's arm + free its
+    lease). The other side is unaffected."""
+    side = _side_from(request.json or {})
+    if side is None:
         return _fail("side must be 'purple' or 'green'")
-    released = False
     with _arb_lock:
         _sides[side]["present"] = False
         _sides[side]["token"] = None
-        if _holder == side:
-            _holder = None
-            released = True
-    if released:
-        robot = _current()
-        if robot is not None and robot.is_connected():
-            try:
-                robot.hold()
-            except Exception:   # pragma: no cover - defensive
-                pass
+    robot = _arm(side)
+    if robot is not None and robot.is_connected():
+        try:
+            robot.hold()
+        except Exception:   # pragma: no cover - defensive
+            pass
     _live.bump()
-    return _ok()
+    return _ok(side=side)
 
 
 # ---- client / side endpoints ----------------------------------------------
-def _check_holder(data):
-    """Validate (side, token) against the current holder. Returns (side, error)
+def _check_token(data):
+    """Validate (side, token) against that side's holder. Returns (side, error)
     where error is None on success. Refreshes the side's lease on success.
     Acquires/releases _arb_lock internally; does no arm I/O."""
-    side = data.get("side")
-    token = data.get("token")
-    if side not in SIDES:
+    side = _side_from(data)
+    if side is None:
         return None, "side must be 'purple' or 'green'"
+    token = data.get("token")
     with _arb_lock:
-        if _holder != side:
-            return None, "you do not hold the floor"
-        if token != _sides[side]["token"]:
+        if _sides[side]["token"] is None or token != _sides[side]["token"]:
             return None, "stale token"
         _touch_locked(side)
     return side, None
@@ -457,69 +502,63 @@ def _check_holder(data):
 
 @bp.route("/api/acquire", methods=["POST"])
 def acquire():
-    """Grant the floor to `side` if it's free or already held by it. Records the
-    mode and mints a fresh token (invalidating any old one for that side). 409 if
-    the OTHER side currently holds it."""
-    global _holder, _holder_mode, _token_counter
+    """Acquire THIS side's arm. Records the mode and mints a fresh token
+    (invalidating any old one for that side). NEVER conflicts with the other side —
+    purple and green can both hold concurrently (no 409)."""
+    global _token_counter
     data = request.json or {}
-    side = data.get("side")
-    mode = (data.get("mode") or "joint").lower()
-    if side not in SIDES:
+    side = _side_from(data)
+    if side is None:
         return _fail("side must be 'purple' or 'green'"), 400
+    mode = (data.get("mode") or "joint").lower()
     if mode not in MODES:
         return _fail("mode must be 'joint' or 'cartesian'"), 400
     with _arb_lock:
-        if _holder is not None and _holder != side:
-            return jsonify({"ok": False, "error": "floor held by other side",
-                            "holder": _holder}), 409
-        _holder = side
-        _holder_mode = mode
         _token_counter += 1
         token = f"{side}-{_token_counter}"
         _sides[side]["token"] = token
+        _sides[side]["mode"] = mode
         _touch_locked(side)
-    # If the arm is live, make sure the right follower is running (outside lock).
-    robot = _current()
+    # If this side's arm is live + enabled, make sure the right follower runs
+    # (outside the lock — blocking arm I/O).
+    robot = _arm(side)
     if robot is not None and robot.is_connected():
         try:
             _ensure_follower(robot, mode)
         except Exception:   # pragma: no cover - defensive
             pass
     _live.bump()
-    return _ok(token=token, lease_secs=LEASE_SECS)
+    return _ok(token=token, lease_secs=LEASE_SECS, side=side)
 
 
 @bp.route("/api/release", methods=["POST"])
 def release():
-    """Release the floor. Requires a valid (side, token)."""
-    global _holder
+    """Release this side's arm. Requires a valid (side, token)."""
     data = request.json or {}
-    side = data.get("side")
-    token = data.get("token")
-    if side not in SIDES:
+    side = _side_from(data)
+    if side is None:
         return _fail("side must be 'purple' or 'green'")
+    token = data.get("token")
     with _arb_lock:
-        if _holder != side:
-            return _fail("you do not hold the floor")
-        if token != _sides[side]["token"]:
+        if _sides[side]["token"] is None or token != _sides[side]["token"]:
             return _fail("stale token")
-        _holder = None
         _sides[side]["token"] = None
         _sides[side]["present"] = False
-    robot = _current()
+    robot = _arm(side)
     if robot is not None and robot.is_connected():
         try:
             robot.hold()
         except Exception:   # pragma: no cover - defensive
             pass
     _live.bump()
-    return _ok()
+    return _ok(side=side)
 
 
 @bp.route("/api/heartbeat", methods=["POST"])
 def heartbeat():
-    """Refresh the holder's lease; returns the full state object."""
-    side, err = _check_holder(request.json or {})
+    """Refresh this side's lease; returns the full state object. Stale token ->
+    {ok:false, error:"stale token"}."""
+    side, err = _check_token(request.json or {})
     if err:
         return _fail(err)
     return _ok(state=_state_dict())
@@ -527,16 +566,16 @@ def heartbeat():
 
 @bp.route("/api/move", methods=["POST"])
 def move():
-    """Set the follower target after safety-clamping. Requires the holder + a valid
-    token, no estop, and an enabled arm."""
+    """Set this side's follower target after safety-clamping. Requires a valid
+    (side, token), no GLOBAL estop, and that side's arm connected + enabled."""
     data = request.json or {}
-    side, err = _check_holder(data)
+    side, err = _check_token(data)
     if err:
         return _fail(err)
     with _arb_lock:
         if _estop:
             return _fail("E-STOP latched")
-    robot = _current()
+    robot = _arm(side)
     if robot is None or not robot.is_connected():
         return _fail("Not connected")
     if not robot.get_state().get("enabled"):
@@ -577,14 +616,15 @@ def move():
         clamped = {"x": round(x, 2), "y": round(y, 2),
                    "z": round(z, 2), "r": round(r, 2)}
     _live.bump()
-    return _ok(clamped=clamped)
+    return _ok(clamped=clamped, side=side)
 
 
 @bp.route("/api/pump", methods=["POST"])
 def pump():
-    """Set the air pump (suck|blow|off). Requires the holder + a valid token."""
+    """Set this side's air pump (suck|blow|off). Requires a valid (side, token)
+    and no GLOBAL estop."""
     data = request.json or {}
-    side, err = _check_holder(data)
+    side, err = _check_token(data)
     if err:
         return _fail(err)
     with _arb_lock:
@@ -593,7 +633,7 @@ def pump():
     mode = (data.get("mode") or "off").lower()
     if mode not in ("suck", "blow", "off"):
         return _fail("mode must be 'suck', 'blow' or 'off'")
-    robot = _current()
+    robot = _arm(side)
     if robot is None or not robot.is_connected():
         return _fail("Not connected")
     try:
@@ -601,20 +641,21 @@ def pump():
     except DobotError as e:
         return _fail(str(e), errid=e.errid)
     _live.bump()
-    return jsonify({"ok": errid == 0, "errid": errid, "resp": resp})
+    return jsonify({"ok": errid == 0, "errid": errid, "resp": resp, "side": side})
 
 
 @bp.route("/api/hold", methods=["POST"])
 def hold():
-    """Smooth-stop the arm but keep the floor. Requires the holder + a valid token."""
-    side, err = _check_holder(request.json or {})
+    """Smooth-stop this side's arm but keep its lease. Requires a valid (side,
+    token)."""
+    side, err = _check_token(request.json or {})
     if err:
         return _fail(err)
-    robot = _current()
+    robot = _arm(side)
     if robot is not None and robot.is_connected():
         try:
             robot.hold()
         except Exception:   # pragma: no cover - defensive
             pass
     _live.bump()
-    return _ok()
+    return _ok(side=side)
