@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Game Link</title>
+<link rel="stylesheet" href="/theme.css" />
+<style>
+  /* Page-local bits on top of the shared theme.css. */
+  main { max-width: 720px; margin: 0 auto; padding: 20px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .row + .row { margin-top:12px; }
+  input[type=text] { flex:1; min-width:200px; }
+  /* Team toggle: colour the active side with the team colour. */
+  .seg button.team-purple.active { background:var(--purple); border-color:var(--purple); color:#13161c; }
+  .seg button.team-green.active { background:var(--ok); border-color:var(--ok); color:#13161c; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr));
+    gap:10px; margin-top:14px; }
+  /* Live verdict pills for YOUR arm (most states reuse theme.css .pill.* ). */
+  .pills { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .pills .pill { font-size:14px; padding:8px 14px; }
+  .pill.estop { color:#fff; background:var(--err); border-color:var(--err); }
+  .hint { color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Game Link</h1>
+  <span class="sub">Player side · pick your team + the game-master host, watch your arm's live status.</span>
+  <span id="conn" class="hint" style="margin-left:auto">…</span>
+</header>
+<main>
+  <section class="panel">
+    <h2>Your team</h2>
+    <div class="row">
+      <span class="seg" id="teamSeg">
+        <button type="button" class="team-purple" data-team="purple">Purple</button>
+        <button type="button" class="team-green" data-team="green">Green</button>
+      </span>
+      <span class="hint">This is the side you control on the relay.</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Game-master host</h2>
+    <div class="row">
+      <input type="text" id="host" placeholder="http://localhost:8000" />
+      <button id="btnSave" class="primary">Save</button>
+    </div>
+    <p class="hint" style="margin:10px 0 0">The address of the hub running the
+      <code>dobot-mg400-relay</code>. The joint / cartesian controllers pre-fill
+      their relay connection from this selection.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Your arm</h2>
+    <div class="pills">
+      <span id="pillOnline" class="pill off"><span class="dot"></span><span id="pillOnlineTxt">ARM …</span></span>
+      <span id="pillEnabled" class="pill off"><span class="dot"></span><span id="pillEnabledTxt">…</span></span>
+      <span id="pillDriving" class="pill off"><span class="dot"></span><span id="pillDrivingTxt">…</span></span>
+      <span id="pillEstop" class="pill estop" style="display:none"><span class="dot"></span>E-STOP</span>
+      <span id="leaseWrap" class="hint" style="display:none">lease <span id="lease">—</span>s</span>
+    </div>
+    <p class="hint" id="errLine" style="margin:12px 0 0; display:none"></p>
+  </section>
+</main>
+
+<script>
+// Own API is resolved relative to this page (works under the hub mount).
+const BASE = location.pathname.replace(/\/[^/]*$/, '/');
+const U = p => BASE + p.replace(/^\//, '');
+const el = id => document.getElementById(id);
+
+let team = 'purple';          // last applied team (so we don't fight the toggle)
+let hostEditing = false;      // don't overwrite the field while the user types
+
+function setTeamUI(t) {
+  team = t;
+  document.querySelectorAll('#teamSeg button').forEach(b =>
+    b.classList.toggle('active', b.dataset.team === t));
+}
+
+async function postLink(body) {
+  try {
+    const r = await (await fetch(U('/api/link'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })).json();
+    return r;
+  } catch (_) { return null; }
+}
+
+// Team toggle applies immediately; the host field is applied on Save.
+document.querySelectorAll('#teamSeg button').forEach(b =>
+  b.onclick = () => { setTeamUI(b.dataset.team); postLink({ team: b.dataset.team }); });
+el('btnSave').onclick = () => postLink({ host: el('host').value.trim() });
+el('host').addEventListener('focus', () => { hostEditing = true; });
+el('host').addEventListener('blur', () => { hostEditing = false; });
+el('host').addEventListener('keydown', e => { if (e.key === 'Enter') el('btnSave').click(); });
+
+// Set a pill's class (keeping .pill) + text without rebuilding the node.
+function setPill(pillId, txtId, cls, text) {
+  const p = el(pillId);
+  if (p.className !== 'pill ' + cls) p.className = 'pill ' + cls;
+  const t = el(txtId);
+  if (t && t.textContent !== text) t.textContent = text;
+}
+
+function applyStatus(s) {
+  el('conn').textContent = 'live';
+  // Don't fight the user: only reflect server team/host when they're not editing.
+  if (s.team && s.team !== team) setTeamUI(s.team);
+  if (!hostEditing && el('host').value !== s.host) el('host').value = s.host;
+
+  // Each side owns its OWN arm now — every pill reflects YOUR arm/side.
+  if (!s.reachable) {
+    setPill('pillOnline', 'pillOnlineTxt', 'err', 'NO RELAY');
+    setPill('pillEnabled', 'pillEnabledTxt', 'off', '—');
+    setPill('pillDriving', 'pillDrivingTxt', 'off', '—');
+  } else {
+    setPill('pillOnline', 'pillOnlineTxt',
+      s.your_arm_connected ? 'on' : 'off',
+      s.your_arm_connected ? 'ARM ONLINE' : 'ARM OFFLINE');
+    setPill('pillEnabled', 'pillEnabledTxt',
+      s.your_arm_enabled ? 'on' : 'warn',
+      s.your_arm_enabled ? 'ENABLED' : 'DISABLED');
+    setPill('pillDriving', 'pillDrivingTxt',
+      s.you_control ? 'on' : 'off',
+      s.you_control ? "YOU'RE DRIVING" : 'IDLE');
+  }
+
+  // Global E-STOP warning (latched on the relay across both arms).
+  el('pillEstop').style.display = (s.reachable && s.estop) ? '' : 'none';
+
+  // Lease seconds are only meaningful while a controller drives YOUR side.
+  const showLease = s.reachable && s.you_control && s.lease_secs != null;
+  el('leaseWrap').style.display = showLease ? '' : 'none';
+  if (showLease) el('lease').textContent = (+s.lease_secs).toFixed(1);
+
+  el('errLine').style.display = s.error ? '' : 'none';
+  if (s.error) el('errLine').textContent = s.error;
+}
+
+(async () => {
+  // Initial paint from the remembered selection, then live pushes.
+  try { applyStatus(await (await fetch(U('/api/status'))).json()); }
+  catch (_) { el('conn').textContent = 'offline'; }
+  const es = new EventSource(U('/api/events'));   // auto-reconnects
+  es.onmessage = e => { try { applyStatus(JSON.parse(e.data)); } catch (_) {} };
+  es.onerror = () => { el('conn').textContent = 'offline'; };
+})();
+</script>
+</body>
+</html>

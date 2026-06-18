@@ -28,6 +28,7 @@ import live   # shared push helper (prototypes/live.py)
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)  # so the sibling driver imports cleanly
 from dobot_joint import DobotMG400, DobotError  # noqa: E402  (unique name; modules share one namespace)
+from relay_client import RelayClient, RelayError  # noqa: E402  (relay-link backend, stdlib only)
 
 MANIFEST = {
     "name": "Joint Angles Test",
@@ -67,6 +68,17 @@ BLOW_DO_INDEX = 1
 
 _robot = None
 _robot_lock = threading.Lock()
+# How the active _robot is wired: "direct" (DobotMG400 over TCP) or "relay"
+# (RelayClient forwarding to a remote game-master relay). Tracked so _status_dict
+# can surface the link + side/holder/lease to the UI; control_mode for the relay
+# is fixed for this controller ("joint").
+_link = "direct"
+_relay_side = None
+CONTROL_MODE = "joint"
+# The hub hands us a HubContext via the optional hub_init hook below; we keep it
+# so we can reach the OPTIONAL game-link machine for relay defaults (host + team).
+# None until hub_init runs, and stays None in a plain hub without that hook.
+_hub_ctx = None
 # Sampled state (live joint feedback from the arm), so the stream re-snapshots on
 # a short interval rather than on a bump. See prototypes/live.py.
 _live = live.LiveState()
@@ -153,6 +165,35 @@ def _clamp_joints(j1, j2, j3, j4):
     )
 
 
+# ---- hub integration (optional game-link pre-fill) -------------------------
+def hub_init(ctx):
+    """Optional hook the hub calls once after all machines load, handing us a
+    HubContext. We only keep it so relay defaults can fall back to the player-side
+    game-link machine. Absent in deployments that don't use the hook."""
+    global _hub_ctx
+    _hub_ctx = ctx
+
+
+def _link_defaults():
+    """The relay host + side to pre-fill from the OPTIONAL game-link machine, as
+    {"host", "side"} (each None if game-link isn't installed/enabled). Never
+    raises — relay/direct mode work fine without game-link."""
+    out = {"host": None, "side": None}
+    ctx = _hub_ctx
+    if ctx is None:
+        return out
+    try:
+        gl = ctx.get_prototype("game-link")
+        if gl is None:
+            return out
+        sel = gl.link()
+        out["host"] = sel.get("host")
+        out["side"] = sel.get("team")   # game-link calls the side a "team"
+    except Exception:   # pragma: no cover - defensive; game-link is optional
+        pass
+    return out
+
+
 # ---- programmatic API (for other prototypes via the hub) -------------------
 def robot_ready():
     """True if the arm is connected and enabled (follower running)."""
@@ -214,7 +255,10 @@ def index():
 
 @bp.route("/api/config")
 def config():
-    return jsonify({"joint_limits": JOINT_LIMITS, "default_ip": DEFAULT_IP})
+    # link_defaults pre-fill the relay Host + Side from the player-side game-link
+    # machine when it's installed (both null otherwise — the UI keeps its defaults).
+    return jsonify({"joint_limits": JOINT_LIMITS, "default_ip": DEFAULT_IP,
+                    "link_defaults": _link_defaults()})
 
 
 def _pump_mode(do_bits):
@@ -237,6 +281,14 @@ def _status_dict():
     st["target"] = None if robot is None else robot.get_target()
     st["ramp_secs"] = _ramp_secs
     st["speed_ratio"] = _speed_ratio
+    # Link mode lets the UI show whether we're talking to the arm directly or via
+    # the relay; in relay mode also surface side / holder / lease / estop.
+    st["link"] = _link
+    if _link == "relay":
+        st["side"] = _relay_side
+        st["holder"] = st.get("holder")
+        st["lease_secs"] = st.get("lease_secs")
+        st["estop"] = st.get("estop", False)
     with _loc_lock:
         st["slots"] = [_slot_public(i) for i in range(NUM_SLOTS)]
     return st
@@ -255,8 +307,48 @@ def events():
 
 @bp.route("/api/connect", methods=["POST"])
 def connect():
-    global _robot
-    ip = (request.json or {}).get("ip", DEFAULT_IP)
+    """Open a control link. Two modes (default "direct" for backward-compat):
+      {"mode":"direct","ip":"..."}                         — TCP to the MG400.
+      {"mode":"relay","host":"http://HOST:8000","side":..} — forward to the relay.
+    Either way the result is stored behind _robot so every other route is
+    unchanged (it just calls the same methods on whichever backend is active)."""
+    global _robot, _link, _relay_side
+    data = request.json or {}
+    mode = data.get("mode", "direct")
+
+    if mode == "relay":
+        host = data.get("host", "")
+        side = data.get("side", "")
+        # If host/side weren't supplied, fall back to the player's game-link choice
+        # (optional machine); then to the legacy defaults. Keeps direct mode and an
+        # explicit relay request unchanged.
+        defaults = _link_defaults()
+        if not host:
+            host = defaults["host"] or ""
+        if not side:
+            side = defaults["side"] or "purple"
+        if side not in ("purple", "green"):
+            return _fail("side must be 'purple' or 'green'")
+        with _robot_lock:
+            if _robot is not None:
+                _robot.close()
+                _robot = None
+            robot = RelayClient(host, side, control_mode=CONTROL_MODE)
+            try:
+                robot.connect()
+            except RelayError as e:
+                if e.status == 409:
+                    held = e.holder or "the other side"
+                    return _fail(f"Relay is held by {held} — release it first.",
+                                 holder=e.holder)
+                return _fail(f"Could not reach relay at {host}: {e}")
+            _robot = robot
+            _link = "relay"
+            _relay_side = side
+        return _ok(link="relay", host=host, side=side)
+
+    # direct (default)
+    ip = data.get("ip", DEFAULT_IP)
     with _robot_lock:
         if _robot is not None:
             _robot.close()
@@ -267,17 +359,22 @@ def connect():
         except DobotError as e:
             return _fail(f"Could not connect to {ip}: {e}")
         _robot = robot
-    return _ok(ip=ip)
+        _link = "direct"
+        _relay_side = None
+    return _ok(link="direct", ip=ip)
 
 
 @bp.route("/api/disconnect", methods=["POST"])
 def disconnect():
-    global _robot
+    global _robot, _link, _relay_side
     with _robot_lock:
         if _robot is not None:
             _robot.close()
             _robot = None
+        _link = "direct"
+        _relay_side = None
     return _ok()
+    
 
 
 @bp.route("/api/enable", methods=["POST"])
