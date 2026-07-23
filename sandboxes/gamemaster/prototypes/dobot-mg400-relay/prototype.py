@@ -109,6 +109,7 @@ MODES = ("joint", "cartesian")
 LEASE_SECS = 2.0          # holder must heartbeat within this or it's dropped
 WATCHDOG_HZ = 5.0         # how often the watchdog checks each side's lease
 COMMAND_LOG_MAX = 160     # recent relay/operator + robot command events
+COMMAND_LOG_FILE = os.path.join(HERE, "command-monitor.log")
 
 # Per-joint angle limits (degrees) — mirrored from joint-angles-test/prototype.py.
 JOINT_LIMITS = {
@@ -151,6 +152,7 @@ _live = live.LiveState()
 _command_log = deque(maxlen=COMMAND_LOG_MAX)
 _command_log_lock = threading.Lock()
 _command_log_seq = 0
+_command_log_file_error_reported = False
 
 
 # ---- arbitration state -----------------------------------------------------
@@ -187,11 +189,11 @@ def _redact_payload(value):
 
 
 def _log_command(direction, side, command, payload=None, ok=None, error=None):
-    """Append one command monitor entry and wake the operator SSE stream."""
-    global _command_log_seq
+    """Append one command monitor entry to memory/disk and wake the SSE stream."""
+    global _command_log_seq, _command_log_file_error_reported
     with _command_log_lock:
         _command_log_seq += 1
-        _command_log.appendleft({
+        entry = {
             "id": _command_log_seq,
             "ts": round(time.time(), 3),
             "time": time.strftime("%H:%M:%S"),
@@ -201,7 +203,17 @@ def _log_command(direction, side, command, payload=None, ok=None, error=None):
             "payload": _redact_payload(payload or {}),
             "ok": ok,
             "error": error,
-        })
+        }
+        _command_log.appendleft(entry)
+        try:
+            with open(COMMAND_LOG_FILE, "a", encoding="utf-8") as log_file:
+                log_file.write(json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n")
+        except OSError as exc:
+            # Logging must never stop a robot command. Report the first failure
+            # to the hub console without flooding it on every move event.
+            if not _command_log_file_error_reported:
+                print(f"dobot relay: cannot write {COMMAND_LOG_FILE}: {exc}", file=sys.stderr)
+                _command_log_file_error_reported = True
     _live.bump()
 
 
@@ -528,6 +540,7 @@ def _arm_dict(side):
     raw = DobotMG400._blank_state() if robot is None else robot.get_state()
     return {
         "connected": raw["connected"],
+        "robot_mode": raw["robot_mode"],
         "enabled": raw["enabled"],
         "mode_name": raw["mode_name"],
         "joints": raw["joints"],
@@ -535,6 +548,9 @@ def _arm_dict(side):
         "servo_active": raw["servo_active"],
         "servo_error": raw["servo_error"],
         "error": raw.get("error", False),
+        "alarm_ids": raw.get("alarm_ids", []),
+        "fault_kind": raw.get("fault_kind"),
+        "fault_label": raw.get("fault_label"),
         "stalled": raw.get("stalled", False),
         "stall_error": raw.get("stall_error", 0.0),
         "pump_mode": _pump_mode(raw.get("digital_out", 0)),

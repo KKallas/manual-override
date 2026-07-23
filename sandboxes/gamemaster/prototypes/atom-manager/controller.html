@@ -13,7 +13,7 @@
   header { padding: 12px 18px; border-bottom: 1px solid var(--line);
     display: flex; align-items: baseline; gap: 12px; }
   header h1 { font-size: 15px; margin: 0; }
-  main { max-width: 880px; margin: 0 auto; padding: 18px; }
+  main { max-width: 1440px; margin: 0 auto; padding: 18px; }
   .bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
   .wifi { display: flex; gap: 8px; align-items: center; color: var(--dim);
     font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
@@ -47,8 +47,9 @@
   #unitsMsg { display: block; font-size: 12px; margin-top: 10px; }
 
   /* units — styled like the cartesian "saved locations" rows, selectable */
-  #units { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; }
-  .unit { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer;
+  #units { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; overflow-x:auto; }
+  .unit { display:grid; grid-template-columns:26px 112px 130px 84px 74px minmax(500px,1fr) 225px;
+    align-items:center; gap:8px; min-width:1240px; min-height:102px; cursor:pointer;
     background:#13161c; border:1px solid var(--line); border-radius:8px; padding:7px 10px; }
   .unit.active { border-color: var(--hot); box-shadow: inset 0 0 0 1px var(--hot); }
   .unum { color: var(--dim); font-size: 12px; width: 26px; font-variant-numeric: tabular-nums; }
@@ -64,11 +65,34 @@
   .ubat { min-width:74px; font-size:11px; color:var(--dim); font-variant-numeric: tabular-nums;
     font-family: ui-monospace, Menlo, monospace; }
   .ubat.low { color:#ff5b3a; }
-  .usend { display:flex; align-items:center; gap:6px; margin-left:auto; color:var(--dim);
+  .usend { display:flex; flex-direction:column; align-items:stretch; gap:7px; color:var(--dim);
     font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  .usendrow { display:flex; align-items:center; justify-content:flex-end; gap:6px; white-space:nowrap; }
   .umid, .ubri { width:50px; padding:3px 5px; text-align:right; font-size:12px; }
   .ucol { width:30px; height:22px; padding:0; border:1px solid var(--line); border-radius:4px;
     background:none; cursor:pointer; vertical-align:middle; }
+  .uaccel { display:grid; grid-template-columns:110px 135px minmax(180px,1fr) 68px;
+    align-items:center; gap:8px; min-width:0; color:var(--dim);
+    font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  .accelChecks, .accelLimits { display:flex; flex-direction:column; align-items:stretch; gap:9px; }
+  .accelChecks label, .accelLimits label { display:flex; align-items:center; justify-content:space-between;
+    gap:5px; white-space:nowrap; }
+  .accelGraphWrap { display:grid; grid-template-rows:18px 68px; min-width:0; gap:3px; }
+  .uaccel input[type="checkbox"] { accent-color:var(--hot); }
+  .asens, .athr { width:54px; padding:3px 5px; text-align:right; font-size:12px; }
+  .aread { min-width:92px; font-family:ui-monospace, Menlo, monospace; font-size:11px;
+    text-transform:none; letter-spacing:0; font-variant-numeric:tabular-nums; }
+  .aread.drop { color:#ffb13a; }
+  .aread.old { color:#ffb13a; min-width:150px; }
+  .agraph { display:block; width:100%; height:68px;
+    border:1px solid var(--line); border-radius:4px;
+    background:#0c0e0c; }
+  .ahit { min-width:68px; padding:2px 6px; border:1px solid #ff5b3a; border-radius:4px;
+    color:#ff5b3a; text-align:center; font-family:ui-monospace, Menlo, monospace;
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+  .ahit.hit { color:var(--hot); border-color:var(--hot); background:rgba(182,255,58,.12);
+    box-shadow:0 0 7px rgba(182,255,58,.35); }
+  .ahit.unavailable { color:var(--dim); border-color:var(--line); box-shadow:none; }
 
   /* scanner — unclaimed devices broadcasting on the network */
   #scanner { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; }
@@ -98,6 +122,17 @@
   .setup[open] > summary::before { content: "▾ "; color: var(--hot); }
   .dctl .assign { color: var(--hot); border-color: var(--line); }
   .dctl .assign:disabled { color: var(--dim); }
+  .captureCtl { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .captureCtl select { min-width:220px; }
+  .captureCtl label { display:flex; align-items:center; gap:6px; color:var(--dim); font-size:12px; }
+  #captureMsg { margin-top:10px; font-size:12px; overflow-wrap:anywhere; }
+  #captureGraphs { display:none; margin-top:14px; gap:12px; }
+  #captureGraphs.ready { display:grid; }
+  .captureGraph { border:1px solid var(--line); border-radius:8px; padding:10px; background:#0c0e0c; }
+  .captureGraph h3 { margin:0 0 7px; color:var(--dim); font-size:11px; text-transform:uppercase;
+    letter-spacing:.08em; }
+  .captureGraph canvas { display:block; width:100%; height:170px; }
+  #captureMeta { color:var(--dim); font:11px ui-monospace, Menlo, monospace; line-height:1.7; }
 </style>
   <link rel="stylesheet" href="/theme.css" />
 </head>
@@ -110,9 +145,27 @@
   <!-- Units: always visible -->
   <section class="panel">
     <h2>Units</h2>
-    <div class="hint">networked · polled every 15s · click a row to select the active slot</div>
+    <div class="hint">networked · live telemetry · click a row to select the active slot ·
+      drop sensitivity controls free-fall detection · hit threshold controls landing detection</div>
     <div id="units"></div>
     <div id="unitsMsg" class="muted"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Capture</h2>
+    <div class="hint">select a connected tag, then record, save, and display the next one second (1600 samples)</div>
+    <div class="captureCtl">
+      <select id="captureTag" aria-label="connected tag"><option value="">No connected tags</option></select>
+      <label><input id="manualDropLabel" type="checkbox" /> manual drop label</label>
+      <button id="captureTrigger">Trigger capture</button>
+    </div>
+    <div id="captureMsg" class="muted"></div>
+    <div id="captureGraphs">
+      <div id="captureMeta"></div>
+      <div class="captureGraph"><h3>Acceleration magnitude (g)</h3><canvas id="magnitudeGraph"></canvas></div>
+      <div class="captureGraph"><h3>Acceleration axes (g) · x / y / z</h3><canvas id="accelGraph"></canvas></div>
+      <div class="captureGraph"><h3>Gyroscope axes · x / y / z</h3><canvas id="gyroGraph"></canvas></div>
+    </div>
   </section>
 
   <!-- Scanner: devices broadcasting on the network, not yet in a unit slot -->
@@ -287,9 +340,13 @@ async function saveCreds() {
 ssidEl.onchange = saveCreds;
 passEl.onchange = saveCreds;
 
-// ---- units (10 networked slots, polled server-side every 15s) --------------
+// ---- units (10 networked slots, live-polled server-side) -------------------
 const unitsEl = el('units');
 let unitsBuilt = false;
+const lastImpactCounts = {};
+const hitUntil = {};
+const accelHistories = {};
+let latestUnits = [];
 function buildUnits(units) {
   unitsEl.innerHTML = '';
   for (const u of units) {
@@ -301,17 +358,54 @@ function buildUnits(units) {
        <input class="uip" type="text" placeholder="192.168.x.x" />
        <span class="ustat"><i class="dot"></i><span class="utext">—</span></span>
        <span class="ubat" title="battery (from device)">—</span>
-       <span class="usend">aruco
-         <input class="umid" type="number" min="0" max="5" value="${u.mid ?? 0}" />
-         bri <input class="ubri" type="number" min="0" max="255" value="${u.bri ?? 255}" />
-         col <input class="ucol" type="color" value="${u.col ?? '#ffffff'}" title="tag color" />
-         <button class="ubtn">Send</button></span>`;
+       <span class="uaccel">
+         <span class="accelChecks">
+           <label>accel <input class="aenable" type="checkbox" title="turn accelerometer monitoring on/off" /></label>
+           <label>require drop <input class="areqdrop" type="checkbox"
+             title="when off, register a hit-threshold crossing without requiring free fall first" /></label>
+         </span>
+         <span class="accelLimits">
+           <label>drop &lt; <span><input class="asens" type="number" min="0.01" max="0.95" step="0.01"
+             value="${u.accel_sensitivity ?? u.accel?.sensitivity ?? 0.85}"
+             title="maximum g considered free fall; higher catches shorter, shallower drops" /> g</span></label>
+           <label>hit ≥ <span><input class="athr" type="number" min="1.05" max="8" step="0.01"
+             value="${u.accel_hit_threshold ?? u.accel?.hitThreshold ?? 1.05}"
+             title="landing acceleration required after the short drop" /> g</span></label>
+         </span>
+         <span class="accelGraphWrap">
+           <span class="aread" title="live total acceleration">—</span>
+           <canvas class="agraph" width="400" height="136"
+             title="trailing 3 seconds of total acceleration at 160 displayed samples/s"></canvas>
+         </span>
+         <span class="ahit unavailable">NO DATA</span>
+       </span>
+       <span class="usend">
+         <span class="usendrow">aruco
+           <input class="umid" type="number" min="0" max="5" value="${u.mid ?? 0}" />
+         </span>
+         <span class="usendrow">bri <input class="ubri" type="number" min="0" max="255" value="${u.bri ?? 255}" />
+           col <input class="ucol" type="color" value="${u.col ?? '#ffffff'}" title="tag color" />
+           <button class="ubtn">Send</button>
+         </span>
+       </span>`;
     const ipi = row.querySelector('.uip');
     ipi.value = u.ip || '';
     ipi.onchange = () => setUnitIp(u.id, ipi.value.trim());
     row.querySelector('.ubtn').onclick = () =>
       sendAruco(u.id, row.querySelector('.umid').value,
                 row.querySelector('.ubri').value, row.querySelector('.ucol').value);
+    const aenable = row.querySelector('.aenable'), areqdrop = row.querySelector('.areqdrop');
+    const asens = row.querySelector('.asens');
+    const athr = row.querySelector('.athr');
+    aenable.checked = u.accel_enabled ?? u.accel?.enabled ?? false;
+    areqdrop.checked = u.accel_require_drop ?? u.accel?.requireDrop ?? true;
+    const sendAccelSettings = () =>
+      sendAccelerometer(u.id, aenable.checked, areqdrop.checked,
+                        asens.value, athr.value);
+    aenable.onchange = sendAccelSettings;
+    areqdrop.onchange = sendAccelSettings;
+    asens.onchange = sendAccelSettings;
+    athr.onchange = sendAccelSettings;
     row.onclick = () => selectSlot(u.id);   // click anywhere on the row to select it
     unitsEl.appendChild(row);
   }
@@ -361,14 +455,347 @@ function paintUnits(units) {
       bat.textContent = `${pct} ${(u.bat.mv / 1000).toFixed(2)}V`.trim();
       bat.classList.toggle('low', u.bat.pct != null && u.bat.pct <= 15);
     } else { bat.textContent = '—'; bat.classList.remove('low'); }
+    const ae = row.querySelector('.aenable'), ard = row.querySelector('.areqdrop');
+    const as = row.querySelector('.asens');
+    const at = row.querySelector('.athr');
+    const ar = row.querySelector('.aread'), ah = row.querySelector('.ahit');
+    const graph = row.querySelector('.agraph'), a = u.accel;
+    if (!a) {
+      ae.checked = u.accel_enabled ?? false;
+      ard.checked = u.accel_require_drop ?? true;
+      if (document.activeElement !== as && u.accel_sensitivity != null)
+        as.value = (+u.accel_sensitivity).toFixed(2);
+      if (document.activeElement !== at && u.accel_hit_threshold != null)
+        at.value = (+u.accel_hit_threshold).toFixed(2);
+      ae.disabled = ard.disabled = as.disabled = at.disabled = true;
+      ar.textContent = u.online ? 'FLASH TAG FIRMWARE' : '—';
+      ar.className = u.online ? 'aread old' : 'aread';
+      ah.textContent = 'NO DATA'; ah.className = 'ahit unavailable';
+      row.dataset.accelReady = '0';
+      accelHistories[u.id] = null;
+      drawAccelGraph(graph, null, 0);
+    } else if (!a.available) {
+      ae.checked = false;
+      ae.disabled = ard.disabled = as.disabled = at.disabled = true;
+      ar.textContent = 'no IMU'; ar.className = 'aread';
+      ah.textContent = 'NO IMU'; ah.className = 'ahit unavailable';
+      row.dataset.accelReady = '0';
+      accelHistories[u.id] = null;
+      drawAccelGraph(graph, null, 0);
+    } else {
+      row.dataset.accelReady = '1';
+      const splitSettings = !!a.separateSettings;
+      ae.disabled = as.disabled = at.disabled = !splitSettings;
+      ard.disabled = !splitSettings;
+      const desiredOn = u.accel_enabled ?? a.enabled;
+      const desiredRequireDrop = u.accel_require_drop ?? a.requireDrop ?? true;
+      const desiredSensitivity = u.accel_sensitivity ?? a.sensitivity;
+      const desiredHitThreshold = u.accel_hit_threshold ?? a.hitThreshold;
+      if (document.activeElement !== ae) ae.checked = !!desiredOn;
+      if (document.activeElement !== ard) ard.checked = !!desiredRequireDrop;
+      if (document.activeElement !== as && desiredSensitivity != null)
+        as.value = (+desiredSensitivity).toFixed(2);
+      if (document.activeElement !== at && desiredHitThreshold != null)
+        at.value = (+desiredHitThreshold).toFixed(2);
+      const xyz = [a.x, a.y, a.z].map(v => v == null ? '—' : (+v).toFixed(2)).join(', ');
+      const rateLabel = a.sampleRateHz ? ` · ${(+a.sampleRateHz / 1000).toFixed(1)}kHz` : '';
+      const shapeDelta = a.lastShapeDeltaG ??
+        ((a.lastImpactG != null && a.lastShapeDropG != null)
+          ? (+a.lastImpactG - +a.lastShapeDropG) : null);
+      const lastShape = a.lastShapeDropG == null
+        ? 'none yet' : `${(+a.lastShapeDropG).toFixed(2)}g + ${(+shapeDelta).toFixed(2)}g in ${a.lastShapeRiseMs}ms`;
+      ar.title = `live x/y/z: ${xyz} g · sensor range: ${a.rangeG ? `±${a.rangeG}g` : 'unknown'} · sensor ODR: ${a.sampleRateHz || 'unknown'} Hz · rolling buffer: ${a.bufferSamples ?? '?'} samples / ${a.bufferWindowMs ?? 3000}ms · last matched shape: ${lastShape} · impacts detected: ${a.impactCount ?? 0}`;
+      if (!a.enabled) {
+        ar.textContent = `LIVE OFF${rateLabel}`; ar.className = 'aread';
+      } else if (desiredRequireDrop && a.dropArmed) {
+        ar.textContent = `DROP ${a.magnitude == null ? '—' : (+a.magnitude).toFixed(2)}g${rateLabel}`;
+        ar.className = 'aread drop';
+      } else {
+        ar.textContent = a.magnitude == null
+          ? `LIVE —${rateLabel}` : `LIVE ${(+a.magnitude).toFixed(2)}g${rateLabel}`;
+        ar.className = 'aread';
+      }
+      if (!splitSettings) {
+        ar.textContent += ' · REFLASH';
+        ar.className = 'aread old';
+      }
+      if (a.history) {
+        if (a.history.sequence !== accelHistories[u.id]?.sequence)
+          mergeAccelHistory(u.id, a.history);
+      }
+      recordLiveAccelSample(u.id, a.magnitude);
+
+      const count = Number(a.impactCount ?? 0);
+      const impactAge = Number(a.lastImpactAgoMs);
+      if (lastImpactCounts[u.id] == null) {
+        if (a.hardSurfaceHit && Number.isFinite(impactAge) && impactAge < 3000)
+          hitUntil[u.id] = Date.now() + (3000 - impactAge);
+      } else if (count > lastImpactCounts[u.id]) {
+        // Give the operator a full three seconds from the moment the manager
+        // receives the newly latched hit, even if the network poll was delayed.
+        hitUntil[u.id] = Date.now() + 3000;
+      }
+      lastImpactCounts[u.id] = count;
+      ah.dataset.impactG = a.lastImpactG == null ? '' : (+a.lastImpactG).toFixed(1);
+      paintHitIndicator(row, u.id);
+    }
+  }
+}
+function paintHitIndicator(row, id) {
+  const ah = row.querySelector('.ahit');
+  if (!ah || row.dataset.accelReady !== '1') return;
+  const hit = (hitUntil[id] || 0) > Date.now();
+  ah.className = `ahit${hit ? ' hit' : ''}`;
+  ah.textContent = hit ? `HIT ${ah.dataset.impactG || '—'}g` : 'NO HIT';
+}
+function paintHitIndicators() {
+  unitsEl.querySelectorAll('.unit').forEach(row => {
+    const id = +row.dataset.id;
+    paintHitIndicator(row, id);
+    if (row.dataset.accelReady === '1') {
+      const hitThreshold = +row.querySelector('.athr').value;
+      drawAccelGraph(row.querySelector('.agraph'), accelHistories[id], hitThreshold);
+    }
+  });
+}
+function animateUnitGraphs() {
+  paintHitIndicators();
+  requestAnimationFrame(animateUnitGraphs);
+}
+function mergeAccelHistory(id, snapshot) {
+  const incoming = Array.isArray(snapshot.samples) ? snapshot.samples.map(Number) : [];
+  if (!incoming.length) return;
+  const windowMs = Number(snapshot.windowMs) || 3000;
+  const endMs = Number(snapshot.capturedAtEpochMs) || Date.now();
+  const durationMs = Math.min(windowMs, Number(snapshot.durationMs) || 0);
+  const stepMs = incoming.length > 1 ? durationMs / (incoming.length - 1) : 0;
+  const incomingTimes = incoming.map((_, i) => endMs - durationMs + i * stepMs);
+  let history = accelHistories[id];
+
+  if (!history || !Array.isArray(history.times) || history.serverTailTime == null) {
+    accelHistories[id] = {
+      ...snapshot, samples: incoming.slice(), times: incomingTimes,
+      serverTailTime: incomingTimes[incomingTimes.length - 1]
+    };
+    return;
+  }
+
+  // The firmware sends overlapping three-second snapshots. Preserve points
+  // already shown and append only the unseen tail, otherwise the changing
+  // 10:1 decimation phase redraws old impacts with a different shape.
+  const cutoff = history.serverTailTime;
+  incomingTimes.forEach((time, i) => {
+    if (time > cutoff + Math.max(0.5, stepMs * 0.25)) {
+      history.times.push(time);
+      history.samples.push(incoming[i]);
+    }
+  });
+  history.sequence = snapshot.sequence;
+  history.serverTailTime = Math.max(cutoff, incomingTimes[incomingTimes.length - 1]);
+  history.windowMs = windowMs;
+
+  const ordered = history.times.map((time, i) => ({time, value: history.samples[i]}))
+    .sort((a, b) => a.time - b.time)
+    .filter(point => point.time >= Date.now() - windowMs - 250);
+  history.times = ordered.map(point => point.time);
+  history.samples = ordered.map(point => point.value);
+}
+function recordLiveAccelSample(id, magnitude) {
+  const value = Number(magnitude), now = Date.now();
+  if (!Number.isFinite(value)) return;
+  let history = accelHistories[id];
+  if (!history || !Array.isArray(history.times) || !Array.isArray(history.samples)) {
+    history = accelHistories[id] =
+      { windowMs: 3000, durationMs: 0, samples: [], times: [] };
+  }
+  if (!history.times.length || now - history.times[history.times.length - 1] >= 100) {
+    history.times.push(now);
+    history.samples.push(value);
+  }
+  while (history.times.length && history.times[0] < now - 3000) {
+    history.times.shift();
+    history.samples.shift();
+  }
+  history.durationMs = history.times.length > 1
+    ? history.times[history.times.length - 1] - history.times[0] : 0;
+}
+function drawAccelGraph(canvas, history, threshold = 0) {
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(canvas.clientWidth || 300));
+  const h = Math.max(1, Math.round(canvas.clientHeight || 64));
+  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#0c0e0c'; ctx.fillRect(0, 0, w, h);
+
+  const rawSamples = Array.isArray(history?.samples) ? history.samples : [];
+  const rawTimes = Array.isArray(history?.times) ? history.times : [];
+  const points = rawSamples.map((value, i) => ({value: Number(value), time: Number(rawTimes[i])}))
+    .filter(p => Number.isFinite(p.value) && Number.isFinite(p.time));
+  const samples = points.map(p => p.value);
+  const peak = samples.reduce((m, value) => Math.max(m, value), 0);
+  const scale = Math.max(2, threshold * 1.25, peak * 1.1);
+  const yFor = v => h - Math.min(h, (v / scale) * h);
+
+  // Reference lines: normal resting gravity and the configured hit threshold.
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#2a3128';
+  ctx.beginPath(); ctx.moveTo(0, yFor(1)); ctx.lineTo(w, yFor(1)); ctx.stroke();
+  if (threshold > 0) {
+    ctx.setLineDash([6, 5]); ctx.strokeStyle = '#ffb13a';
+    ctx.beginPath(); ctx.moveTo(0, yFor(threshold)); ctx.lineTo(w, yFor(threshold)); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if (samples.length < 2) return;
+
+  const windowMs = Number(history.windowMs) || 3000;
+  const now = Date.now(), start = now - windowMs;
+  const visible = points.filter(p => p.time >= start - 50 && p.time <= now + 50);
+  if (!visible.length) return;
+  const xFor = time => ((time - start) / windowMs) * w;
+
+  // A true rolling trace: samples retain absolute timestamps and move left on
+  // every animation frame. Hold the latest value to the right edge until the
+  // next live reading arrives, avoiding a draining gap between network polls.
+  ctx.strokeStyle = '#b6ff3a'; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  visible.forEach((point, i) => {
+    const x = xFor(point.time), y = yFor(point.value);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
+  const latest = visible[visible.length - 1];
+  ctx.lineTo(w, yFor(latest.value));
+  ctx.stroke();
+
+  // Keep threshold crossings visually prominent without reverting to batches.
+  if (threshold > 0) {
+    ctx.fillStyle = '#ffb13a';
+    for (const point of visible) {
+      if (point.value >= threshold)
+        ctx.fillRect(xFor(point.time) - 1, yFor(point.value) - 1, 3, 3);
+    }
   }
 }
 async function refreshUnits() {
   let r; try { r = await (await fetch(U('api/units'))).json(); } catch (_) { return; }
   if (!r.units) return;
+  latestUnits = r.units;
+  refreshCaptureTags(r.units);
   if (!unitsBuilt) buildUnits(r.units);
   paintUnits(r.units);
 }
+
+// ---- exact one-second capture ---------------------------------------------
+const captureTag = el('captureTag'), captureTrigger = el('captureTrigger');
+function refreshCaptureTags(units) {
+  const selected = captureTag.value;
+  const online = units.filter(u => u.online && u.accel?.available);
+  const signature = online.map(u => `${u.id}:${u.name}:${u.ip}`).join('|');
+  if (captureTag.dataset.signature === signature) return;
+  captureTag.dataset.signature = signature;
+  captureTag.innerHTML = '';
+  if (!online.length) {
+    captureTag.append(new Option('No connected tags', ''));
+    captureTrigger.disabled = true;
+    return;
+  }
+  for (const u of online) {
+    captureTag.append(new Option(
+      `Unit ${u.id + 1} · ${u.name || u.ip}`, String(u.id)));
+  }
+  captureTag.value = online.some(u => String(u.id) === selected)
+    ? selected : String(online[0].id);
+  captureTrigger.disabled = false;
+}
+function drawCaptureGraph(canvas, records, series) {
+  const rect = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const w = Math.max(300, rect.width), h = Math.max(120, rect.height);
+  canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+  ctx.fillStyle = '#0c0e0c'; ctx.fillRect(0, 0, w, h);
+  const values = records.flatMap(r => series.map(s => Number(r[s.key]))).filter(Number.isFinite);
+  if (!values.length) return;
+  let min = Math.min(...values), max = Math.max(...values);
+  if (min === max) { min -= 1; max += 1; }
+  const pad = (max - min) * .08; min -= pad; max += pad;
+  const left = 52, right = 8, top = 9, bottom = 15;
+  const plotW = w - left - right, plotH = h - top - bottom;
+  const x = i => left + i * plotW / Math.max(1, records.length - 1);
+  const y = v => top + (max - v) / (max - min) * plotH;
+
+  // Amplitude scale and horizontal guide lines.
+  ctx.font = '10px ui-monospace, Menlo, monospace';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let tick = 0; tick <= 4; tick++) {
+    const value = max - tick * (max - min) / 4;
+    const yy = top + tick * plotH / 4;
+    ctx.strokeStyle = '#222821'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(left, yy); ctx.lineTo(w - right, yy); ctx.stroke();
+    ctx.fillStyle = '#8a9584'; ctx.fillText(value.toFixed(2), left - 5, yy);
+  }
+
+  // Mark detector events consistently across all three charts.
+  ctx.setLineDash([4, 3]); ctx.strokeStyle = '#ffb13a'; ctx.lineWidth = 1.5;
+  records.forEach((r, i) => {
+    if (!r.detector_hit) return;
+    const xx = x(i);
+    ctx.beginPath(); ctx.moveTo(xx, top); ctx.lineTo(xx, top + plotH); ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  if (records.some(r => r.detector_hit)) {
+    ctx.fillStyle = '#ffb13a'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('detector hit', left + 4, top + 3);
+  }
+
+  if (min < 0 && max > 0) {
+    ctx.strokeStyle = '#485045'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(left, y(0)); ctx.lineTo(w - right, y(0)); ctx.stroke();
+  }
+  for (const s of series) {
+    ctx.strokeStyle = s.color; ctx.lineWidth = 1.25; ctx.beginPath();
+    records.forEach((r, i) => {
+      i ? ctx.lineTo(x(i), y(Number(r[s.key]))) : ctx.moveTo(x(i), y(Number(r[s.key])));
+    });
+    ctx.stroke();
+  }
+}
+function displayCapture(result) {
+  const records = result.records || [];
+  const hitCount = records.reduce((n, r) => n + (r.detector_hit ? 1 : 0), 0);
+  const label = records[0]?.manual_drop_label ?? 0;
+  el('captureMeta').textContent =
+    `${result.samples} samples · ${result.duration_us} µs · timestamp_us ${records[0]?.timestamp_us}…${records.at(-1)?.timestamp_us} · manual_drop_label=${label} · detector_hit samples=${hitCount} · ${result.log_file}`;
+  el('captureGraphs').classList.add('ready');
+  drawCaptureGraph(el('magnitudeGraph'), records,
+    [{key:'accel_magnitude', color:'#b6ff3a'}]);
+  const axes = [
+    {key:'accel_x', color:'#ff5b3a'}, {key:'accel_y', color:'#b6ff3a'},
+    {key:'accel_z', color:'#4aa8ff'}];
+  drawCaptureGraph(el('accelGraph'), records, axes);
+  drawCaptureGraph(el('gyroGraph'), records, axes.map((s, i) =>
+    ({key:['gyro_x','gyro_y','gyro_z'][i], color:s.color})));
+}
+captureTrigger.onclick = async () => {
+  if (captureTag.value === '') return;
+  captureTrigger.disabled = true;
+  el('captureMsg').textContent = 'capturing and saving 1600 samples…';
+  el('captureMsg').className = 'muted';
+  const result = await postJSON(`api/units/${captureTag.value}/capture`,
+    {manual_drop_label: el('manualDropLabel').checked});
+  captureTrigger.disabled = false;
+  if (!result.ok) {
+    el('captureMsg').textContent = result.error || 'capture failed';
+    el('captureMsg').className = 'err'; return;
+  }
+  displayCapture(result);
+  el('captureMsg').textContent = `saved ${result.samples} samples to ${result.log_file}`;
+  el('captureMsg').className = 'muted';
+};
 async function setUnitIp(id, ip) {
   try {
     await fetch(U(`api/units/${id}`), { method: 'PATCH',
@@ -384,6 +811,18 @@ async function sendAruco(id, mid, bri, col) {
     ? `sent aruco #${r.id} (bri ${r.brightness}, ${r.color}) → unit ${id + 1}`
     : `unit ${id + 1}: ${r.error || 'failed'}`;
   el('unitsMsg').className = r.ok ? 'muted' : 'err';
+}
+async function sendAccelerometer(id, enabled, requireDrop, sensitivity, hitThreshold) {
+  el('unitsMsg').textContent = `updating accelerometer → unit ${id + 1}…`;
+  el('unitsMsg').className = 'muted';
+  const r = await postJSON(`api/units/${id}/accelerometer`,
+    { enabled, requireDrop, sensitivity: parseFloat(sensitivity),
+      hitThreshold: parseFloat(hitThreshold) });
+  el('unitsMsg').textContent = r.ok
+    ? `unit ${id + 1}: accelerometer ${r.enabled ? 'on' : 'off'}, ${r.requireDrop ? `shape ≤ ${(+r.sensitivity).toFixed(2)}g then ≥ ${(+r.hitThreshold).toFixed(2)}g with > ${(+r.shapeMinRiseG).toFixed(2)}g rise within ${r.shapeRiseWindowMs || 62.5}ms` : `drop not required, hit ≥ ${(+r.hitThreshold).toFixed(2)}g`} · ${r.sampleRateHz || '?'}Hz`
+    : `unit ${id + 1}: ${r.error || 'accelerometer update failed'}`;
+  el('unitsMsg').className = r.ok ? 'muted' : 'err';
+  setTimeout(refreshUnits, 300);
 }
 
 // ---- scanner (UDP-discovered devices not claimed by a unit slot) ------------
@@ -441,7 +880,8 @@ loadCreds();
 refresh();
 refreshUnits();
 refreshScanner();
-setInterval(refreshUnits, 5000);   // reflect the server-side 15s poll
+setInterval(refreshUnits, 200);    // live accelerometer + battery telemetry
+requestAnimationFrame(animateUnitGraphs); // smooth 60 Hz trailing-window animation
 setInterval(refreshScanner, 5000); // devices re-announce every ~8s
 </script>
 </body>

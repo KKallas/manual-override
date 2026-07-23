@@ -90,6 +90,31 @@ NO_SERVO_MODES = {1, 2, 3, 4, 6, 9}
 # arm really left servo-follow (debounce against one-frame glitches).
 NO_SERVO_TRIP = 3
 
+# Alarm groups from Dobot's official MG400/M1Pro alarm tables. Robot feedback
+# reports every alarm as mode 9 (ERROR), so GetErrorID() is required to tell an
+# emergency lock from a joint/workspace limit or a collision.
+EMERGENCY_ALARM_IDS = {85, 86, 12288, 12289, 20484, 21570}
+WORKSPACE_ALARM_IDS = {
+    17, 18, 23, 24, 29, 30, 32, 33, 34,
+    64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75,
+    20480, 20481, 20482, 20483, 36122,
+}
+COLLISION_ALARM_IDS = {-3, -2, 112, 12294}
+
+
+def classify_alarm_ids(alarm_ids):
+    """Classify Dobot GetErrorID values into operator-relevant stop causes."""
+    ids = {int(value) for value in (alarm_ids or [])}
+    if ids & EMERGENCY_ALARM_IDS:
+        return "emergency_lock", "Emergency stop / safety lock"
+    if ids & WORKSPACE_ALARM_IDS:
+        return "workspace_limit", "Usable-area or joint-limit stop"
+    if ids & COLLISION_ALARM_IDS:
+        return "collision", "Collision safety stop"
+    if ids:
+        return "controller_fault", "Controller fault"
+    return "unknown_fault", "Fault reported; alarm code unavailable"
+
 
 class DobotError(Exception):
     def __init__(self, errid, resp, command):
@@ -149,6 +174,7 @@ class DobotMG400:
         self._state_lock = threading.Lock()
 
         self._feed_thread = None
+        self._alarm_thread = None
         self._running = False
 
         # Follower state. The same setpoint/target/vel arrays serve both
@@ -183,6 +209,9 @@ class DobotMG400:
             "mode_name": "DISCONNECTED",
             "enabled": False,
             "error": False,
+            "alarm_ids": [],
+            "fault_kind": None,
+            "fault_label": None,
             "joints": [0.0, 0.0, 0.0, 0.0],
             "pose": [0.0, 0.0, 0.0, 0.0],
             "target": None,
@@ -259,6 +288,13 @@ class DobotMG400:
             target=self._feed_loop, name="dobot-feedback", daemon=True
         )
         self._feed_thread.start()
+        # GetErrorID uses the dashboard socket and can take up to its command
+        # timeout. Keep that read-only diagnosis off the feedback and watchdog
+        # threads so it can never delay live state or lease safety.
+        self._alarm_thread = threading.Thread(
+            target=self._alarm_loop, name="dobot-alarm-diagnosis", daemon=True
+        )
+        self._alarm_thread.start()
 
     def close(self):
         self.stop_servo()
@@ -285,6 +321,9 @@ class DobotMG400:
         if self._feed_thread and self._feed_thread.is_alive():
             self._feed_thread.join(timeout=1.0)
         self._feed_thread = None
+        if self._alarm_thread and self._alarm_thread.is_alive():
+            self._alarm_thread.join(timeout=1.1)
+        self._alarm_thread = None
         with self._state_lock:
             self._state = self._blank_state()
 
@@ -679,6 +718,37 @@ class DobotMG400:
 
         walk(nested)
         return ids
+
+    def _alarm_loop(self):
+        """Poll alarm IDs only while feedback reports ERROR.
+
+        Robot mode alone cannot identify the cause: emergency lock, collision,
+        and workspace-limit faults all use mode 9. This loop is intentionally
+        read-only and never clears, enables, or moves the arm.
+        """
+        while self._running:
+            with self._state_lock:
+                faulted = self._state.get("error", False)
+                connected = self._state.get("connected", False)
+                if not faulted:
+                    self._state["alarm_ids"] = []
+                    self._state["fault_kind"] = None
+                    self._state["fault_label"] = None
+            if not connected or not faulted:
+                time.sleep(0.25)
+                continue
+            try:
+                alarm_ids = self.get_error_id()
+            except (DobotError, OSError):
+                time.sleep(1.0)
+                continue
+            fault_kind, fault_label = classify_alarm_ids(alarm_ids)
+            with self._state_lock:
+                if self._state.get("error", False):
+                    self._state["alarm_ids"] = alarm_ids
+                    self._state["fault_kind"] = fault_kind
+                    self._state["fault_label"] = fault_label
+            time.sleep(1.0)
 
     # -- feedback loop --------------------------------------------------------
     def _feed_loop(self):

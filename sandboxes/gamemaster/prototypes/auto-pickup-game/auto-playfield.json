@@ -1,6 +1,6 @@
 {
   "format": "auto-pick-and-place-playfield-v1",
-  "saved_at": "2026-06-16T15:23:39.236266+00:00",
+  "saved_at": "2026-06-18T09:28:43.674952+00:00",
   "areas": [
     {
       "name": "Area 884",
@@ -31,6 +31,21 @@
       "show_aruco": false,
       "show_links": true,
       "id": "a885"
+    },
+    {
+      "name": "Area 1128",
+      "x": 0.4,
+      "y": 0.1,
+      "z": 0.0,
+      "size": 1.7,
+      "color": "#4f9dff",
+      "glow": 1.0,
+      "marker": 27,
+      "links": [],
+      "show_area": true,
+      "show_aruco": false,
+      "show_links": true,
+      "id": "a1128"
     }
   ]
 }

@@ -336,8 +336,10 @@ def _clean_active_area(value):
         t_max = float(value["tMax"])
     except (KeyError, TypeError, ValueError):
         raise ValueError("active area requires numeric sMin, sMax, tMin, tMax")
-    lo = -0.42
-    hi = 1.42
+    # Match the player calibration editor: permit one full calibrated-field
+    # width of extrapolation while the UI marks unreachable cells separately.
+    lo = -1.0
+    hi = 2.0
     s_min = _clamp(s_min, lo, hi)
     s_max = _clamp(s_max, lo, hi)
     t_min = _clamp(t_min, lo, hi)

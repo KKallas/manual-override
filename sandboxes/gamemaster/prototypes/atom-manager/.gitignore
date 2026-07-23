@@ -1,3 +1,4 @@
 # runtime-persisted state — wifi.json holds a plaintext password, never commit it
 wifi.json
 units.json
+logs/

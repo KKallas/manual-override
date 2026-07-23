@@ -84,7 +84,11 @@ either back in later.
 | Method | Path       | Body / query                            | Effect                                   |
 |--------|------------|-----------------------------------------|------------------------------------------|
 | GET    | `/`        | —                                       | serves the framing UI                    |
-| GET    | `/state`   | —                                       | JSON: slot, filled[], marker id, battery |
+| GET    | `/state`   | —                                       | JSON: slot, marker, battery, accelerometer |
+| GET    | `/accelerometer` | —                                | live acceleration and drop/impact state  |
+| GET    | `/accelerometer/history` | —                        | 3 s history as 480 little-endian uint16 milli-g display points |
+| GET    | `/accelerometer/capture` | —                        | records the next 1 s as 1600 packed full IMU records for Atom Manager logs |
+| POST   | `/accelerometer` | `?enabled=0|1&requireDrop=0|1&sensitivity=0.01..0.95&dropConfirmMs=5..250&hitThreshold=1.05..8` | persist drop and hit tuning |
 | POST   | `/frame`   | `?slot=N&mid=M`, multipart `frame` 32768 B | store into slot N, show it            |
 | GET    | `/frame`   | `?slot=N`                               | stream slot N's raw RGB565 back (read-back)|
 | GET    | `/show`    | `?slot=N`                               | display stored slot N (the gesture target)|
@@ -123,6 +127,29 @@ this, with no `slot`, so it keeps pushing to the current slot).
 - `hasFrame` — whether a full frame is stored/displayed.
 - `battery` — pack voltage in millivolts and a rough 0–100 % (1S LiPo,
   3.3 V → 0 %, 4.2 V → 100 %), read from the GPIO 8 ADC (2:1 divider).
+- `accelerometer` — live x/y/z and total acceleration in g, the explicitly
+  configured ±2 g per-axis range, whether monitoring
+  is enabled, the configured 1600 Hz BMI270 sample rate, independent drop
+  sensitivity and landing hit threshold, and drop/impact telemetry.
+  The tag retains three seconds (4800 samples at 1600 Hz) of full-rate
+  acceleration history and exposes every tenth measurement as a 160
+  samples/second live graph (480 points). The hit matcher examines only the
+  newest 1/16 second (62.5 ms). With
+  `requireDrop=true`, an upward hit-threshold crossing is accepted only when
+  the buffer contains a low-G dip followed by a rise greater than 0.20 g and
+  the hit threshold is crossed within the same 62.5 ms window. There is no
+  minimum low-G duration or gap; `dropConfirmMs` remains in the API only for
+  compatibility with already-running managers and is ignored by the matcher.
+  `requireDrop=false` registers an upward hit-threshold crossing directly,
+  which is useful when a very short fall has no observable free-fall window.
+  `sensitivity` is the maximum acceleration considered free fall (higher
+  catches shallower drops), while `hitThreshold` is the raw
+  landing acceleration required afterward. A hard-surface hit is only recorded
+  when the configured duration (10 ms by default) below the drop-sensitivity
+  value (0.85 g by default) is followed by an
+  acceleration at or above the configured
+  threshold within 2 seconds. `hardSurfaceHit` remains true for 3 seconds;
+  `impactCount`, `lastImpactG`, and `lastImpactAgoMs` retain the last event.
 
 ## Build & flash
 

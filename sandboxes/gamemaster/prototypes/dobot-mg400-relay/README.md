@@ -89,6 +89,9 @@ dongle IP each side's sockets are pinned to; interface name auto-detected):
     "purple": {"connected": bool, "enabled": bool, "mode_name": str,
                "joints": [j1,j2,j3,j4], "pose": [x,y,z,r],
                "servo_active": bool, "servo_error": str|null,
+               "alarm_ids": [int, ...],
+               "fault_kind": "emergency_lock|workspace_limit|collision|controller_fault|unknown_fault|null",
+               "fault_label": str|null,
                "pump_mode": "off|suck|blow|conflict",
                "control_mode": "joint|cartesian|null",
                "target": [..]|null},
@@ -103,6 +106,10 @@ dongle IP each side's sockets are pinned to; interface name auto-detected):
 
 `pump_mode` is derived from each arm's digital-out bits: suck = index 2, blow =
 index 1; both set = `conflict`. `control_mode` is that arm's running follower.
+When `robot_mode` is ERROR, the relay reads `GetErrorID()` in a separate,
+read-only background thread and uses `fault_kind` to distinguish an emergency
+lock from a workspace/joint-limit stop, collision stop, or another controller
+fault. A regular software hold remains enabled/idle and has no `fault_kind`.
 
 ### Operator endpoints (no token)
 
@@ -129,6 +136,10 @@ has not connected that arm yet. This lets a player sandbox bring up its own arm
 through the relay without first opening the operator page. Requests whose
 authenticated roles are only team roles (see the hub's `shared_api` door) are
 rejected with 403 unless `side` is their own team.
+
+The operator command monitor is also persisted as newline-delimited JSON in
+`command-monitor.log` in this directory. Each command is appended immediately;
+the on-page monitor still keeps only the latest 160 entries.
 
 Tokens are opaque strings (`f"{side}-{counter}"`). A new `acquire` for a side
 invalidates that side's old token; any token mismatch on

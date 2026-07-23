@@ -166,7 +166,10 @@ const MARKER_REF_POINTS = {
   23:{ x:0, y:1 },
 };
 const CENTER_MARKER = 24;
-const EXTRAPOLATION_MARGIN = 0.42;
+// Let the active field extend by a full calibrated-field width in every
+// direction. Unreachable portions are still identified by renderReachMask().
+const EXTRAPOLATION_MARGIN = 1.0;
+const AUTO_PP_BASE_SAFE_RADIUS = 200;
 const CAL_TAG_SIZE = 2.8;
 const REACH_GRID_COLS = 56;
 const REACH_GRID_ROWS = 36;
@@ -189,10 +192,12 @@ let latestTags = null;
 let cachedTagSet = null;
 let zoneDrag = null;
 let movementZone = { sMin:0, sMax:1, tMin:0, tMax:1 };
+let movementZoneDirty = false;
+let movementZoneSaveTimer = null;
 let calibrationAccess = { active_side:"", teams:{ green:{enabled:false}, purple:{enabled:false} } };
 
-async function gmApi(path, body, method) {
-  const opts = { method: method || (body ? "POST" : "GET") };
+async function gmApi(path, body, method, keepalive = false) {
+  const opts = { method: method || (body ? "POST" : "GET"), keepalive };
   opts.headers = { "X-HHH-Team":TEAM, "X-Team":TEAM };
   if (body) {
     opts.headers["Content-Type"] = "application/json";
@@ -573,7 +578,7 @@ function robotPointReachable(point) {
   if (ws.x && (x < ws.x[0] || x > ws.x[1])) return false;
   if (ws.y && (y < ws.y[0] || y > ws.y[1])) return false;
   const radius = Math.hypot(x, y);
-  return radius >= radiusMin && radius <= radiusMax;
+  return radius >= Math.max(radiusMin, AUTO_PP_BASE_SAFE_RADIUS) && radius <= radiusMax;
 }
 function renderReachMask(tags) {
   if (!(tags && tags.top_left && tags.top_right && tags.bottom_right && tags.bottom_left && tags.center)) return "";
@@ -621,8 +626,10 @@ function clampZoneValue(v) {
 function zonePointFromPointer(ev, tags) {
   const f = imageFrameRect();
   if (!f.width || !f.height) return null;
-  const u = Math.max(0, Math.min(1, (ev.clientX - f.left) / f.width));
-  const v = Math.max(0, Math.min(1, (ev.clientY - f.top) / f.height));
+  // Keep tracking outside the camera frame so an edge handle can use the
+  // calibrated extrapolation margin instead of stopping at the image border.
+  const u = (ev.clientX - f.left) / f.width;
+  const v = (ev.clientY - f.top) / f.height;
   try {
     const solved = linearSolveCameraST(u, v, tags.top_left, tags.top_right, tags.bottom_right, tags.bottom_left);
     return { s:clampZoneValue(solved.rawS), t:clampZoneValue(solved.rawT) };
@@ -869,19 +876,40 @@ function updateZoneFromPointer(ev) {
   if (zoneDrag.handle.includes("top")) next.tMin = clampZoneEdge(base.tMin + dt, -EXTRAPOLATION_MARGIN, base.tMax - minGap);
   if (zoneDrag.handle.includes("bottom")) next.tMax = clampZoneEdge(base.tMax + dt, base.tMin + minGap, 1 + EXTRAPOLATION_MARGIN);
   zoneDrag.dirty = true;
+  movementZoneDirty = true;
   movementZone = next;
   renderMovementZone(latestTags);
+  scheduleMovementZoneSave();
 }
-async function saveMovementZone() {
+async function saveMovementZone(keepalive = false) {
   if (!calibrationAllowed()) return;
-  const data = await gmApi("/api/calibration/active-area", { active_area:movementZone });
+  const snapshot = { ...movementZone };
+  const data = await gmApi("/api/calibration/active-area", { active_area:snapshot }, undefined, keepalive);
   calibration = data.calibration || calibration;
+  if (Object.keys(snapshot).every(key => snapshot[key] === movementZone[key])) movementZoneDirty = false;
+}
+function scheduleMovementZoneSave() {
+  clearTimeout(movementZoneSaveTimer);
+  movementZoneSaveTimer = setTimeout(() => {
+    movementZoneSaveTimer = null;
+    if (!movementZoneDirty) return;
+    saveMovementZone().catch(e => setStatus(e.message));
+  }, 250);
+}
+function flushMovementZoneSave() {
+  clearTimeout(movementZoneSaveTimer);
+  movementZoneSaveTimer = null;
+  if (!movementZoneDirty || !calibrationAllowed()) return;
+  // keepalive allows this POST to finish when the user changes page/tab.
+  saveMovementZone(true).catch(() => null);
 }
 function stopZoneDrag() {
   if (!zoneDrag) return;
   const changed = zoneDrag.dirty;
   zoneDrag = null;
   if (!changed) return;
+  clearTimeout(movementZoneSaveTimer);
+  movementZoneSaveTimer = null;
   saveMovementZone().then(() => setStatus("Active playing field saved.")).catch(e => setStatus(e.message));
 }
 async function refreshOverlay() {
@@ -906,7 +934,7 @@ function buildAxes() {
     slider.onpointerdown = () => { draggingId = def.id; };
     num.onchange = () => { let v = Number(num.value); if (!Number.isFinite(v)) return; v = Math.max(lo, Math.min(hi, v)); num.value = v.toFixed(0); slider.value = v; queueMove(); };
   }
-  el("wsHint").textContent = `Reach ring ${radiusMin}-${radiusMax} mm; Z ${ws.z[0]}-${ws.z[1]} mm.`;
+  el("wsHint").textContent = `Auto PP safe reach ring ${Math.max(radiusMin, AUTO_PP_BASE_SAFE_RADIUS)}-${radiusMax} mm; Z ${ws.z[0]}-${ws.z[1]} mm.`;
 }
 let moveTimer = null, lastMove = 0, pendingMove = null;
 function queueMove() {
@@ -1036,6 +1064,11 @@ function wire() {
   document.addEventListener("pointermove", updateZoneFromPointer);
   document.addEventListener("pointerup", stopZoneDrag);
   document.addEventListener("pointercancel", stopZoneDrag);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushMovementZoneSave();
+  });
+  window.addEventListener("pagehide", flushMovementZoneSave);
+  window.addEventListener("beforeunload", flushMovementZoneSave);
   window.addEventListener("pointerup", () => { draggingId = null; });
 }
 async function init() {

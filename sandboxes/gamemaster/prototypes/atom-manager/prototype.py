@@ -9,15 +9,16 @@ the ESP/atom-image-server project; WiFi/IP talk to that firmware's serial consol
 Loaded by hub.py; registered under /p/atom-manager.
 """
 
+import csv
 import json
 import os
 import re
 import shutil
 import socket
+import struct
 import subprocess
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 from flask import Blueprint, jsonify, request, send_from_directory
 
@@ -38,6 +39,9 @@ except Exception:
     _HAS_REQUESTS = False
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+CAPTURE_DIR = os.path.join(HERE, "logs")
+CAPTURE_RECORD = struct.Struct("<I7fB")
+CAPTURE_SAMPLES = 1600
 
 
 def _find_repo_root():
@@ -56,13 +60,22 @@ def _find_repo_root():
 
 REPO_ROOT = _find_repo_root()
 ESP_PROJECT = os.path.join(REPO_ROOT, "ESP", "atom-image-server")  # firmware to flash
-PIO_CANDIDATES = (
-    os.environ.get("PLATFORMIO_CLI"),
-    os.path.join(REPO_ROOT, ".venv", "bin", "pio"),
-    shutil.which("pio"),
-    os.path.expanduser("~/.platformio/penv/bin/pio"),
-)
-PIO = next((p for p in PIO_CANDIDATES if p and (shutil.which(p) or os.path.exists(p))), None)
+def _find_pio():
+    """Resolve PlatformIO when it is needed, not only when the hub starts.
+
+    This lets an operator install the expected repo-local .venv while the hub
+    is already running and then press Flash again without restarting it.
+    """
+    candidates = (
+        os.environ.get("PLATFORMIO_CLI"),
+        os.path.join(REPO_ROOT, ".venv", "bin", "pio"),
+        shutil.which("pio"),
+        os.path.expanduser("~/.platformio/penv/bin/pio"),
+    )
+    return next((p for p in candidates if p and (shutil.which(p) or os.path.exists(p))), None)
+
+
+PIO = _find_pio()
 PIO_CORE_DIR = os.environ.get("PLATFORMIO_CORE_DIR") or os.path.join(REPO_ROOT, ".platformio")
 
 ATOM_VID = 0x303A    # Espressif native-USB / USB-Serial-JTAG vendor id
@@ -250,12 +263,14 @@ def _flash_worker(port):
 
 @bp.route("/api/flash", methods=["POST"])
 def api_flash():
+    global PIO
     port = (request.get_json(silent=True) or {}).get("port")
     if not port:
         return jsonify({"ok": False, "error": "no port given"}), 400
     if not os.path.isdir(ESP_PROJECT):
         return jsonify({"ok": False, "error": f"firmware project not found at {ESP_PROJECT}"}), 500
-    if not (PIO and (shutil.which(PIO) or os.path.exists(PIO))):
+    PIO = _find_pio()  # pick up a repo-local install made after hub startup
+    if not PIO:
         return jsonify({"ok": False, "error": "PlatformIO (pio) not found; expected repo-local .venv/bin/pio"}), 500
     with _jobs_lock:
         if _jobs.get(port, {}).get("status") == "running":
@@ -318,12 +333,23 @@ def set_wifi_creds():
 # ---- units: 10 IP slots, polled for online/offline, push ArUco to one -------
 N_UNITS = 10
 UNITS_PATH = os.path.join(HERE, "units.json")
-POLL_SECS = 15
+ONLINE_POLL_SECS = 0.075       # ~13 Hz per healthy tag
+OFFLINE_POLL_SECS = 2.0        # failed tags back off independently
+EMPTY_POLL_SECS = 5.0
+TAG_HTTP_TIMEOUT = (0.6, 0.9)  # tolerate brief WiFi/ESP web-server stalls
+FAILURES_BEFORE_OFFLINE = 3    # do not flap on one missed state response
 _units = [{"ip": None, "name": None, "online": False, "last_seen": None, "mid": 0,
-           "bri": 255, "col": "#ffffff", "bat": None}
+           "bri": 255, "col": "#ffffff", "bat": None, "accel": None,
+           "poll_failures": 0,
+           "accel_history": None, "accel_history_at": 0.0,
+           "accel_history_captured_at": 0.0,
+           "accel_on": True, "accel_sens": 0.85, "accel_hit_thr": 1.05,
+           "accel_drop_ms": 10, "accel_require_drop": True}
           for _ in range(N_UNITS)]
 _units_lock = threading.Lock()
 _poller_started = False
+_poll_wake = [threading.Event() for _ in range(N_UNITS)]
+_tag_io_locks = [threading.Lock() for _ in range(N_UNITS)]
 
 
 _IPV4 = re.compile(r"\d{1,3}(?:\.\d{1,3}){3}")
@@ -363,6 +389,30 @@ def _load_units():
                     pass
                 if "col" in u:
                     _units[i]["col"] = _hex_color(_parse_color(u.get("col")))
+                if isinstance(u.get("accel_on"), bool):
+                    _units[i]["accel_on"] = u["accel_on"]
+                if isinstance(u.get("accel_require_drop"), bool):
+                    _units[i]["accel_require_drop"] = u["accel_require_drop"]
+                # accel_thr is the pre-split manager key; migrate it to the
+                # independent hit threshold without changing its meaning.
+                try:
+                    sensitivity = float(u.get("accel_sens"))
+                    if 0.01 <= sensitivity <= 0.95:
+                        _units[i]["accel_sens"] = sensitivity
+                except (TypeError, ValueError):
+                    pass
+                try:
+                    drop_ms = int(u.get("accel_drop_ms"))
+                    if 5 <= drop_ms <= 250:
+                        _units[i]["accel_drop_ms"] = drop_ms
+                except (TypeError, ValueError):
+                    pass
+                try:
+                    threshold = float(u.get("accel_hit_thr", u.get("accel_thr")))
+                    if 1.05 <= threshold <= 8.0:
+                        _units[i]["accel_hit_thr"] = threshold
+                except (TypeError, ValueError):
+                    pass
     else:                                             # legacy format: {"ips": [...]}
         for i, ip in enumerate((data.get("ips") or [])[:N_UNITS]):
             _units[i]["ip"] = _clean_ip(ip)
@@ -373,31 +423,122 @@ def _save_units():
     try:
         with open(UNITS_PATH, "w") as f:
             json.dump({"units": [{"ip": u["ip"], "name": u["name"], "mid": u["mid"],
-                                  "bri": u["bri"], "col": u["col"]}
+                                  "bri": u["bri"], "col": u["col"],
+                                  "accel_on": u["accel_on"],
+                                  "accel_sens": u["accel_sens"],
+                                  "accel_hit_thr": u["accel_hit_thr"],
+                                  "accel_drop_ms": u["accel_drop_ms"],
+                                  "accel_require_drop": u["accel_require_drop"]}
                                  for u in _units]}, f, indent=2)
     except OSError:
         pass
 
 
-def _poll_one(i):
+def _accel_state(a):
+    """Normalize accelerometer JSON returned by either /state or its setter."""
+    if not isinstance(a, dict):
+        return None
+    split_settings = a.get("hitThreshold") is not None
+    return {
+        "available": bool(a.get("available", True)),
+        "enabled": bool(a.get("enabled")),
+        "requireDrop": bool(a.get("requireDrop", True)),
+        "dropRequirementSetting": "requireDrop" in a,
+        "sampleRateHz": a.get("sampleRateHz"),
+        "rangeG": a.get("rangeG"),
+        "bufferWindowMs": a.get("bufferWindowMs"),
+        "bufferSamples": a.get("bufferSamples"),
+        "shapeRiseWindowMs": a.get("shapeRiseWindowMs"),
+        "shapeMinRiseG": a.get("shapeMinRiseG"),
+        # Legacy firmware called its combined threshold "sensitivity".
+        "sensitivity": a.get("sensitivity") if split_settings else 0.85,
+        "hitThreshold": a.get("hitThreshold", a.get("sensitivity")),
+        "effectiveThreshold": a.get("effectiveThreshold",
+                                    a.get("hitThreshold", a.get("sensitivity"))),
+        "dropConfirmMs": a.get("dropConfirmMs", 10),
+        "separateSettings": split_settings,
+        "x": a.get("x"), "y": a.get("y"), "z": a.get("z"),
+        "magnitude": a.get("magnitude"),
+        "dropArmed": bool(a.get("dropArmed")),
+        "hardSurfaceHit": bool(a.get("hardSurfaceHit")),
+        "lastImpactG": a.get("lastImpactG"),
+        "lastShapeDropG": a.get("lastShapeDropG"),
+        "lastShapeDeltaG": a.get("lastShapeDeltaG"),
+        "lastShapeRiseMs": a.get("lastShapeRiseMs"),
+        "impactCount": a.get("impactCount"),
+        "lastImpactAgoMs": a.get("lastImpactAgoMs"),
+    }
+
+
+def _poll_one_impl(i):
     ip = _units[i]["ip"]
+    was_online = _units[i]["online"]
     if not ip or not _HAS_REQUESTS:
         _units[i]["online"] = False
+        _units[i]["poll_failures"] = 0
         _units[i]["bat"] = None
+        _units[i]["accel"] = None
+        _units[i]["accel_history"] = None
+        _units[i]["accel_history_captured_at"] = 0.0
         return
     bat = None
+    accel = None
     try:
         # GET /state reports marker id + battery; the device is the source of
         # truth for what it's currently showing. Older firmware without /state
         # still answers (404 < 500) so it just reads as online with no battery.
-        resp = requests.get(f"http://{ip}/state", timeout=2)
+        resp = requests.get(f"http://{ip}/state", timeout=TAG_HTTP_TIMEOUT)
         ok = resp.status_code < 500
         if resp.ok:
             st = resp.json()
+            state_captured_at = time.monotonic()
             b = st.get("battery") or {}
             if b.get("mv") is not None:
                 pct = b.get("pct")
                 bat = {"mv": int(b["mv"]), "pct": int(pct) if pct is not None else None}
+            a = st.get("accelerometer")
+            accel = _accel_state(a)
+            if accel and accel["available"]:
+                # The tag exposes a compact binary 3-second history. Refresh it
+                # up to about 6.7 fps; each response contains up to 480 points
+                # (every tenth sample = 160 samples/s from the 1600 Hz source).
+                history = _units[i].get("accel_history")
+                history_now = time.monotonic()
+                if history_now - _units[i].get("accel_history_at", 0.0) >= 0.15:
+                    _units[i]["accel_history_at"] = history_now
+                    try:
+                        hist_resp = requests.get(
+                            f"http://{ip}/accelerometer/history",
+                            timeout=TAG_HTTP_TIMEOUT)
+                        raw = hist_resp.content
+                        if hist_resp.ok and raw and len(raw) % 2 == 0:
+                            count = len(raw) // 2
+                            milli_g = struct.unpack(f"<{count}H", raw)
+                            history = {
+                                "windowMs": float(
+                                    hist_resp.headers.get("X-Window-Ms", 3000)),
+                                "durationMs": int(
+                                    hist_resp.headers.get("X-Duration-Us", 0)) / 1000,
+                                "sourceRateHz": int(
+                                    hist_resp.headers.get("X-Source-Rate-Hz", 1600)),
+                                "sourceSamples": int(
+                                    hist_resp.headers.get("X-Source-Samples", 0)),
+                                "decimation": int(
+                                    hist_resp.headers.get("X-Display-Decimation", 3)),
+                                "sequence": time.time_ns(),
+                                "capturedAtEpochMs": time.time() * 1000,
+                                "samples": [v / 1000.0 for v in milli_g],
+                            }
+                            _units[i]["accel_history"] = history
+                            _units[i]["accel_history_captured_at"] = time.monotonic()
+                    except Exception:
+                        pass
+                if history:
+                    history_for_client = dict(history)
+                    history_for_client["relativeToStateMs"] = (
+                        _units[i].get("accel_history_captured_at", 0.0) -
+                        state_captured_at) * 1000
+                    accel["history"] = history_for_client
             mid = st.get("markerId")
             if isinstance(mid, int) and mid >= 0:
                 _units[i]["mid"] = mid % ARUCO_NMARKERS
@@ -406,31 +547,109 @@ def _poll_one(i):
             if isinstance(name, str) and name.strip() and name.strip() != _units[i]["name"]:
                 _units[i]["name"] = name.strip()
                 _save_units()
+
+            # Keep a manager-side copy as a reconnect fallback. On the first
+            # encounter learn the tag's settings; after a disconnect, reapply
+            # the remembered values if the tag came back with different ones.
+            if accel and accel["available"]:
+                desired_on = _units[i]["accel_on"]
+                desired_sens = _units[i]["accel_sens"]
+                desired_hit_thr = _units[i]["accel_hit_thr"]
+                desired_drop_ms = _units[i]["accel_drop_ms"]
+                desired_require_drop = _units[i]["accel_require_drop"]
+                if desired_on is None:
+                    _units[i]["accel_on"] = accel["enabled"]
+                if desired_hit_thr is None:
+                    _units[i]["accel_hit_thr"] = float(accel["hitThreshold"])
+                if desired_sens is None:
+                    _units[i]["accel_sens"] = float(accel["sensitivity"])
+                if desired_drop_ms is None:
+                    _units[i]["accel_drop_ms"] = int(accel["dropConfirmMs"])
+                if (desired_on is None or desired_sens is None or
+                        desired_hit_thr is None or desired_drop_ms is None):
+                    _save_units()
+                elif accel["separateSettings"] and not was_online and (
+                    accel["enabled"] != desired_on or
+                    abs(float(accel["sensitivity"]) - desired_sens) > 0.005 or
+                    abs(float(accel["hitThreshold"]) - desired_hit_thr) > 0.005 or
+                    int(accel["dropConfirmMs"]) != desired_drop_ms or
+                    (accel["dropRequirementSetting"] and
+                     accel["requireDrop"] != desired_require_drop)
+                ):
+                    sync = requests.post(
+                        f"http://{ip}/accelerometer",
+                        params={"enabled": 1 if desired_on else 0,
+                                "sensitivity": desired_sens,
+                                "hitThreshold": desired_hit_thr,
+                                "dropConfirmMs": desired_drop_ms,
+                                "requireDrop": 1 if desired_require_drop else 0},
+                        timeout=3,
+                    )
+                    if sync.ok:
+                        accel = _accel_state(sync.json()) or accel
+                        if history and accel:
+                            accel["history"] = history_for_client
     except Exception:
         ok = False
-    _units[i]["online"] = ok
-    _units[i]["bat"] = bat if ok else None
     if ok:
+        _units[i]["poll_failures"] = 0
+        _units[i]["online"] = True
+        _units[i]["bat"] = bat
+        _units[i]["accel"] = accel
         _units[i]["last_seen"] = time.time()
+    else:
+        _units[i]["poll_failures"] += 1
+        # Preserve the last good telemetry and online state through isolated
+        # packet loss. Only a consecutive-failure streak declares the tag down.
+        if not was_online or _units[i]["poll_failures"] >= FAILURES_BEFORE_OFFLINE:
+            _units[i]["online"] = False
+            _units[i]["bat"] = None
+            _units[i]["accel"] = None
+
+
+def _poll_one(i):
+    """Poll only when no foreground operation owns this tag's HTTP channel."""
+    if not _tag_io_locks[i].acquire(blocking=False):
+        return
+    try:
+        _poll_one_impl(i)
+    finally:
+        _tag_io_locks[i].release()
 
 
 def _start_poller():
-    """Background loop: probe every unit's IP concurrently every POLL_SECS."""
+    """Run one polling loop per slot so a slow/offline tag blocks only itself."""
     global _poller_started
     if _poller_started:
         return
     _poller_started = True
 
-    def loop():
+    def loop(i):
         while True:
+            started = time.monotonic()
             try:
-                with ThreadPoolExecutor(max_workers=N_UNITS) as ex:
-                    list(ex.map(_poll_one, range(N_UNITS)))
+                _poll_one(i)
             except Exception:
                 pass
-            time.sleep(POLL_SECS)
+            if not _units[i]["ip"]:
+                interval = EMPTY_POLL_SECS
+            elif _units[i]["online"]:
+                interval = ONLINE_POLL_SECS
+            else:
+                interval = OFFLINE_POLL_SECS
+            remaining = max(0.0, interval - (time.monotonic() - started))
+            _poll_wake[i].wait(remaining)
+            _poll_wake[i].clear()
 
-    threading.Thread(target=loop, daemon=True).start()
+    for i in range(N_UNITS):
+        threading.Thread(target=loop, args=(i,), daemon=True,
+                         name=f"atom-poll-{i + 1}").start()
+
+
+def _request_poll(i):
+    """Wake one unit's existing worker instead of starting an overlapping poll."""
+    if 0 <= i < N_UNITS:
+        _poll_wake[i].set()
 
 
 @bp.route("/api/units")
@@ -440,7 +659,12 @@ def api_units():
         return jsonify({"units": [
             {"id": i, "ip": u["ip"], "name": u["name"], "online": u["online"],
              "ago": round(now - u["last_seen"], 1) if u["last_seen"] else None,
-             "mid": u["mid"], "bri": u["bri"], "col": u["col"], "bat": u["bat"]}
+             "mid": u["mid"], "bri": u["bri"], "col": u["col"], "bat": u["bat"],
+             "accel": u["accel"], "accel_enabled": u["accel_on"],
+             "accel_sensitivity": u["accel_sens"],
+             "accel_hit_threshold": u["accel_hit_thr"],
+             "accel_drop_ms": u["accel_drop_ms"],
+             "accel_require_drop": u["accel_require_drop"]}
             for i, u in enumerate(_units)]})
 
 
@@ -452,12 +676,173 @@ def set_unit(i):
     with _units_lock:
         if ip != _units[i]["ip"]:
             _units[i]["name"] = None      # re-learned from /state on the next poll
+            _units[i]["accel_history"] = None
+            _units[i]["accel_history_at"] = 0.0
+            _units[i]["accel_history_captured_at"] = 0.0
         _units[i]["ip"] = ip
         _units[i]["online"] = False
+        _units[i]["poll_failures"] = 0
         _units[i]["last_seen"] = None
         _save_units()
-    threading.Thread(target=_poll_one, args=(i,), daemon=True).start()   # probe it now
+    _request_poll(i)
     return jsonify({"ok": True, "id": i, "ip": _units[i]["ip"]})
+
+
+@bp.route("/api/units/<int:i>/accelerometer", methods=["POST"])
+def unit_accelerometer(i):
+    """Update a physical tag's persisted accelerometer settings."""
+    if not 0 <= i < N_UNITS:
+        return jsonify({"ok": False, "error": "bad unit"}), 404
+    if not _HAS_REQUESTS:
+        return jsonify({"ok": False, "error": "requests not installed"}), 503
+    ip = _units[i]["ip"]
+    if not ip:
+        return jsonify({"ok": False, "error": "no IP set for this unit"}), 400
+
+    body = request.get_json(silent=True) or {}
+    enabled = bool(body.get("enabled"))
+    require_drop = bool(body.get("requireDrop", True))
+    try:
+        sensitivity = float(body.get("sensitivity", 0.85))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "invalid sensitivity"}), 400
+    try:
+        hit_threshold = float(body.get("hitThreshold", 1.05))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "invalid hit threshold"}), 400
+    try:
+        drop_ms = int(body.get("dropConfirmMs", 10))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "invalid drop duration"}), 400
+    if not 0.01 <= sensitivity <= 0.95:
+        return jsonify({"ok": False, "error":
+                        "drop sensitivity must be 0.01–0.95 g"}), 400
+    if not 1.05 <= hit_threshold <= 8.0:
+        return jsonify({"ok": False, "error": "hit threshold must be 1.05–8.0 g"}), 400
+    if not 5 <= drop_ms <= 250:
+        return jsonify({"ok": False, "error": "drop duration must be 5–250 ms"}), 400
+
+    # Save the operator's desired values before contacting the tag. They remain
+    # visible while offline and are re-applied automatically after reconnect or
+    # after compatible firmware is flashed.
+    with _units_lock:
+        _units[i]["accel_on"] = enabled
+        _units[i]["accel_sens"] = sensitivity
+        _units[i]["accel_hit_thr"] = hit_threshold
+        _units[i]["accel_drop_ms"] = drop_ms
+        _units[i]["accel_require_drop"] = require_drop
+        _save_units()
+
+    current_accel = _units[i]["accel"]
+    if current_accel and not current_accel.get("separateSettings"):
+        return jsonify({"ok": False, "error":
+                        "tag firmware combines sensitivity and threshold; reflash this tag"}), 409
+
+    try:
+        r = requests.post(
+            f"http://{ip}/accelerometer",
+            params={"enabled": 1 if enabled else 0, "sensitivity": sensitivity,
+                    "hitThreshold": hit_threshold, "dropConfirmMs": drop_ms,
+                    "requireDrop": 1 if require_drop else 0},
+            timeout=3,
+        )
+        try:
+            data = r.json()
+        except (TypeError, ValueError):
+            data = {}
+    except requests.exceptions.Timeout:
+        return jsonify({"ok": False, "error": f"{ip} timed out (offline?)"}), 502
+    except requests.exceptions.ConnectionError:
+        return jsonify({"ok": False, "error": f"can't reach {ip} (offline or wrong IP)"}), 502
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"send failed ({e.__class__.__name__})"}), 502
+    if not r.ok:
+        return jsonify({"ok": False, "error": data.get("error") or
+                        f"{ip} returned HTTP {r.status_code}"}), 502
+
+    with _units_lock:
+        _units[i]["accel"] = _accel_state(data)
+        _save_units()
+
+    # Re-poll immediately so the units table reflects the device's source of truth.
+    _request_poll(i)
+    return jsonify(data)
+
+
+@bp.route("/api/units/<int:i>/capture", methods=["POST"])
+def capture_unit(i):
+    """Capture, save, and return one second of full-rate IMU data."""
+    if not 0 <= i < N_UNITS:
+        return jsonify({"ok": False, "error": "bad unit"}), 404
+    if not _HAS_REQUESTS:
+        return jsonify({"ok": False, "error": "requests not installed"}), 503
+    body = request.get_json(silent=True) or {}
+    manual_label = 1 if bool(body.get("manual_drop_label")) else 0
+    with _units_lock:
+        ip = _units[i]["ip"]
+        name = _units[i]["name"] or f"unit-{i + 1}"
+        online = _units[i]["online"]
+    if not ip:
+        return jsonify({"ok": False, "error": "no tag assigned to this unit"}), 400
+    if not online:
+        return jsonify({"ok": False, "error": "selected tag is offline"}), 409
+
+    with _tag_io_locks[i]:
+        try:
+            response = requests.get(f"http://{ip}/accelerometer/capture", timeout=5)
+        except requests.exceptions.Timeout:
+            return jsonify({"ok": False, "error": "tag capture timed out"}), 502
+        except requests.exceptions.ConnectionError:
+            return jsonify({"ok": False, "error": "tag went offline"}), 502
+        except Exception as exc:
+            return jsonify({"ok": False, "error": f"capture failed ({exc.__class__.__name__})"}), 502
+    if not response.ok:
+        try:
+            tag_error = response.json().get("error")
+        except (TypeError, ValueError, AttributeError):
+            tag_error = None
+        return jsonify({"ok": False, "error": tag_error or
+                        f"tag returned HTTP {response.status_code}; reflash it with current firmware"}), 502
+    raw = response.content
+    if len(raw) % CAPTURE_RECORD.size:
+        return jsonify({"ok": False, "error": "tag returned a malformed capture"}), 502
+    count = len(raw) // CAPTURE_RECORD.size
+    if count != CAPTURE_SAMPLES:
+        return jsonify({"ok": False, "error":
+                        f"tag returned {count}/{CAPTURE_SAMPLES} samples; reflash current firmware or check its IMU connection"}), 409
+
+    records = []
+    for values in CAPTURE_RECORD.iter_unpack(raw):
+        timestamp_us, magnitude, ax, ay, az, gx, gy, gz, detector_hit = values
+        records.append({
+            "timestamp_us": timestamp_us,
+            "accel_magnitude": round(magnitude, 6),
+            "accel_x": round(ax, 6), "accel_y": round(ay, 6),
+            "accel_z": round(az, 6), "gyro_x": round(gx, 6),
+            "gyro_y": round(gy, 6), "gyro_z": round(gz, 6),
+            "manual_drop_label": manual_label,
+            "detector_hit": int(bool(detector_hit)),
+        })
+
+    os.makedirs(CAPTURE_DIR, exist_ok=True)
+    safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "-", name).strip("-") or f"unit-{i + 1}"
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    filename = f"{stamp}-{safe_name}.csv"
+    path = os.path.join(CAPTURE_DIR, filename)
+    fields = list(records[0])
+    try:
+        with open(path, "w", newline="") as log_file:
+            writer = csv.DictWriter(log_file, fieldnames=fields)
+            writer.writeheader()
+            writer.writerows(records)
+    except OSError as exc:
+        return jsonify({"ok": False, "error": f"could not save log: {exc}"}), 500
+
+    duration_us = ((records[-1]["timestamp_us"] - records[0]["timestamp_us"])
+                   & 0xFFFFFFFF)
+    return jsonify({"ok": True, "unit": i, "tag": name, "samples": count,
+                    "duration_us": duration_us,
+                    "log_file": os.path.relpath(path, REPO_ROOT), "records": records})
 
 
 # ---- scanner: UDP discovery of broadcasting units ----------------------------
@@ -588,7 +973,7 @@ def api_claim():
         _units[slot]["online"] = False
         _units[slot]["last_seen"] = None
         _save_units()
-    threading.Thread(target=_poll_one, args=(slot,), daemon=True).start()   # probe it now
+    _request_poll(slot)
     return jsonify({"ok": True, "slot": slot, "name": name, "ip": ip})
 
 

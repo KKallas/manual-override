@@ -16,6 +16,7 @@
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <LittleFS.h>
+#include <math.h>
 
 #include "names_discovery.h"
 #include "index_html.h"
@@ -61,6 +62,82 @@ static String  lineBuf;          // serial line accumulator
 static String  pendingSsid;      // ssid we're currently trying to join
 static bool    staConnecting = false;
 static uint32_t staDeadline = 0;
+
+// Accelerometer drop/impact detector. A real drop first produces near-zero
+// acceleration (free fall), followed by a sharp acceleration spike when the
+// enclosure hits a hard surface. Requiring that sequence avoids treating
+// ordinary handling or vibration as a dropped tag.
+static bool     accelAvailable = false;
+static bool     accelEnabled = true;
+static bool     accelRequireDrop = true;
+static float    accelSensitivity = 0.85f; // max g considered free fall
+static float    accelHitThreshold = 1.05f; // landing impact threshold in g
+static uint32_t accelDropConfirmMs = 10;  // legacy API value; shape has no minimum gap
+static uint16_t accelSampleRateHz = 0;
+static uint8_t  accelRangeG = 0;
+static float    accelX = 0.0f;
+static float    accelY = 0.0f;
+static float    accelZ = 0.0f;
+static float    accelMagnitude = 0.0f;
+static bool     dropArmed = false;
+static bool     impactAboveThreshold = false;
+static uint32_t lastImpactMs = 0;
+static float    lastImpactG = 0.0f;
+static uint32_t impactCount = 0;
+static bool     lastShapeValid = false;
+static float    lastShapeDropG = 0.0f;
+static float    lastShapeDeltaG = 0.0f;
+static uint32_t lastShapeRiseMs = 0;
+
+static const uint32_t IMPACT_RECENT_MS = 3000;
+static const uint32_t IMPACT_COOLDOWN_MS = 300;
+static const uint32_t ACCEL_BUFFER_US = 3000000; // 3-second display history
+static const uint32_t SHAPE_RISE_WINDOW_US = 62500; // 1/16-second hit matcher
+static const float    SHAPE_MIN_RISE_G = 0.20f;
+static const uint32_t ACCEL_BUFFER_MIN_INTERVAL_US = 625;
+static const size_t   ACCEL_BUFFER_CAPACITY = 4800; // 1600 Hz * 3 seconds
+static const size_t   ACCEL_DISPLAY_SAMPLES = 480;
+static const size_t   ACCEL_DISPLAY_DECIMATION = 10; // 160 displayed samples/s
+static uint8_t        bmi270I2cAddr = 0x69;
+static const uint8_t  BMI270_ACC_CONF = 0x40;
+static const uint8_t  BMI270_ACC_RANGE = 0x41;
+static const uint8_t  BMI270_GYR_CONF = 0x42;
+static const uint8_t  BMI270_ACC_DATA = 0x0C;
+static const uint8_t  BMI270_ACC_ODR_1600HZ = 0x0C;
+static const uint8_t  BMI270_GYR_ODR_1600HZ = 0x0C;
+static const uint8_t  BMI270_ACC_RANGE_2G = 0x00;
+// M5Unified converts BMI270 raw acceleration with its default +/-8 g scale.
+// Correct those values after explicitly selecting the more sensitive +/-2 g range.
+static const float    BMI270_ACCEL_SCALE_CORRECTION = 2.0f / 8.0f;
+static const uint32_t BMI270_I2C_HZ = 400000;
+
+struct AccelHistorySample {
+  uint32_t us;
+  float magnitude;
+};
+struct __attribute__((packed)) AccelCaptureSample {
+  uint32_t us;
+  float magnitude;
+  float accelX;
+  float accelY;
+  float accelZ;
+  float gyroX;
+  float gyroY;
+  float gyroZ;
+  uint8_t detectorHit;
+};
+static_assert(sizeof(AccelCaptureSample) == 33, "capture wire record must stay packed");
+static AccelHistorySample accelBuffer[ACCEL_BUFFER_CAPACITY];
+static const size_t ACCEL_CAPTURE_SAMPLES = 1600;
+static AccelCaptureSample accelCaptureBuffer[ACCEL_CAPTURE_SAMPLES];
+static size_t accelCaptureHead = 0;
+static size_t accelCaptureCount = 0;
+static uint32_t accelCaptureTotal = 0;
+static uint16_t accelHistoryPayload[ACCEL_DISPLAY_SAMPLES];
+static size_t accelBufferHead = 0;
+static size_t accelBufferCount = 0;
+static uint32_t lastBufferedUs = 0;
+static uint32_t lastLowSampleUs = 0;
 
 static bool apActive() {
   auto m = WiFi.getMode();
@@ -192,6 +269,187 @@ static int batteryMilliVolts() {
 static int batteryPercent(int mv) {
   int pct = (mv - BAT_EMPTY_MV) * 100 / (BAT_FULL_MV - BAT_EMPTY_MV);
   return pct < 0 ? 0 : (pct > 100 ? 100 : pct);
+}
+
+// ---- accelerometer ---------------------------------------------------------
+static void configureAccelerometer() {
+  accelSampleRateHz = 0;
+  accelRangeG = 0;
+  if (!accelAvailable || M5.Imu.getType() != m5::imu_bmi270) return;
+
+  // M5Unified probes both valid BMI270 addresses. Use the one actually found
+  // instead of assuming every AtomS3R revision is wired at 0x69.
+  if (m5::In_I2C.readRegister8(0x69, 0x00, BMI270_I2C_HZ) == 0x24)
+    bmi270I2cAddr = 0x69;
+  else if (m5::In_I2C.readRegister8(0x68, 0x00, BMI270_I2C_HZ) == 0x24)
+    bmi270I2cAddr = 0x68;
+  else
+    return;
+
+  // Use the BMI270's most sensitive range. ACC_RANGE 0x00 is +/-2 g.
+  m5::In_I2C.writeRegister8(
+      bmi270I2cAddr, BMI270_ACC_RANGE, BMI270_ACC_RANGE_2G, BMI270_I2C_HZ);
+  uint8_t range = m5::In_I2C.readRegister8(
+      bmi270I2cAddr, BMI270_ACC_RANGE, BMI270_I2C_HZ);
+  if ((range & 0x03) == BMI270_ACC_RANGE_2G) accelRangeG = 2;
+
+  // M5Unified leaves ACC_CONF at the BMI270 reset/default value (100 Hz).
+  // Preserve its performance/filter bits and select the sensor's maximum
+  // accelerometer ODR, 1600 Hz, in the low nibble.
+  uint8_t conf = m5::In_I2C.readRegister8(
+      bmi270I2cAddr, BMI270_ACC_CONF, BMI270_I2C_HZ);
+  uint8_t maxRateConf = (conf & 0xF0) | BMI270_ACC_ODR_1600HZ;
+  m5::In_I2C.writeRegister8(
+      bmi270I2cAddr, BMI270_ACC_CONF, maxRateConf, BMI270_I2C_HZ);
+  uint8_t verified = m5::In_I2C.readRegister8(
+      bmi270I2cAddr, BMI270_ACC_CONF, BMI270_I2C_HZ);
+  if ((verified & 0x0F) == BMI270_ACC_ODR_1600HZ) accelSampleRateHz = 1600;
+
+  // Capture reads accel and gyro together, so run both sensors at 1600 Hz.
+  uint8_t gyroConf = m5::In_I2C.readRegister8(
+      bmi270I2cAddr, BMI270_GYR_CONF, BMI270_I2C_HZ);
+  m5::In_I2C.writeRegister8(
+      bmi270I2cAddr, BMI270_GYR_CONF,
+      (gyroConf & 0xF0) | BMI270_GYR_ODR_1600HZ, BMI270_I2C_HZ);
+}
+
+static bool bufferAccelerometerSample(
+    uint32_t nowUs, float magnitude, float x, float y, float z,
+    float gx, float gy, float gz) {
+  // Do not fill the ring with duplicate host reads faster than the BMI270 ODR.
+  // At 1600 Hz a fresh sample can arrive every 625 us.
+  if (lastBufferedUs &&
+      (uint32_t)(nowUs - lastBufferedUs) < ACCEL_BUFFER_MIN_INTERVAL_US) {
+    return false;
+  }
+  lastBufferedUs = nowUs;
+  accelBuffer[accelBufferHead] = {nowUs, magnitude};
+  accelBufferHead = (accelBufferHead + 1) % ACCEL_BUFFER_CAPACITY;
+  if (accelBufferCount < ACCEL_BUFFER_CAPACITY) accelBufferCount++;
+  accelCaptureBuffer[accelCaptureHead] = {
+      nowUs, magnitude, x, y, z, gx, gy, gz, 0};
+  accelCaptureHead = (accelCaptureHead + 1) % ACCEL_CAPTURE_SAMPLES;
+  if (accelCaptureCount < ACCEL_CAPTURE_SAMPLES) accelCaptureCount++;
+  accelCaptureTotal++;
+  return true;
+}
+
+static size_t recentAccelerometerSampleCount(uint32_t nowUs) {
+  size_t recent = 0;
+  for (size_t n = 0; n < accelBufferCount; n++) {
+    size_t idx =
+        (accelBufferHead + ACCEL_BUFFER_CAPACITY - 1 - n) % ACCEL_BUFFER_CAPACITY;
+    if ((uint32_t)(nowUs - accelBuffer[idx].us) > ACCEL_BUFFER_US) break;
+    recent++;
+  }
+  return recent;
+}
+
+// Find a low-G point in the most recent 1/16 second of the rolling buffer,
+// followed by the current upward crossing with a rise greater than 0.20 g.
+static bool findDropImpactShape(
+    uint32_t nowUs, float& minimumG, float& riseG, uint32_t& lowToHitMs) {
+  bool foundLow = false;
+  uint32_t newestLowAgeUs = UINT32_MAX;
+  minimumG = accelMagnitude;
+
+  for (size_t n = 1; n < accelBufferCount; n++) { // skip the current hit sample
+    size_t idx =
+        (accelBufferHead + ACCEL_BUFFER_CAPACITY - 1 - n) % ACCEL_BUFFER_CAPACITY;
+    uint32_t ageUs = nowUs - accelBuffer[idx].us;
+    if (ageUs > SHAPE_RISE_WINDOW_US) break;
+    if (ageUs <= SHAPE_RISE_WINDOW_US &&
+        accelBuffer[idx].magnitude <= accelSensitivity) {
+      foundLow = true;
+      if (ageUs < newestLowAgeUs) newestLowAgeUs = ageUs;
+      if (accelBuffer[idx].magnitude < minimumG) {
+        minimumG = accelBuffer[idx].magnitude;
+      }
+    }
+  }
+
+  if (!foundLow || newestLowAgeUs > SHAPE_RISE_WINDOW_US) return false;
+  riseG = accelMagnitude - minimumG;
+  if (riseG <= SHAPE_MIN_RISE_G) return false;
+  lowToHitMs = newestLowAgeUs / 1000U;
+  return true;
+}
+
+static void registerImpact(
+    uint32_t now, bool shapeValid, float shapeDropG, float shapeDeltaG,
+    uint32_t shapeRiseMs) {
+  lastImpactMs = now;
+  lastImpactG = accelMagnitude;
+  impactCount++;
+  dropArmed = false;
+  lastShapeValid = shapeValid;
+  lastShapeDropG = shapeDropG;
+  lastShapeDeltaG = shapeDeltaG;
+  lastShapeRiseMs = shapeRiseMs;
+}
+
+static void pumpAccelerometer() {
+  if (!accelAvailable || !accelEnabled || !M5.Imu.update()) return;
+
+  auto data = M5.Imu.getImuData();
+  const float accelScale = accelRangeG == 2
+      ? BMI270_ACCEL_SCALE_CORRECTION : 1.0f;
+  accelX = data.accel.x * accelScale;
+  accelY = data.accel.y * accelScale;
+  accelZ = data.accel.z * accelScale;
+  accelMagnitude = sqrtf(accelX * accelX + accelY * accelY + accelZ * accelZ);
+  const float gyroX = data.gyro.x;
+  const float gyroY = data.gyro.y;
+  const float gyroZ = data.gyro.z;
+  uint32_t now = millis();
+  uint32_t nowUs = micros();
+  if (!bufferAccelerometerSample(
+          nowUs, accelMagnitude, accelX, accelY, accelZ, gyroX, gyroY, gyroZ)) return;
+
+  // Optional impact-only mode for extremely short drops. Hysteresis makes this
+  // edge-triggered: a sustained high reading produces one hit, and the latch
+  // resets only after acceleration has fallen clearly below the threshold.
+  if (!accelRequireDrop) {
+    const float resetThreshold = accelHitThreshold - 0.03f;
+    if (!impactAboveThreshold && accelMagnitude >= accelHitThreshold) {
+      impactAboveThreshold = true;
+      if (!impactCount || now - lastImpactMs >= IMPACT_COOLDOWN_MS) {
+        registerImpact(now, false, 0.0f, 0.0f, 0);
+        accelCaptureBuffer[(accelCaptureHead + ACCEL_CAPTURE_SAMPLES - 1) %
+                           ACCEL_CAPTURE_SAMPLES].detectorHit = 1;
+      }
+    } else if (impactAboveThreshold && accelMagnitude < resetThreshold) {
+      impactAboveThreshold = false;
+    }
+    return;
+  }
+
+  // Show the drop-armed state while a recent qualifying low-G sample remains
+  // in the abrupt-rise window. The actual decision below scans the full buffer.
+  if (accelMagnitude <= accelSensitivity) {
+    dropArmed = true;
+    lastLowSampleUs = nowUs;
+  } else if (dropArmed && lastLowSampleUs &&
+             (uint32_t)(nowUs - lastLowSampleUs) > SHAPE_RISE_WINDOW_US) {
+    dropArmed = false;
+  }
+
+  const float resetThreshold = accelHitThreshold - 0.03f;
+  if (!impactAboveThreshold && accelMagnitude >= accelHitThreshold) {
+    impactAboveThreshold = true;
+    if (!impactCount || now - lastImpactMs >= IMPACT_COOLDOWN_MS) {
+      float shapeDropG = 0.0f;
+      float shapeDeltaG = 0.0f;
+      uint32_t shapeRiseMs = 0;
+      if (findDropImpactShape(nowUs, shapeDropG, shapeDeltaG, shapeRiseMs)) {
+        registerImpact(now, true, shapeDropG, shapeDeltaG, shapeRiseMs);
+        accelCaptureBuffer[(accelCaptureHead + ACCEL_CAPTURE_SAMPLES - 1) %
+                           ACCEL_CAPTURE_SAMPLES].detectorHit = 1;
+      }
+    }
+  } else if (impactAboveThreshold && accelMagnitude < resetThreshold) {
+    impactAboveThreshold = false;
+  }
 }
 
 // ---- on-screen status ------------------------------------------------------
@@ -447,6 +705,202 @@ static void handleButtonsPost() {
   server.send(200, "text/plain", "OK");
 }
 
+// GET/POST /accelerometer. Settings are persisted on the physical tag.
+// POST query args: enabled=0|1, requireDrop=0|1, sensitivity=0.01..0.95 g
+// (maximum acceleration considered free fall), and hitThreshold=1.05..8.0 g.
+// dropConfirmMs=5..250 is accepted for compatibility but no longer gates hits.
+static void handleAccelerometer() {
+  if (server.method() == HTTP_POST) {
+    if (server.hasArg("enabled")) {
+      String v = server.arg("enabled");
+      accelEnabled = !(v == "0" || v.equalsIgnoreCase("false") || v.equalsIgnoreCase("off"));
+      prefs.putBool("accelOn", accelEnabled);
+      if (!accelEnabled) {
+        dropArmed = false;
+      }
+    }
+    if (server.hasArg("requireDrop")) {
+      String v = server.arg("requireDrop");
+      accelRequireDrop =
+          !(v == "0" || v.equalsIgnoreCase("false") || v.equalsIgnoreCase("off"));
+      prefs.putBool("accelReqDrop", accelRequireDrop);
+      dropArmed = false;
+      lastLowSampleUs = 0;
+      impactAboveThreshold = false;
+    }
+    if (server.hasArg("sensitivity")) {
+      float v = server.arg("sensitivity").toFloat();
+      if (v < 0.01f || v > 0.95f) {
+        server.send(400, "application/json",
+                    "{\"ok\":false,\"error\":\"drop sensitivity must be 0.01..0.95 g\"}");
+        return;
+      }
+      accelSensitivity = v;
+      prefs.putFloat("accelSens", accelSensitivity);
+    }
+    if (server.hasArg("dropConfirmMs")) {
+      int v = server.arg("dropConfirmMs").toInt();
+      if (v < 5 || v > 250) {
+        server.send(400, "application/json",
+                    "{\"ok\":false,\"error\":\"drop duration must be 5..250 ms\"}");
+        return;
+      }
+      accelDropConfirmMs = (uint32_t)v;
+      prefs.putUInt("accelDropMs", accelDropConfirmMs);
+    }
+    if (server.hasArg("hitThreshold")) {
+      float v = server.arg("hitThreshold").toFloat();
+      if (v < 1.05f || v > 8.0f) {
+        server.send(400, "application/json",
+                    "{\"ok\":false,\"error\":\"hit threshold must be 1.05..8.0 g\"}");
+        return;
+      }
+      accelHitThreshold = v;
+      prefs.putFloat("accelThr", accelHitThreshold);
+    }
+  }
+
+  uint32_t impactAge = impactCount ? millis() - lastImpactMs : 0;
+  bool hardSurfaceHit = impactCount && impactAge <= IMPACT_RECENT_MS;
+  size_t bufferSamples = recentAccelerometerSampleCount(micros());
+  String s = "{\"ok\":true"
+           + String(",\"available\":") + (accelAvailable ? "true" : "false")
+           + ",\"enabled\":" + (accelEnabled ? "true" : "false")
+           + ",\"requireDrop\":" + (accelRequireDrop ? "true" : "false")
+           + ",\"sampleRateHz\":" + String(accelSampleRateHz)
+           + ",\"rangeG\":" + String(accelRangeG)
+           + ",\"bufferWindowMs\":3000"
+           + ",\"bufferSamples\":" + String(bufferSamples)
+           + ",\"shapeRiseWindowMs\":62.5"
+           + ",\"shapeMinRiseG\":" + String(SHAPE_MIN_RISE_G, 2)
+           + ",\"sensitivity\":" + String(accelSensitivity, 2)
+           + ",\"hitThreshold\":" + String(accelHitThreshold, 2)
+           + ",\"effectiveThreshold\":" + String(accelHitThreshold, 3)
+           + ",\"dropConfirmMs\":" + String(accelDropConfirmMs)
+           + ",\"x\":" + String(accelX, 3)
+           + ",\"y\":" + String(accelY, 3)
+           + ",\"z\":" + String(accelZ, 3)
+           + ",\"magnitude\":" + String(accelMagnitude, 3)
+           + ",\"dropArmed\":" + (dropArmed ? "true" : "false")
+           + ",\"hardSurfaceHit\":" + (hardSurfaceHit ? "true" : "false")
+           + ",\"lastImpactG\":" + String(lastImpactG, 3)
+           + ",\"lastShapeDropG\":" +
+               (lastShapeValid ? String(lastShapeDropG, 3) : "null")
+           + ",\"lastShapeDeltaG\":" +
+               (lastShapeValid ? String(lastShapeDeltaG, 3) : "null")
+           + ",\"lastShapeRiseMs\":" +
+               (lastShapeValid ? String(lastShapeRiseMs) : "null")
+           + ",\"impactCount\":" + String(impactCount)
+           + ",\"lastImpactAgoMs\":" + (impactCount ? String(impactAge) : "null")
+           + "}";
+  server.send(200, "application/json", s);
+}
+
+// GET /accelerometer/history — three seconds of full-rate measurements,
+// decimated 10:1 for a 160 samples/s live display. The body is little-endian
+// uint16 milli-g values, so a full response is 480 points / 960 bytes.
+static void handleAccelerometerHistory() {
+  uint32_t nowUs = micros();
+  size_t recent = recentAccelerometerSampleCount(nowUs);
+  size_t first =
+      (accelBufferHead + ACCEL_BUFFER_CAPACITY - recent) % ACCEL_BUFFER_CAPACITY;
+  size_t outputCount = 0;
+
+  for (size_t n = 0;
+       n < recent && outputCount < ACCEL_DISPLAY_SAMPLES;
+       n += ACCEL_DISPLAY_DECIMATION) {
+    size_t idx = (first + n) % ACCEL_BUFFER_CAPACITY;
+    long milliG = lroundf(accelBuffer[idx].magnitude * 1000.0f);
+    if (milliG < 0) milliG = 0;
+    if (milliG > 65535) milliG = 65535;
+    accelHistoryPayload[outputCount++] = (uint16_t)milliG;
+  }
+
+  uint32_t durationUs = 0;
+  if (recent > 1) {
+    size_t newest =
+        (accelBufferHead + ACCEL_BUFFER_CAPACITY - 1) % ACCEL_BUFFER_CAPACITY;
+    durationUs = accelBuffer[newest].us - accelBuffer[first].us;
+  }
+  server.sendHeader("X-Window-Ms", "3000");
+  server.sendHeader("X-Source-Rate-Hz", String(accelSampleRateHz));
+  server.sendHeader("X-Source-Samples", String(recent));
+  server.sendHeader("X-Display-Decimation", String(ACCEL_DISPLAY_DECIMATION));
+  server.sendHeader("X-Duration-Us", String(durationUs));
+  server.send_P(200, "application/octet-stream",
+                reinterpret_cast<const char*>(accelHistoryPayload),
+                outputCount * sizeof(uint16_t));
+}
+
+// Read one BMI270 sample without M5Unified's interrupt-status gate. That gate
+// yields only ~160 readings/s on AtomS3R even when ACC_CONF is set to 1600 Hz.
+static bool readRawCaptureSample(AccelCaptureSample& sample, uint32_t timestampUs) {
+  int16_t raw[6];
+  if (!m5::In_I2C.readRegister(
+          bmi270I2cAddr, BMI270_ACC_DATA,
+          reinterpret_cast<uint8_t*>(raw), sizeof(raw), BMI270_I2C_HZ)) {
+    return false;
+  }
+  // AtomS3R's M5Unified orientation is Y, -X, Z for accel and gyro.
+  static const float ACCEL_RES = 2.0f / 32768.0f;
+  static const float GYRO_RES = 2000.0f / 32768.0f;
+  float x = raw[1] * ACCEL_RES;
+  float y = -raw[0] * ACCEL_RES;
+  float z = raw[2] * ACCEL_RES;
+  sample = {timestampUs, sqrtf(x * x + y * y + z * z),
+            x, y, z,
+            raw[4] * GYRO_RES, -raw[3] * GYRO_RES, raw[5] * GYRO_RES, 0};
+  return true;
+}
+
+// GET /accelerometer/capture — collect the next exact second at 1600 Hz.
+// Each packed little-endian record is: uint32 timestamp_us, seven float32
+// values (magnitude, accel xyz, gyro xyz), then uint8 detector_hit.
+static void handleAccelerometerCapture() {
+  if (!accelAvailable || !accelEnabled ||
+      M5.Imu.getType() != m5::imu_bmi270 || accelSampleRateHz != 1600) {
+    server.send(409, "application/json",
+                "{\"ok\":false,\"error\":\"1600 Hz accelerometer is unavailable or disabled\"}");
+    return;
+  }
+
+  uint32_t startUs = micros();
+  size_t count = 0;
+  bool aboveThreshold = false;
+  for (size_t i = 0; i < ACCEL_CAPTURE_SAMPLES; i++) {
+    uint32_t targetUs = startUs + i * ACCEL_BUFFER_MIN_INTERVAL_US;
+    while ((int32_t)(targetUs - micros()) > 50) delayMicroseconds(25);
+    while ((int32_t)(targetUs - micros()) > 0) {}
+    if (!readRawCaptureSample(accelCaptureBuffer[i], micros())) break;
+
+    const float magnitude = accelCaptureBuffer[i].magnitude;
+    bool shapeMatch = !accelRequireDrop;
+    if (accelRequireDrop && magnitude >= accelHitThreshold) {
+      size_t oldest = i > 100 ? i - 100 : 0; // previous 62.5 ms at 1600 Hz
+      float minimumG = magnitude;
+      for (size_t j = oldest; j < i; j++) {
+        if (accelCaptureBuffer[j].magnitude < minimumG)
+          minimumG = accelCaptureBuffer[j].magnitude;
+      }
+      shapeMatch = minimumG <= accelSensitivity &&
+                   magnitude - minimumG > SHAPE_MIN_RISE_G;
+    }
+    if (!aboveThreshold && magnitude >= accelHitThreshold && shapeMatch) {
+      accelCaptureBuffer[i].detectorHit = 1;
+    }
+    if (magnitude >= accelHitThreshold) aboveThreshold = true;
+    else if (magnitude < accelHitThreshold - 0.03f) aboveThreshold = false;
+    count++;
+  }
+  server.setContentLength(count * sizeof(AccelCaptureSample));
+  server.send(200, "application/octet-stream", "");
+  WiFiClient client = server.client();
+  for (size_t n = 0; n < count; n++) {
+    client.write(reinterpret_cast<const uint8_t*>(&accelCaptureBuffer[n]),
+                 sizeof(AccelCaptureSample));
+  }
+}
+
 // GET /state: current device state. Keeps markerId + battery for atom-manager,
 // adds the current slot and which slots are filled.
 static void handleState() {
@@ -457,6 +911,9 @@ static void handleState() {
     if (i < NUM_SLOTS - 1) filled += ",";
   }
   filled += "]";
+  uint32_t impactAge = impactCount ? millis() - lastImpactMs : 0;
+  bool hardSurfaceHit = impactCount && impactAge <= IMPACT_RECENT_MS;
+  size_t bufferSamples = recentAccelerometerSampleCount(micros());
   String s = "{\"name\":\"" + disco::name() + "\""
            + ",\"slot\":" + String(curSlot)
            + ",\"slots\":" + String(NUM_SLOTS)
@@ -464,7 +921,36 @@ static void handleState() {
            + ",\"markerId\":" + String(markerId)
            + ",\"hasFrame\":" + (frameOk ? "true" : "false")
            + ",\"battery\":{\"mv\":" + String(mv)
-           + ",\"pct\":" + String(batteryPercent(mv)) + "}}";
+           + ",\"pct\":" + String(batteryPercent(mv)) + "}"
+           + ",\"accelerometer\":{\"available\":" + (accelAvailable ? "true" : "false")
+           + ",\"enabled\":" + (accelEnabled ? "true" : "false")
+           + ",\"requireDrop\":" + (accelRequireDrop ? "true" : "false")
+           + ",\"sampleRateHz\":" + String(accelSampleRateHz)
+           + ",\"rangeG\":" + String(accelRangeG)
+           + ",\"bufferWindowMs\":3000"
+           + ",\"bufferSamples\":" + String(bufferSamples)
+           + ",\"shapeRiseWindowMs\":62.5"
+           + ",\"shapeMinRiseG\":" + String(SHAPE_MIN_RISE_G, 2)
+           + ",\"sensitivity\":" + String(accelSensitivity, 2)
+           + ",\"hitThreshold\":" + String(accelHitThreshold, 2)
+           + ",\"effectiveThreshold\":" + String(accelHitThreshold, 3)
+           + ",\"dropConfirmMs\":" + String(accelDropConfirmMs)
+           + ",\"x\":" + String(accelX, 3)
+           + ",\"y\":" + String(accelY, 3)
+           + ",\"z\":" + String(accelZ, 3)
+           + ",\"magnitude\":" + String(accelMagnitude, 3)
+           + ",\"dropArmed\":" + (dropArmed ? "true" : "false")
+           + ",\"hardSurfaceHit\":" + (hardSurfaceHit ? "true" : "false")
+           + ",\"lastImpactG\":" + String(lastImpactG, 3)
+           + ",\"lastShapeDropG\":" +
+               (lastShapeValid ? String(lastShapeDropG, 3) : "null")
+           + ",\"lastShapeDeltaG\":" +
+               (lastShapeValid ? String(lastShapeDeltaG, 3) : "null")
+           + ",\"lastShapeRiseMs\":" +
+               (lastShapeValid ? String(lastShapeRiseMs) : "null")
+           + ",\"impactCount\":" + String(impactCount)
+           + ",\"lastImpactAgoMs\":" + (impactCount ? String(impactAge) : "null")
+           + "}}";
   server.send(200, "application/json", s);
 }
 
@@ -481,8 +967,11 @@ static void handleNamePost() {
 
 void setup() {
   auto cfg = M5.config();
+  cfg.internal_imu = true;
   M5.begin(cfg);
   M5.Display.setRotation(0);
+  accelAvailable = M5.Imu.getType() != m5::imu_none;
+  configureAccelerometer();
 
   // Battery ADC: 12-bit, 2:1 divider on GPIO 8 (see batteryMilliVolts()).
   pinMode(BAT_ADC_PIN, INPUT);
@@ -490,6 +979,20 @@ void setup() {
 
   Serial.begin(115200);
   prefs.begin("wifi", false);
+  accelEnabled = prefs.getBool("accelOn", true);
+  accelRequireDrop = prefs.getBool("accelReqDrop", true);
+  // Firmware before split controls stored its combined value in accelThr.
+  // Preserve it as the landing threshold when valid. Old impact-gain values
+  // in accelSens are outside the new drop-sensitivity range and migrate to
+  // the 0.85 g short-drop default.
+  float legacyAccelValue = prefs.getFloat("accelThr", 3.0f);
+  accelSensitivity = prefs.getFloat("accelSens", 0.85f);
+  accelDropConfirmMs = prefs.getUInt("accelDropMs", 10);
+  accelHitThreshold = legacyAccelValue;
+  if (accelHitThreshold < 1.05f) accelHitThreshold = 1.05f;
+  if (accelHitThreshold > 8.0f) accelHitThreshold = 3.0f;
+  if (accelSensitivity < 0.01f || accelSensitivity > 0.95f) accelSensitivity = 0.85f;
+  if (accelDropConfirmMs < 5 || accelDropConfirmMs > 250) accelDropConfirmMs = 10;
 
   // Mount flash and restore the last-shown slot immediately, so the panel comes
   // straight up on its page — no boot animation, no status screen, no WiFi wait.
@@ -515,6 +1018,10 @@ void setup() {
   server.on("/show", HTTP_GET, handleShow);
   server.on("/buttons", HTTP_GET, handleButtonsGet);
   server.on("/buttons", HTTP_POST, handleButtonsPost);
+  server.on("/accelerometer", HTTP_GET, handleAccelerometer);
+  server.on("/accelerometer", HTTP_POST, handleAccelerometer);
+  server.on("/accelerometer/history", HTTP_GET, handleAccelerometerHistory);
+  server.on("/accelerometer/capture", HTTP_GET, handleAccelerometerCapture);
   server.on("/frame", HTTP_GET, handleFrameGet);
   // POST /frame: (responder, upload-handler) — the upload handler fires first.
   server.on("/frame", HTTP_POST, handleFrameDone, handleFrameUpload);
@@ -532,4 +1039,5 @@ void loop() {
   pollSTA();
   disco::loop();   // UDP announce + peer table upkeep
   pumpButton();    // short / long / double click -> the current slot's actions
+  pumpAccelerometer();
 }

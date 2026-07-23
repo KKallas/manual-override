@@ -61,28 +61,28 @@
     border-color:#5a2630; color:#ff8a96; }
   .armcard button.kick:hover { border-color:var(--err); }
   .monitor { margin-top:16px; }
-  .cmdLog { border:1px solid var(--line); border-radius:8px; overflow:hidden;
-    max-height:360px; overflow-y:auto; background:#0c0e12; }
-  .cmdRow { display:grid; grid-template-columns:68px 76px 82px 150px minmax(180px, 1fr) 70px;
+  .cmdLog { border:1px solid var(--line); border-radius:8px;
+    max-height:360px; overflow:auto; background:#0c0e12;
+    user-select:text; -webkit-user-select:text; cursor:text; }
+  .cmdRow { display:grid;
+    grid-template-columns:68px 76px 82px minmax(130px, 180px) minmax(240px, 1fr) minmax(90px, 160px);
     gap:10px; align-items:start; padding:7px 10px; border-bottom:1px solid #1b1f27;
-    font-size:12px; font-variant-numeric:tabular-nums; }
+    min-width:780px; font-size:12px; font-variant-numeric:tabular-nums;
+    user-select:text; -webkit-user-select:text; }
   .cmdRow:last-child { border-bottom:none; }
   .cmdHead { position:sticky; top:0; z-index:1; background:#151922; color:var(--muted);
     text-transform:uppercase; letter-spacing:.05em; font-size:10px; }
-  .cmdPayload { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#c6ccd8; }
+  .cmdPayload { white-space:pre-wrap; overflow-wrap:anywhere; color:#c6ccd8; }
   .cmdDir.incoming { color:var(--accent); }
   .cmdDir.robot { color:var(--ok); }
   .cmdSide.purple { color:var(--purple); }
   .cmdSide.green { color:var(--green); }
-  .cmdOk { color:var(--muted); }
+  .cmdOk { color:var(--muted); white-space:normal; overflow-wrap:anywhere; }
   .cmdOk.good { color:var(--ok); }
   .cmdOk.bad { color:var(--err); }
   code { color:var(--accent); }
   @media (max-width:760px){
     .arms { grid-template-columns:1fr; }
-    .cmdRow { grid-template-columns:58px 68px 70px 1fr; }
-    .cmdRow > :nth-child(4) { display:none; }
-    .cmdRow > :nth-child(6) { display:none; }
   }
 </style>
   <link rel="stylesheet" href="/theme.css" />
@@ -222,20 +222,42 @@ function applyArm(side, arm, sideInfo) {
     c.sServoErr.textContent = "Follower error: " + arm.servo_error;
   } else c.sServoErr.style.display = "none";
 
-  // Needs-restart banner. Two failure modes we've seen on this rig:
-  //  1) the controller reports ERROR (robot_mode 9) — a hard fault, and
-  //  2) "frozen": connected + enabled, acks commands, but isn't moving.
+  // Stop-cause banner. Robot mode 9 alone is ambiguous; the server reads the
+  // controller alarm IDs to distinguish emergency lock, usable-area limits,
+  // collision, and other faults. A normal software hold is not an alarm.
   if (c.stallWarn) {
     let msg = "";
-    if (arm.connected && (arm.error || arm.mode_name === "ERROR")) {
-      msg = `⚠ ${side.toUpperCase()} is in ERROR (faulted). Restart this arm `
-          + `(power-cycle / re-home), then Connect + Enable.`;
+    let severity = "warn";
+    const alarmText = Array.isArray(arm.alarm_ids) && arm.alarm_ids.length
+      ? ` Alarm IDs: ${arm.alarm_ids.join(", ")}.` : "";
+    if (arm.fault_kind === "emergency_lock") {
+      severity = "emergency";
+      msg = `⛔ ${side.toUpperCase()} EMERGENCY LOCK — release/reset the physical `
+          + `or software emergency stop before clearing the alarm.${alarmText}`;
+    } else if (arm.fault_kind === "workspace_limit") {
+      msg = `⚠ ${side.toUpperCase()} USABLE-AREA LIMIT STOP — this is not an `
+          + `emergency lock. Return the requested target inside the configured `
+          + `workspace/joint limits before clearing.${alarmText}`;
+    } else if (arm.fault_kind === "collision") {
+      severity = "emergency";
+      msg = `⛔ ${side.toUpperCase()} COLLISION SAFETY STOP — inspect and clear `
+          + `the work area before resetting.${alarmText}`;
+    } else if (arm.connected && (arm.error || arm.mode_name === "ERROR")) {
+      severity = "emergency";
+      msg = `⚠ ${side.toUpperCase()} CONTROLLER FAULT`
+          + (arm.fault_label ? ` — ${arm.fault_label}` : " — checking alarm cause…")
+          + `.${alarmText}`;
     } else if (arm.stalled) {
       msg = `⚠ Suspected crash — ${side} accepts commands but isn't moving `
           + `(${(arm.stall_error || 0).toFixed(1)} off target). Restart this arm.`;
     }
     c.stallWarn.style.display = msg ? "block" : "none";
-    if (msg) c.stallWarn.textContent = msg;
+    if (msg) {
+      c.stallWarn.textContent = msg;
+      c.stallWarn.style.background = severity === "emergency" ? "#3a1016" : "#3a2410";
+      c.stallWarn.style.borderColor = severity === "emergency" ? "var(--err)" : "var(--warn)";
+      c.stallWarn.style.color = severity === "emergency" ? "var(--err)" : "var(--warn)";
+    }
   }
 }
 
@@ -280,9 +302,35 @@ function esc(s) {
   }[ch]));
 }
 
+let commandLogPointerDown = false;
+let pendingCommandLogRows = null;
+let commandLogSignature = "";
+
+function commandLogHasSelection() {
+  const host = document.getElementById("cmdLog");
+  const selection = window.getSelection && window.getSelection();
+  if (!host || !selection || selection.isCollapsed) return false;
+  return (selection.anchorNode && host.contains(selection.anchorNode))
+    || (selection.focusNode && host.contains(selection.focusNode));
+}
+
 function applyCommandLog(rows) {
   const host = document.getElementById("cmdLog");
   if (!host) return;
+  pendingCommandLogRows = rows || [];
+
+  // Live arm state arrives several times per second. Do not replace the DOM
+  // while the operator is dragging or has selected monitor text.
+  if (commandLogPointerDown || commandLogHasSelection()) return;
+
+  rows = pendingCommandLogRows;
+  pendingCommandLogRows = null;
+  const signature = rows.map(r =>
+    `${r.id}:${r.ok}:${r.error || ""}:${payloadText(r.payload)}`
+  ).join("|");
+  if (signature === commandLogSignature) return;
+  commandLogSignature = signature;
+
   const head = `<div class="cmdRow cmdHead">
     <span>Time</span><span>Flow</span><span>Side</span><span>Command</span><span>Payload</span><span>Status</span>
   </div>`;
@@ -303,6 +351,20 @@ function applyCommandLog(rows) {
   }).join("");
   host.innerHTML = head + (body || `<div class="cmdRow"><span>—</span><span>—</span><span>—</span><span>Waiting</span><span class="cmdPayload">{}</span><span>—</span></div>`);
 }
+
+const commandLogHost = document.getElementById("cmdLog");
+commandLogHost.addEventListener("pointerdown", () => { commandLogPointerDown = true; });
+window.addEventListener("pointerup", () => {
+  commandLogPointerDown = false;
+  requestAnimationFrame(() => {
+    if (pendingCommandLogRows && !commandLogHasSelection())
+      applyCommandLog(pendingCommandLogRows);
+  });
+});
+document.addEventListener("selectionchange", () => {
+  if (!commandLogPointerDown && !commandLogHasSelection() && pendingCommandLogRows)
+    applyCommandLog(pendingCommandLogRows);
+});
 
 async function init() {
   const cfg = await api("/api/config");

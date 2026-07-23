@@ -68,12 +68,21 @@
   .autoPpxGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; align-items:end; }
   .autoPpxGrid label { display:flex; flex-direction:column; gap:5px; color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
   .autoPpxGrid input, .autoPpxGrid select { width:100%; color:var(--txt); font-variant-numeric:tabular-nums; }
+  .autoPpxQueue { display:grid; gap:8px; }
+  .autoPpxQueueRow { display:grid; grid-template-columns:minmax(150px,1fr) minmax(150px,1fr) auto; gap:10px; align-items:end; padding:9px; background:#13161c; border:1px solid var(--line); border-radius:8px; }
+  .autoPpxQueueRow label { display:flex; flex-direction:column; gap:5px; color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+  .autoPpxQueueRow select { width:100%; }
+  .autoPpxQueueButtons { display:flex; gap:6px; }
+  .autoPpxQueueButtons button { width:36px; padding:8px 0; font-weight:900; }
+  .autoPpxLoop { margin-top:10px; }
+  @media (max-width:560px) { .autoPpxQueueRow { grid-template-columns:1fr 1fr; } .autoPpxQueueButtons { grid-column:1 / -1; } }
   .autoPpxActions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
   .autoPpxStatus { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; margin-top:8px; min-height:18px; }
   .autoPpxFineCal { margin-top:10px; display:grid; gap:6px; }
-  .autoPpxFineCalRow { display:grid; grid-template-columns:52px minmax(0,1fr) minmax(0,1fr); gap:8px; align-items:center; padding:7px 9px; background:#13161c; border:1px solid var(--line); border-radius:7px; font-size:12px; font-variant-numeric:tabular-nums; }
+  .autoPpxFineCalRow { display:grid; grid-template-columns:52px minmax(0,1fr) minmax(0,1fr) auto; gap:8px; align-items:center; padding:7px 9px; background:#13161c; border:1px solid var(--line); border-radius:7px; font-size:12px; font-variant-numeric:tabular-nums; }
   .autoPpxFineCalRow .tag { color:var(--accent); font-weight:800; }
   .autoPpxFineCalRow .muted { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .autoPpxFineCalRow button { padding:4px 9px; font-size:12px; background:#2a1216; border-color:#5a2630; color:#ff8a96; }
   .autoPpxFineCalEmpty { color:var(--muted); font-size:12px; }
   .loclist { display:flex; flex-direction:column; gap:6px; margin:4px 0; }
   .locrow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#13161c;
@@ -293,17 +302,26 @@
 
   <section class="panel autoPpxPanel" id="autoPpxPanel" hidden>
     <h2>Auto PP X</h2>
+    <div id="autoPpxQueue" class="autoPpxQueue">
+      <div class="autoPpxQueueRow">
+        <label for="autoPpxSource">Choose target
+          <select id="autoPpxSource" class="autoPpxSource" disabled>
+            <option value="">No ArUco tags visible</option>
+          </select>
+        </label>
+        <label for="autoPpxTarget">Deliver target to
+          <select id="autoPpxTarget" class="autoPpxTarget" disabled>
+            <option value="">No ArUco tags visible</option>
+          </select>
+        </label>
+        <div class="autoPpxQueueButtons">
+          <button class="autoPpxRemove" type="button" title="Remove this queue line" aria-label="Remove this queue line">−</button>
+          <button class="autoPpxAdd" type="button" title="Add another target and delivery line" aria-label="Add another target and delivery line">+</button>
+        </div>
+      </div>
+    </div>
+    <label class="check autoPpxLoop"><input id="autoPpxLoop" type="checkbox" /> Loop queue until stopped</label>
     <div class="autoPpxGrid">
-      <label for="autoPpxSource">Choose target
-        <select id="autoPpxSource" disabled>
-          <option value="">No ArUco tags visible</option>
-        </select>
-      </label>
-      <label for="autoPpxTarget">Deliver target to
-        <select id="autoPpxTarget" disabled>
-          <option value="">No ArUco tags visible</option>
-        </select>
-      </label>
       <label for="autoPpxTuneX">Fine tune X (mm)
         <input type="number" id="autoPpxTuneX" min="-80" max="80" step="1" value="0" disabled />
       </label>
@@ -408,6 +426,7 @@ const TAG_OVERLAY_KEY = `auto-pickup-game-tags-${TEAM}`;
 const PLAYER_NAME_KEY = `auto-pickup-game-player-name-${TEAM}`;
 const NAME_HISTORY_KEY = "auto-pickup-game-player-names";
 const FINE_CAL_KEY = `auto-pp-x-fine-cal-${TEAM}`;
+const QUEUE_KEY = `auto-pp-x-queue-${TEAM}`;
 const CORNER_MARKERS = [20, 21, 22, 23];
 const CORNER_KEYS = ["top_left", "top_right", "bottom_right", "bottom_left"];
 const MARKER_REF_POINTS = {
@@ -435,7 +454,8 @@ let gameReachWorkspace = { x:[-450,450], y:[-450,450] };
 let gameRadiusMin = 150, gameRadiusMax = 440;
 const REACH_GRID_COLS = 56;
 const REACH_GRID_ROWS = 36;
-const EXTRAPOLATION_MARGIN = 0.42;
+const EXTRAPOLATION_MARGIN = 1.0;
+const AUTO_PP_BASE_SAFE_RADIUS = 200;
 let feedZoomState = { scale:1, tx:0, ty:0 };
 let videoClickSeq = 0;
 let lastVideoTargetPoint = null;
@@ -443,6 +463,7 @@ let gamePollBusy = false;
 let scoreRefreshBusy = false;
 let userFlipOverride = HAS_STORED_FLIP;
 let latestVisibleArucoTags = [];
+const autoPpxRememberedTags = new Map();
 let autoPpxRunning = false;
 let autoPpxAbort = false;
 let autoPpxFineTuneAnchor = null;
@@ -451,6 +472,7 @@ let autoPpxFineTuneMoveBusy = false;
 let autoPpxFineTuneMoveAgain = false;
 let autoPpxFineTuneMoveZ = false;
 let autoPpxFineCalPoints = [];
+let autoPpxLoadingQueue = false;
 
 function invalidateVideoClicks() {
   videoClickSeq += 1;
@@ -483,6 +505,8 @@ function applyFlip(userInitiated = true) {
   if (userInitiated) localStorage.setItem(FLIP_KEY, on ? '1' : '0');
   cachedGameTagSet = null;
   latestGameTags = null;
+  autoPpxRememberedTags.clear();
+  latestVisibleArucoTags = [];
   setMarkerStamp(null);
   loadGameCalibration({ syncCameraView:false }).then(refreshGameField).catch(() => refreshGameField());
 }
@@ -843,7 +867,7 @@ function robotPointReachable(point) {
   if (gameReachWorkspace.x && (x < gameReachWorkspace.x[0] || x > gameReachWorkspace.x[1])) return false;
   if (gameReachWorkspace.y && (y < gameReachWorkspace.y[0] || y > gameReachWorkspace.y[1])) return false;
   const radius = Math.hypot(x, y);
-  return radius >= gameRadiusMin && radius <= gameRadiusMax;
+  return radius >= Math.max(gameRadiusMin, AUTO_PP_BASE_SAFE_RADIUS) && radius <= gameRadiusMax;
 }
 function renderReachMask(tags) {
   if (!(tags && tags.top_left && tags.top_right && tags.bottom_right && tags.bottom_left && tags.center)) return "";
@@ -923,11 +947,78 @@ async function readVisibleArucoTags() {
   }
   return [...seen.values()].sort((a, b) => a.id - b.id);
 }
+function autoPpxTagInsideActiveArea(tag) {
+  const cached = cachedGameTagSet || markerCacheFromGameCalibration();
+  const cam = completeGameTagSet(latestGameTags) ? latestGameTags : (cached && cached.tags);
+  if (!completeGameTagSet(cam)) return false;
+  try {
+    const solved = linearSolveCameraST(
+      Number(tag.nx), Number(tag.ny),
+      cam.top_left, cam.top_right, cam.bottom_right, cam.bottom_left
+    );
+    const epsilon = 0.0001;
+    const insideActiveArea = solved.rawS >= gameActiveArea.sMin - epsilon
+      && solved.rawS <= gameActiveArea.sMax + epsilon
+      && solved.rawT >= gameActiveArea.tMin - epsilon
+      && solved.rawT <= gameActiveArea.tMax + epsilon;
+    if (!insideActiveArea) return false;
+    return robotPointReachable(robotPointFromST(cam, solved.rawS, solved.rawT));
+  } catch (_) {
+    return false;
+  }
+}
 function selectedAutoPpxIds() {
+  const first = gid("autoPpxQueue") && gid("autoPpxQueue").querySelector(".autoPpxQueueRow");
   return {
-    source:String(gid("autoPpxSource") && gid("autoPpxSource").value || ""),
-    target:String(gid("autoPpxTarget") && gid("autoPpxTarget").value || ""),
+    source:String(first && first.querySelector(".autoPpxSource").value || ""),
+    target:String(first && first.querySelector(".autoPpxTarget").value || ""),
   };
+}
+function autoPpxQueueIds() {
+  return [...gid("autoPpxQueue").querySelectorAll(".autoPpxQueueRow")].map(row => ({
+    source:String(row.querySelector(".autoPpxSource").value || ""),
+    target:String(row.querySelector(".autoPpxTarget").value || ""),
+  }));
+}
+function saveAutoPpxQueue() {
+  if (autoPpxLoadingQueue) return;
+  localStorage.setItem(QUEUE_KEY, JSON.stringify({
+    items:autoPpxQueueIds(),
+    loop:Boolean(gid("autoPpxLoop") && gid("autoPpxLoop").checked),
+  }));
+}
+function setAutoPpxStoredSelectValue(select, value) {
+  const wanted = String(value || "");
+  if (!wanted) return;
+  if (![...select.options].some(option => option.value === wanted)) {
+    select.add(new Option(`ArUco ${wanted} (saved)`, wanted));
+  }
+  select.value = wanted;
+}
+function loadAutoPpxQueue() {
+  let stored;
+  try { stored = JSON.parse(localStorage.getItem(QUEUE_KEY) || "null"); } catch (_) { stored = null; }
+  if (!stored || !Array.isArray(stored.items) || !stored.items.length) return;
+  const items = stored.items.slice(0, 50).map(item => ({
+    source:String(item && item.source || ""),
+    target:String(item && item.target || ""),
+  }));
+  autoPpxLoadingQueue = true;
+  try {
+    let rows = [...gid("autoPpxQueue").querySelectorAll(".autoPpxQueueRow")];
+    while (rows.length < items.length) {
+      addAutoPpxQueueRow(rows[rows.length - 1]);
+      rows = [...gid("autoPpxQueue").querySelectorAll(".autoPpxQueueRow")];
+    }
+    items.forEach((item, index) => {
+      setAutoPpxStoredSelectValue(rows[index].querySelector(".autoPpxSource"), item.source);
+      setAutoPpxStoredSelectValue(rows[index].querySelector(".autoPpxTarget"), item.target);
+    });
+    gid("autoPpxLoop").checked = Boolean(stored.loop);
+  } finally {
+    autoPpxLoadingQueue = false;
+  }
+  updateAutoPpxControls();
 }
 function setAutoPpxStatus(text, cls = "") {
   const el = gid("autoPpxStatus");
@@ -977,8 +1068,20 @@ function renderAutoPpxFineCalList() {
       <div class="tag">#${i + 1}</div>
       <div class="muted">ArUco ${point.marker} · X ${fmtNum(point.baseX)} Y ${fmtNum(point.baseY)}</div>
       <div class="muted">dX ${fmtNum(point.dx)} dY ${fmtNum(point.dy)} dZ ${fmtNum(point.dz)}</div>
+      <button class="autoPpxRemoveFinePoint" type="button" data-index="${i}"${autoPpxRunning ? " disabled" : ""}>Remove</button>
     </div>
   `).join("");
+  el.querySelectorAll(".autoPpxRemoveFinePoint").forEach(button => {
+    button.onclick = () => removeAutoPpxFineCalPoint(Number(button.dataset.index));
+  });
+}
+function removeAutoPpxFineCalPoint(index) {
+  if (autoPpxRunning || !Number.isInteger(index) || index < 0 || index >= autoPpxFineCalPoints.length) return;
+  const removed = autoPpxFineCalPoints.splice(index, 1)[0];
+  saveAutoPpxFineCal();
+  autoPpxFineTuneAnchor = null;
+  setAutoPpxStatus(`Removed fine calibration point for ArUco ${removed.marker}.`);
+  updateAutoPpxControls();
 }
 function autoPpxFineCalCorrection(pose) {
   if (!autoPpxFineCalPoints.length) return { dx:0, dy:0, dz:0 };
@@ -1000,8 +1103,11 @@ function updateAutoPpxControls(tags = latestVisibleArucoTags) {
   const count = tags.length;
   const ids = selectedAutoPpxIds();
   const canChoose = !autoPpxRunning && count > 0;
-  gid("autoPpxSource").disabled = !canChoose;
-  gid("autoPpxTarget").disabled = !canChoose;
+  const queue = autoPpxQueueIds();
+  const queueValid = queue.length && queue.every(item => item.source && item.target && item.source !== item.target);
+  gid("autoPpxQueue").querySelectorAll("select").forEach(el => { el.disabled = !canChoose; });
+  gid("autoPpxQueue").querySelectorAll("button").forEach(el => { el.disabled = autoPpxRunning; });
+  gid("autoPpxLoop").disabled = autoPpxRunning;
   gid("autoPpxTuneX").disabled = autoPpxRunning;
   gid("autoPpxTuneY").disabled = autoPpxRunning;
   gid("autoPpxTuneZ").disabled = autoPpxRunning;
@@ -1010,26 +1116,36 @@ function updateAutoPpxControls(tags = latestVisibleArucoTags) {
   gid("autoPpxFineTune").disabled = autoPpxRunning || !connected || count < 1 || !ids.source;
   gid("autoPpxAddFinePoint").disabled = autoPpxRunning || !connected || !autoPpxFineTuneAnchor;
   gid("autoPpxClearFineCal").disabled = autoPpxRunning || !autoPpxFineCalPoints.length;
-  gid("autoPpxGo").disabled = autoPpxRunning || !connected || count < 2 || !ids.source || !ids.target || ids.source === ids.target;
+  gid("autoPpxFineCalList").querySelectorAll(".autoPpxRemoveFinePoint").forEach(el => { el.disabled = autoPpxRunning; });
+  gid("autoPpxGo").disabled = autoPpxRunning || !connected || count < 2 || !queueValid;
 }
 function renderAutoPpxTagOptions(tags) {
   if (!AUTO_PPX) return;
-  const prev = selectedAutoPpxIds();
-  const selects = [gid("autoPpxSource"), gid("autoPpxTarget")];
+  const selects = [...gid("autoPpxQueue").querySelectorAll("select")];
+  const previous = selects.map(sel => sel.value);
   const options = tags.length
-    ? tags.map(tag => `<option value="${tag.id}">ArUco ${tag.id}</option>`).join("")
-    : `<option value="">No ArUco tags visible</option>`;
-  for (const sel of selects) {
-    if (!sel) continue;
+    ? tags.map(tag => `<option value="${tag.id}">ArUco ${tag.id}${tag.obscured ? " (last position)" : ""}</option>`).join("")
+    : `<option value="">No ArUco tags available</option>`;
+  selects.forEach((sel, index) => {
     sel.innerHTML = options;
-  }
-  if (tags.some(tag => String(tag.id) === prev.source)) gid("autoPpxSource").value = prev.source;
-  if (tags.some(tag => String(tag.id) === prev.target)) gid("autoPpxTarget").value = prev.target;
-  if (tags.length > 1 && gid("autoPpxSource").value === gid("autoPpxTarget").value) {
-    gid("autoPpxTarget").value = String(tags.find(tag => String(tag.id) !== gid("autoPpxSource").value).id);
-  }
+    if (previous[index]) {
+      if (!tags.some(tag => String(tag.id) === previous[index])) {
+        sel.add(new Option(`ArUco ${previous[index]} (saved)`, previous[index]));
+      }
+      sel.value = previous[index];
+    }
+  });
+  gid("autoPpxQueue").querySelectorAll(".autoPpxQueueRow").forEach(row => {
+    const source = row.querySelector(".autoPpxSource"), target = row.querySelector(".autoPpxTarget");
+    if (tags.length > 1 && source.value === target.value) target.value = String(tags.find(tag => String(tag.id) !== source.value).id);
+  });
   if (!autoPpxRunning) {
-    const tagText = tags.length ? `${tags.length} visible ArUco tag${tags.length === 1 ? "" : "s"}` : "Waiting for visible ArUco tags";
+    const liveCount = tags.filter(tag => !tag.obscured).length;
+    const cachedCount = tags.length - liveCount;
+    const parts = [];
+    if (liveCount) parts.push(`${liveCount} visible ArUco tag${liveCount === 1 ? "" : "s"}`);
+    if (cachedCount) parts.push(`${cachedCount} at last known position`);
+    const tagText = parts.length ? parts.join(", ") : "Waiting for ArUco tags";
     setAutoPpxStatus(tags.length && !connected ? `${tagText}. Connect the arm to enable Go.` : `${tagText}${tags.length ? " ready." : "."}`);
   }
   updateAutoPpxControls(tags);
@@ -1037,7 +1153,18 @@ function renderAutoPpxTagOptions(tags) {
 async function refreshAutoPpxTags() {
   if (!AUTO_PPX) return [];
   try {
-    latestVisibleArucoTags = await readVisibleArucoTags();
+    // Keep this page synchronized with the area saved in Auto PP calibration,
+    // including while both pages are already open.
+    await loadGameCalibration({ syncCameraView:false });
+    const visibleTags = await readVisibleArucoTags();
+    const visibleIds = new Set(visibleTags.map(tag => Number(tag.id)));
+    for (const tag of visibleTags) {
+      autoPpxRememberedTags.set(Number(tag.id), { ...tag, obscured:false, lastSeenAt:Date.now() });
+    }
+    latestVisibleArucoTags = [...autoPpxRememberedTags.values()]
+      .map(tag => ({ ...tag, obscured:!visibleIds.has(Number(tag.id)) }))
+      .filter(autoPpxTagInsideActiveArea)
+      .sort((a, b) => a.id - b.id);
     renderAutoPpxTagOptions(latestVisibleArucoTags);
     return latestVisibleArucoTags;
   } catch (e) {
@@ -1107,7 +1234,14 @@ function normalizedVideoClick(ev) {
 function baseSafePose(pose) {
   const out = { ...pose };
   const radius = Math.hypot(out.x, out.y);
-  if (radius && radius < 230) { const scale = 230 / radius; out.x *= scale; out.y *= scale; }
+  if (radius === 0) {
+    out.x = AUTO_PP_BASE_SAFE_RADIUS;
+    out.y = 0;
+  } else if (radius < AUTO_PP_BASE_SAFE_RADIUS) {
+    const scale = AUTO_PP_BASE_SAFE_RADIUS / radius;
+    out.x *= scale;
+    out.y *= scale;
+  }
   if (radius > 400) { const scale = 400 / radius; out.x *= scale; out.y *= scale; }
   return out;
 }
@@ -1701,7 +1835,7 @@ async function captureAutoPpxPoses() {
   if (ids.source === ids.target) throw new Error("source and target must be different ArUco codes");
   const sourceTag = tags.find(tag => String(tag.id) === ids.source);
   const targetTag = tags.find(tag => String(tag.id) === ids.target);
-  if (!sourceTag || !targetTag) throw new Error("selected ArUco tag is not visible");
+  if (!sourceTag || !targetTag) throw new Error("selected ArUco tag has no known position");
   const sourceBase = clickToPose(sourceTag.nx, sourceTag.ny);
   const targetBase = clickToPose(targetTag.nx, targetTag.ny);
   const source = autoPpxOffsetPose(sourceBase);
@@ -1711,6 +1845,81 @@ async function captureAutoPpxPoses() {
   return { sourceTag, targetTag, source, target, sourceBase, targetBase };
 }
 
+async function captureAutoPpxQueuePoses() {
+  await loadGameCalibration();
+  await refreshGameField();
+  const tags = await refreshAutoPpxTags();
+  return autoPpxQueueIds().map((ids, index) => {
+    if (!ids.source || !ids.target) throw new Error(`choose both ArUco codes on queue line ${index + 1}`);
+    if (ids.source === ids.target) throw new Error(`source and target must differ on queue line ${index + 1}`);
+    const sourceTag = tags.find(tag => String(tag.id) === ids.source);
+    const targetTag = tags.find(tag => String(tag.id) === ids.target);
+    if (!sourceTag || !targetTag) throw new Error(`queue line ${index + 1} has no known tag position`);
+    const sourceBase = clickToPose(sourceTag.nx, sourceTag.ny);
+    const targetBase = clickToPose(targetTag.nx, targetTag.ny);
+    return { sourceTag, targetTag, sourceBase, targetBase, source:autoPpxOffsetPose(sourceBase), target:autoPpxOffsetPose(targetBase) };
+  });
+}
+
+function autoPpxIsPhysicalTag(tag) {
+  return Number(tag && tag.id) >= 100;
+}
+
+async function refreshAutoPpxPhysicalEndpoint(saved, endpoint, queueIndex) {
+  const tagKey = endpoint === "source" ? "sourceTag" : "targetTag";
+  const baseKey = endpoint === "source" ? "sourceBase" : "targetBase";
+  const tag = saved[tagKey];
+  if (!autoPpxIsPhysicalTag(tag)) return;
+  await refreshGameField();
+  const visible = await readVisibleArucoTags();
+  const liveTag = visible.find(item => Number(item.id) === Number(tag.id));
+  if (!liveTag || !autoPpxTagInsideActiveArea(liveTag)) {
+    throw new Error(`physical ArUco ${tag.id} on queue line ${queueIndex + 1} is not currently visible in the active area`);
+  }
+  autoPpxRememberedTags.set(Number(liveTag.id), { ...liveTag, obscured:false, lastSeenAt:Date.now() });
+  const base = clickToPose(liveTag.nx, liveTag.ny);
+  saved[tagKey] = liveTag;
+  saved[baseKey] = base;
+  saved[endpoint] = autoPpxOffsetPose(base);
+  log(`updated ${endpoint} ArUco ${liveTag.id} -> X ${fmtNum(saved[endpoint].x)} Y ${fmtNum(saved[endpoint].y)}`, "log-info");
+}
+
+async function autoPpxPhysicalTagIsVisible(tag) {
+  if (!autoPpxIsPhysicalTag(tag)) return false;
+  await refreshGameField();
+  const visible = await readVisibleArucoTags();
+  return visible.some(item => Number(item.id) === Number(tag.id) && autoPpxTagInsideActiveArea(item));
+}
+
+function addAutoPpxQueueRow(afterRow) {
+  if (autoPpxRunning) return;
+  const row = afterRow.cloneNode(true);
+  row.querySelectorAll("select").forEach(el => { el.removeAttribute("id"); });
+  afterRow.after(row);
+  bindAutoPpxQueueRow(row);
+  renderAutoPpxTagOptions(latestVisibleArucoTags);
+  saveAutoPpxQueue();
+}
+
+function removeAutoPpxQueueRow(row) {
+  if (autoPpxRunning) return;
+  const rows = gid("autoPpxQueue").querySelectorAll(".autoPpxQueueRow");
+  if (rows.length > 1) row.remove();
+  else row.querySelectorAll("select").forEach(el => { el.selectedIndex = 0; });
+  saveAutoPpxQueue();
+  updateAutoPpxControls();
+}
+
+function bindAutoPpxQueueRow(row) {
+  row.querySelector(".autoPpxAdd").onclick = () => addAutoPpxQueueRow(row);
+  row.querySelector(".autoPpxRemove").onclick = () => removeAutoPpxQueueRow(row);
+  row.querySelectorAll("select").forEach(el => el.addEventListener("change", () => {
+    if (row === gid("autoPpxQueue").firstElementChild) autoPpxFineTuneAnchor = null;
+    saveAutoPpxQueue();
+    updateAutoPpxControls();
+  }));
+}
+
 async function captureAutoPpxSourcePose() {
   await loadGameCalibration();
   await refreshGameField();
@@ -1718,7 +1927,7 @@ async function captureAutoPpxSourcePose() {
   const ids = selectedAutoPpxIds();
   if (!ids.source) throw new Error("choose a source ArUco code");
   const sourceTag = tags.find(tag => String(tag.id) === ids.source);
-  if (!sourceTag) throw new Error("selected source ArUco tag is not visible");
+  if (!sourceTag) throw new Error("selected source ArUco tag has no known position");
   const sourceBase = clickToPose(sourceTag.nx, sourceTag.ny);
   const source = autoPpxOffsetPose(sourceBase);
   log(`saved fine-tune source ArUco ${sourceTag.id} -> X ${fmtNum(source.x)} Y ${fmtNum(source.y)}`, "log-info");
@@ -1854,37 +2063,61 @@ async function runAutoPpx() {
   gid("autoPpxFineTune").disabled = true;
   gid("autoPpxAddFinePoint").disabled = true;
   gid("autoPpxClearFineCal").disabled = true;
-  gid("autoPpxSource").disabled = true;
-  gid("autoPpxTarget").disabled = true;
+  gid("autoPpxQueue").querySelectorAll("select,button").forEach(el => { el.disabled = true; });
+  gid("autoPpxLoop").disabled = true;
   try {
     assertReadyForAutoAction();
-    setAutoPpxStatus("Saving source and target from visible ArUco tags...");
-    const saved = await captureAutoPpxPoses();
+    setAutoPpxStatus("Saving queue positions from visible ArUco tags...");
+    const queue = await captureAutoPpxQueuePoses();
     const movingZ = calibratedZ("transport_height");
-    const sourcePickupZ = autoPpxPickupZForPose(saved.sourceBase, true);
-    const targetDropZ = autoPpxPickupZForPose(saved.targetBase, true);
-    const sourceHover = { ...saved.source, z:movingZ };
-    const sourcePickup = { ...saved.source, z:sourcePickupZ };
-    const targetHover = { ...saved.target, z:movingZ };
-    const targetDrop = { ...saved.target, z:targetDropZ };
-
-    setAutoPpxStatus(`Moving over ArUco ${saved.sourceTag.id}...`);
-    await moveToPose(sourceHover, "source hover");
-    setAutoPpxStatus(`Picking up ArUco ${saved.sourceTag.id}...`);
-    await moveToPose(sourcePickup, "source pickup");
-    await setPumpMode("suck", "vacuum on");
-    await delay(250);
-    await moveToPose(sourceHover, "lift to moving height");
-    setAutoPpxStatus(`Moving to ArUco ${saved.targetTag.id}...`);
-    await moveToPose(targetHover, "target hover");
-    setAutoPpxStatus(`Dropping at ArUco ${saved.targetTag.id}...`);
-    await moveToPose(targetDrop, "target drop");
-    await setPumpMode("off", "vacuum off");
-    await setPumpMode("blow", "brief blow");
-    await delay(450);
-    await setPumpMode("off", "pump off");
-    await moveToPose(targetHover, "return to moving height");
-    setAutoPpxStatus("Auto PP X complete.", "ok");
+    const loop = gid("autoPpxLoop").checked;
+    let pass = 0;
+    do {
+      pass += 1;
+      for (let index = 0; index < queue.length; index += 1) {
+        if (autoPpxAbort) throw new Error("stopped");
+        const saved = queue[index];
+        const progress = `Queue ${index + 1}/${queue.length}${loop ? ` · loop ${pass}` : ""}`;
+        let pickupAttempt = 0;
+        let sourceHover;
+        do {
+          pickupAttempt += 1;
+          if (autoPpxAbort) throw new Error("stopped");
+          await refreshAutoPpxPhysicalEndpoint(saved, "source", index);
+          sourceHover = { ...saved.source, z:movingZ };
+          const sourcePickup = { ...saved.source, z:autoPpxPickupZForPose(saved.sourceBase, true) };
+          const attemptText = pickupAttempt > 1 ? ` (attempt ${pickupAttempt})` : "";
+          setAutoPpxStatus(`${progress}: moving over ArUco ${saved.sourceTag.id}${attemptText}...`);
+          await moveToPose(sourceHover, "source hover");
+          setAutoPpxStatus(`${progress}: picking up ArUco ${saved.sourceTag.id}${attemptText}...`);
+          await moveToPose(sourcePickup, "source pickup");
+          await setPumpMode("suck", "vacuum on");
+          await delay(250);
+          await moveToPose(sourceHover, "lift to moving height");
+          if (!autoPpxIsPhysicalTag(saved.sourceTag)) break;
+          setAutoPpxStatus(`${progress}: checking pickup of ArUco ${saved.sourceTag.id}...`);
+          await delay(350);
+          if (!(await autoPpxPhysicalTagIsVisible(saved.sourceTag))) break;
+          setAutoPpxStatus(`${progress}: pickup failed — remapping ArUco ${saved.sourceTag.id} and retrying.`, "err");
+          log(`pickup ArUco ${saved.sourceTag.id} still visible; remapping and retrying`, "log-info");
+          await setPumpMode("off", "vacuum off after failed pickup");
+          await delay(250);
+        } while (true);
+        await refreshAutoPpxPhysicalEndpoint(saved, "target", index);
+        const targetHover = { ...saved.target, z:movingZ };
+        const targetDrop = { ...saved.target, z:autoPpxPickupZForPose(saved.targetBase, true) };
+        setAutoPpxStatus(`${progress}: moving to ArUco ${saved.targetTag.id}...`);
+        await moveToPose(targetHover, "target hover");
+        setAutoPpxStatus(`${progress}: dropping at ArUco ${saved.targetTag.id}...`);
+        await moveToPose(targetDrop, "target drop");
+        await setPumpMode("off", "vacuum off");
+        await setPumpMode("blow", "brief blow");
+        await delay(450);
+        await setPumpMode("off", "pump off");
+        await moveToPose(targetHover, "return to moving height");
+      }
+    } while (loop && !autoPpxAbort);
+    setAutoPpxStatus(`Auto PP X queue complete (${queue.length} move${queue.length === 1 ? "" : "s"}).`, "ok");
   } catch (e) {
     setAutoPpxStatus(e.message === "stopped" ? "Stopped." : e.message, e.message === "stopped" ? "" : "err");
     log(`Auto PP X ✗ ${e.message}`, e.message === "stopped" ? "log-info" : "log-err");
@@ -1952,7 +2185,7 @@ function buildAxes() {
     });
   });
   document.getElementById("wsHint").textContent =
-    `Reach ring ${radiusMin}-${radiusMax} mm; Z ${ws.z[0]}-${ws.z[1]} mm.`;
+    `Auto PP safe reach ring ${Math.max(radiusMin, AUTO_PP_BASE_SAFE_RADIUS)}-${radiusMax} mm; Z ${ws.z[0]}-${ws.z[1]} mm.`;
 }
 
 let lastSent = 0, pending = null, timer = null;
@@ -2200,11 +2433,9 @@ function wire() {
   document.getElementById("autoPpxTuneX").addEventListener("input", () => scheduleAutoPpxFineTuneNudge(false));
   document.getElementById("autoPpxTuneY").addEventListener("input", () => scheduleAutoPpxFineTuneNudge(false));
   document.getElementById("autoPpxTuneZ").addEventListener("input", () => scheduleAutoPpxFineTuneNudge(true));
-  document.getElementById("autoPpxSource").addEventListener("change", () => {
-    autoPpxFineTuneAnchor = null;
-    updateAutoPpxControls();
-  });
-  document.getElementById("autoPpxTarget").addEventListener("change", () => updateAutoPpxControls());
+  bindAutoPpxQueueRow(document.querySelector(".autoPpxQueueRow"));
+  document.getElementById("autoPpxLoop").addEventListener("change", saveAutoPpxQueue);
+  loadAutoPpxQueue();
 
   const speed = document.getElementById("speed");
   let speedTimer = null;
