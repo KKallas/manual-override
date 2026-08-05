@@ -61,7 +61,7 @@ WORKSPACE = {
     "r": [-160.0, 160.0],
 }
 RADIUS_MIN = 150.0   # mm — inside this the arm can't reach (too folded)
-RADIUS_MAX = 440.0   # mm — max horizontal reach
+RADIUS_MAX = 450.0   # mm — max horizontal reach
 
 # Following speed at 100% on the speed slider.
 MAX_LIN_VEL = 200.0  # mm/s
@@ -353,15 +353,25 @@ def _status_dict():
         st["side"] = _relay_side
         st["holder"] = st.get("holder")
         st["lease_secs"] = st.get("lease_secs")
-    with _loc_lock:
-        st["slots"] = [_slot_public(i) for i in range(NUM_SLOTS)]
+    # Saved locations are auxiliary UI data.  A slow locations.json write must
+    # never hold up the robot heartbeat/status path (Auto PP X polls this route
+    # while it is moving).  Return an empty list for this one snapshot if the
+    # locations store is momentarily busy; the next poll will fill it back in.
+    if _loc_lock.acquire(timeout=0.02):
+        try:
+            st["slots"] = [_slot_public(i) for i in range(NUM_SLOTS)]
+        finally:
+            _loc_lock.release()
+    else:
+        st["slots"] = []
     return st
 
 
 def _connect_player_relay_locked(ident):
     """Create a fresh relay client for this player side. Caller holds _robot_lock."""
     side = ident["side"]
-    host = getattr(_hub_ctx, "local_base", "") or ""
+    host = (getattr(_hub_ctx, "internal_base", "")
+            or getattr(_hub_ctx, "local_base", "") or "")
     robot = RelayClient(host, side, control_mode=CONTROL_MODE,
                         source=request.host_url.rstrip("/"),
                         auth=getattr(_hub_ctx, "service_token", None))
@@ -410,6 +420,10 @@ def connect():
             host = getattr(_hub_ctx, "local_base", "") or ""
         if ident["is_player"]:
             side = ident["side"]
+            # The player backend and relay live in this process.  Always use
+            # loopback here; the incoming Host may be a LAN alias or tunnel.
+            host = (getattr(_hub_ctx, "internal_base", "")
+                    or getattr(_hub_ctx, "local_base", "") or host)
         elif not side:
             side = "purple"
         if side not in ("purple", "green"):

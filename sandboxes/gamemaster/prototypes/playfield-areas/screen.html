@@ -110,6 +110,7 @@ scene.add(gizmo);
 // the mesh toward its target every frame, so motion stays smooth between pushes.
 const meshes = new Map();
 let selectedId = null;
+let globalAtomBrightness = 1;
 
 // Markers live on their own layer so they can be drawn as a crisp overlay AFTER
 // the bloom/DOF pass — i.e. on top of the glow, sharp, with no separate mode.
@@ -152,7 +153,7 @@ function makeMesh(area) {
   // depthTest/Write off so the overlay pass always paints them crisp on top of
   // the composited glow, regardless of the screen depth buffer.
   const markerMat = new THREE.MeshBasicMaterial({
-    color: 0xffffff, toneMapped: false, depthTest: false, depthWrite: false, fog: false,
+    color: new THREE.Color().setScalar(globalAtomBrightness), toneMapped: false, depthTest: false, depthWrite: false, fog: false,
   });
   const geoM = new THREE.PlaneGeometry(0.74, 0.74);
   const markerTop = new THREE.Mesh(geoM, markerMat);
@@ -372,6 +373,9 @@ function applyTransform(s) {
 function applySettings(s) {
   bloom.strength = s.bloom;
   bokeh.materialBokeh.uniforms.aperture.value = s.dof * 0.001;
+  renderer.toneMappingExposure = Number(s.global_brightness ?? 1);
+  const atomBrightness=globalAtomBrightness=Number(s.atom_brightness ?? 1);
+  for(const mesh of meshes.values())mesh.userData.markerMat.color.setScalar(atomBrightness);
   if (Math.abs((camera.userData.orthoSize || 24) - s.fov) > 0.01) setOrthoSize(s.fov);
   if (orbiting) { roll = s.rot.z * DEG; return; }  // don't fight an active drag
   // Adopt location/rotation only when they meaningfully differ (restores a saved

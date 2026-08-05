@@ -1,10 +1,10 @@
 {
   "playfield": {
     "active_area": {
-      "sMin": -0.9873,
-      "sMax": 1.795,
-      "tMin": -0.9845,
-      "tMax": 2.0
+      "sMin": 0.0,
+      "sMax": 1.0,
+      "tMin": 0.0,
+      "tMax": 1.0
     },
     "marker_cache": null,
     "areas": {
@@ -14,7 +14,7 @@
         "u": 0.25,
         "v": 0.25,
         "marker": 20,
-        "area_id": "a1727"
+        "area_id": "a4979"
       },
       "top_right": {
         "key": "top_right",
@@ -22,7 +22,7 @@
         "u": 0.75,
         "v": 0.25,
         "marker": 21,
-        "area_id": "a1728"
+        "area_id": "a4980"
       },
       "bottom_right": {
         "key": "bottom_right",
@@ -30,7 +30,7 @@
         "u": 0.75,
         "v": 0.75,
         "marker": 22,
-        "area_id": "a1729"
+        "area_id": "a4981"
       },
       "bottom_left": {
         "key": "bottom_left",
@@ -38,7 +38,7 @@
         "u": 0.25,
         "v": 0.75,
         "marker": 23,
-        "area_id": "a1730"
+        "area_id": "a4982"
       },
       "center": {
         "key": "center",
@@ -46,7 +46,7 @@
         "u": 0.5,
         "v": 0.5,
         "marker": 24,
-        "area_id": "a1731"
+        "area_id": "a4983"
       }
     },
     "corner_map": {
@@ -55,7 +55,7 @@
       "bottom_right": 22,
       "bottom_left": 23
     },
-    "updated_at": 1784724687.615272
+    "updated_at": 1785873379.1661189
   },
   "arms": {
     "green": {
@@ -68,10 +68,10 @@
           "marker": 20,
           "pose": {
             "set": true,
-            "x": 345.477,
-            "y": -53.752,
-            "z": -97.234,
-            "r": 21.273
+            "x": 348.299,
+            "y": -57.09,
+            "z": -96.842,
+            "r": -20.737
           }
         },
         "top_right": {
@@ -82,10 +82,10 @@
           "marker": 21,
           "pose": {
             "set": true,
-            "x": 346.659,
-            "y": -263.687,
-            "z": -97.907,
-            "r": 17.791
+            "x": 352.804,
+            "y": -266.643,
+            "z": -96.706,
+            "r": -33.09
           }
         },
         "bottom_right": {
@@ -96,10 +96,10 @@
           "marker": 22,
           "pose": {
             "set": true,
-            "x": 236.082,
-            "y": -266.262,
-            "z": -97.13,
-            "r": 15.162
+            "x": 240.856,
+            "y": -272.109,
+            "z": -96.164,
+            "r": -26.931
           }
         },
         "bottom_left": {
@@ -110,19 +110,19 @@
           "marker": 23,
           "pose": {
             "set": true,
-            "x": 235.646,
-            "y": -54.131,
-            "z": -96.935,
-            "r": 21.225
+            "x": 237.63,
+            "y": -62.741,
+            "z": -96.445,
+            "r": -7.556
           }
         }
       },
       "center": {
         "set": true,
-        "x": 292.317,
-        "y": -160.644,
-        "z": -96.82,
-        "r": 19.263
+        "x": 295.02,
+        "y": -165.554,
+        "z": -96.575,
+        "r": -9.461
       },
       "corner_map": {
         "top_left": 22,
@@ -134,47 +134,47 @@
         "tags": {
           "top_left": {
             "id": 22,
-            "nx": 0.3961,
-            "ny": 0.3653,
+            "nx": 0.391,
+            "ny": 0.3937,
             "missing": 0.0
           },
           "top_right": {
             "id": 23,
-            "nx": 0.6214,
-            "ny": 0.3954,
+            "nx": 0.611,
+            "ny": 0.3974,
             "missing": 0.0
           },
           "bottom_right": {
             "id": 20,
-            "nx": 0.6141,
-            "ny": 0.6065,
+            "nx": 0.61,
+            "ny": 0.6063,
             "missing": 0.0
           },
           "bottom_left": {
             "id": 21,
-            "nx": 0.3883,
-            "ny": 0.5847,
+            "nx": 0.3898,
+            "ny": 0.6017,
             "missing": 0.0
           },
           "center": {
             "id": 24,
-            "nx": 0.5078,
-            "ny": 0.488,
+            "nx": 0.5002,
+            "ny": 0.4996,
             "missing": 0.0
           }
         },
-        "capturedAt": 1784720701168,
+        "capturedAt": 1785580858213,
         "cameraView": "normal"
       },
       "pickup_height": {
         "set": true,
-        "z": -97.425
+        "z": -96.184
       },
       "transport_height": {
         "set": true,
-        "z": -58.694
+        "z": -42.496
       },
-      "updated_at": 1784720701.170252
+      "updated_at": 1785580858.215269
     },
     "purple": {
       "points": {

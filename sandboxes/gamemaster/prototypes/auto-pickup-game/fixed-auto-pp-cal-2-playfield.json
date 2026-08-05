@@ -1,0 +1,21 @@
+{
+  "format": "fixed-auto-pp-cal-2-playfield-v1",
+  "camera_view": "normal",
+  "areas": [
+    {"name":"Auto PP Cal 2 - Point 1","x":-12.0,"y":0.02,"z":2.0,"size":2.0,"color":"#ffffff","glow":0.0,"marker":30,"show_area":false,"show_aruco":true,"show_links":false},
+    {"name":"Auto PP Cal 2 - Point 2","x":2.1,"y":0.02,"z":6.0,"size":2.0,"color":"#ffffff","glow":0.0,"marker":31,"show_area":false,"show_aruco":true,"show_links":false},
+    {"name":"Auto PP Cal 2 - Point 3","x":11.0,"y":0.02,"z":6.1,"size":2.0,"color":"#ffffff","glow":0.0,"marker":32,"show_area":false,"show_aruco":true,"show_links":false},
+    {"name":"Auto PP Cal 2 - Point 4","x":8.3,"y":0.02,"z":1.5,"size":2.0,"color":"#ffffff","glow":0.0,"marker":33,"show_area":false,"show_aruco":true,"show_links":false},
+    {"name":"Auto PP Cal 2 - Point 5","x":-1.0,"y":0.02,"z":-4.0,"size":2.0,"color":"#ffffff","glow":0.0,"marker":34,"show_area":false,"show_aruco":true,"show_links":false},
+    {"name":"Auto PP Cal 2 - Point 6","x":-12.0,"y":0.02,"z":-4.0,"size":2.0,"color":"#ffffff","glow":0.0,"marker":35,"show_area":false,"show_aruco":true,"show_links":false}
+  ],
+  "settings": {
+    "bloom": 0.0,
+    "dof": 0.0,
+    "global_brightness": 1.0,
+    "atom_brightness": 1.0,
+    "fov": 16.0,
+    "cam": {"x": 0.0, "y": 18.0, "z": 0.0},
+    "rot": {"x": -90.0, "y": 0.0, "z": 0.0}
+  }
+}

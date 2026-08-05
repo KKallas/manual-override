@@ -7,6 +7,7 @@ env/
 .platformio/
 .python-version
 .pytest_cache/
+node_modules/
 
 # ---- hub / machine runtime state (regenerated locally) ----
 hub-settings.json
@@ -16,6 +17,7 @@ sandboxes/*/.import-new/
 # generated game score logs
 high-score-log.jsonl
 sandboxes/*/prototypes/*/high-score-log.jsonl
+sandboxes/*/prototypes/*/run-logs/
 
 # ---- OS / editor ----
 .DS_Store

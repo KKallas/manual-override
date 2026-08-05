@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Laser Tag</title>
+<link rel="stylesheet" href="/theme.css">
+<style>
+:root{--green:#35d07f;--blue:#3b82f6;--red:#ff334d;--gold:#ffd35a}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#05070a;color:#f5f8ff;font-family:system-ui,sans-serif}
+.hero,.controls,.desk{width:min(calc(100vw - 24px),1500px);margin:12px auto}.hero{display:flex;gap:16px;align-items:center;justify-content:space-between}
+h1{margin:0;font-size:21px;letter-spacing:.1em;text-transform:uppercase}.sub{color:#9aa6b6;font-size:13px}
+.button,button{min-height:44px;padding:8px 14px;border:1px solid #354153;border-radius:8px;background:#19212d;color:#fff;font:inherit;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+button.primary{background:#d9243d;border-color:#ff5367}button:disabled{opacity:.4;cursor:not-allowed}
+.stage{position:relative;height:min(68vh,720px);min-height:420px;background:#000;border-block:1px solid #263141;overflow:hidden}.stage img{width:100%;height:100%;object-fit:contain}
+.hud{position:absolute;inset:16px 16px auto;display:flex;justify-content:space-between;pointer-events:none}.badge,.timer{padding:9px 14px;border:1px solid #ffffff38;border-radius:9px;background:#05080dcc;backdrop-filter:blur(7px);font-weight:900;text-transform:uppercase}.timer{font-size:50px;line-height:1;font-variant-numeric:tabular-nums}
+.mission{position:absolute;left:18px;right:18px;bottom:18px;padding:13px;border:1px solid #ffffff30;border-radius:9px;background:#05080ddd;text-align:center;font-size:18px;font-weight:800}
+.panel{padding:14px;border:1px solid #293647;border-radius:10px;background:#101620}.controls{display:flex;gap:10px;align-items:center}.status{flex:1;color:#c4cedc;font-size:13px}
+.calibration-choice{display:flex;gap:7px;align-items:center;color:#c4cedc;font-size:13px}.calibration-choice select{padding:9px;border:1px solid #354153;border-radius:6px;background:#060a10;color:#fff;font:inherit}
+.desk{display:grid;gap:13px;margin-bottom:22px}.teams{display:grid;grid-template-columns:1fr 1fr;gap:12px}.team{padding:14px;border:1px solid #304054;border-radius:9px;background:#0a1018}.team.green{border-top:4px solid var(--green)}.team.blue{border-top:4px solid var(--blue)}
+.team h2{margin:0 0 9px;font-size:13px;text-transform:uppercase}.inputs{display:grid;grid-template-columns:1fr 1fr;gap:9px}.inputs label{font-size:12px;color:#aab5c5}.inputs input{width:100%;margin-top:5px;padding:8px;border:1px solid #354153;border-radius:6px;background:#060a10;color:white;font-size:17px}
+.lock{margin-top:8px;color:#8e9aaa;font-size:12px}.lock.ok{color:#62e49d}.progress{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.step{padding:10px;border:1px solid #2b394b;border-radius:8px;background:#080d14;font-size:12px}.step b{display:block;margin-bottom:3px;color:var(--gold)}
+.sequence{padding:13px;border:1px solid #304054;border-radius:9px;background:#0a1018}.sequence-head{display:flex;gap:12px;align-items:baseline;justify-content:space-between;margin-bottom:12px}.sequence-lane{margin-top:10px}.sequence-lane-title{margin-bottom:5px;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}.sequence-lane.green .sequence-lane-title{color:var(--green)}.sequence-lane.blue .sequence-lane-title{color:#78aaff}.sequence-graph{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:4px 2px 10px}.sequence-node{position:relative;flex:0 0 210px;min-height:92px;padding:11px;border:1px solid #40516a;border-radius:10px;background:#111b28;box-shadow:0 7px 20px #0005}.sequence-node.endpoint{flex-basis:92px;display:grid;place-items:center;border-color:#5c708e;background:#172334;color:#fff;font-weight:900;text-transform:uppercase;letter-spacing:.08em}.sequence-node.end{border-color:#397d5a;background:#10261c}.sequence-node.active{border-color:var(--gold);background:#2a2410;box-shadow:0 0 0 2px #ffd35a44,0 0 24px #ffd35a55;animation:nodePulse 1.15s ease-in-out infinite}.sequence-node.completed{border-color:#397d5a}.sequence-arrow{flex:0 0 34px;display:grid;place-items:center;color:#71829a;font-size:22px;font-weight:900}.node-title{font-size:12px;font-weight:900;line-height:1.35}.node-device{margin-top:5px;color:#8fc4ff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}.node-detail{min-height:29px;margin-top:2px;color:#aab5c5;font-size:11px;line-height:1.3}.node-status{display:flex;flex-wrap:wrap;gap:4px;min-height:22px;margin-top:6px}.node-tag{padding:3px 6px;border:1px solid currentColor;border-radius:999px;background:#05070acc;font-size:10px;font-weight:900;white-space:nowrap}.node-tag.green{color:var(--green)}.node-tag.blue{color:#78aaff}.node-actions{display:flex;gap:5px;margin-top:8px}.node-actions button{min-height:27px;padding:2px 8px;border-radius:5px;font-size:12px}.node-actions .remove{margin-left:auto;color:#ff93a1}.sequence-add{display:flex;gap:8px;align-items:center;margin-top:4px}.sequence-add select{min-width:260px;max-width:100%;padding:9px;border:1px solid #354153;border-radius:6px;background:#060a10;color:#fff;font:inherit}.sequence-add select:disabled{opacity:.55}.sequence-add button{min-height:39px}.sequence-error{min-height:18px;margin-top:7px;color:#ff7788;font-size:12px}@keyframes nodePulse{50%{transform:translateY(-2px);box-shadow:0 0 0 3px #ffd35a66,0 0 32px #ffd35a77}}@media(prefers-reduced-motion:reduce){.sequence-node.active{animation:none}}
+.log{height:150px;overflow:auto;margin:0;padding:10px;border:1px solid #293647;border-radius:8px;background:#06090e;color:#b8c3d1;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap}
+.diagnostics{padding:12px;border:1px solid #304054;border-radius:9px;background:#080d14}.diag-head{display:flex;gap:12px;align-items:center}.diag-head b{margin-right:auto}.diag-state{padding:5px 8px;border-radius:999px;background:#172334;color:#aab5c5;font-size:11px;font-weight:900}.diag-state.ok{background:#10301f;color:#73e6a5}.diag-state.bad{background:#3b1017;color:#ff93a1}.diag-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}.diag-col{min-height:92px;padding:8px;border:1px solid #263141;border-radius:7px}.diag-col b{font-size:11px;text-transform:uppercase}.diag-events{margin-top:6px;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:#b8c4d6;white-space:pre-wrap}.diag-download{color:#8fc4ff;font-size:12px}
+@media(max-width:850px){.teams,.progress{grid-template-columns:1fr}.controls,.hero{align-items:stretch;flex-direction:column}.stage{height:58vh}.sequence-add{align-items:stretch;flex-direction:column}.sequence-add select{width:100%}}
+</style>
+</head>
+<body>
+<header class="hero"><div><h1>Laser Tag</h1><div class="sub">Cooperative crossing-beam puzzle</div></div><a id="screenLink" class="button" target="_blank">Open external playfield ↗</a></header>
+<section class="stage"><img id="camera" alt="Overhead tag camera"><div class="hud"><div id="phase" class="badge">Setup</div><div id="timer" class="timer">0.0</div></div><div id="mission" class="mission">Choose four different physical tags and start the game.</div></section>
+<section class="panel controls"><button id="loadPlayfield">Load Laser Tag playfield</button><button id="start" class="primary">Start Laser Tag</button><button id="latency">Enable flash latency test</button><button id="reset">Reset game</button><label class="calibration-choice">Calibration<select id="calibrationChoice" disabled><option value="cal2">Auto PP Cal 2</option></select></label><div id="status" class="status">Loading camera and calibration…</div></section>
+<main class="panel desk">
+ <div><b>Gamemaster · Laser Tag</b><div class="sub">Green plays on the left, blue on the right. Two mirrored diagonal beams must cross.</div></div>
+ <div class="teams">
+  <section class="team green"><h2>Green team · left side</h2><div class="inputs"><label>Physical tag A<input id="green0" type="number" min="100" max="105" value="100"></label><label>Physical tag B<input id="green1" type="number" min="100" max="105" value="101"></label></div><div id="greenLock" class="lock">Waiting for tags</div></section>
+  <section class="team blue"><h2>Blue team · right side</h2><div class="inputs"><label>Physical tag A<input id="blue0" type="number" min="100" max="105" value="102"></label><label>Physical tag B<input id="blue1" type="number" min="100" max="105" value="103"></label></div><div id="blueLock" class="lock">Waiting for tags</div></section>
+ </div>
+ <div id="calibration" class="sub"></div>
+ <section class="sequence">
+  <div class="sequence-head"><b>Expected detection sequence</b><span class="sub">Build the shortest Start → End path needed for every tag.</span></div>
+  <div class="sequence-lane green"><div class="sequence-lane-title">Green arm</div><div id="sequenceGraphGreen" class="sequence-graph" data-team="green" aria-label="Green arm detection sequence graph"></div></div>
+  <div class="sequence-lane blue"><div class="sequence-lane-title">Blue arm</div><div id="sequenceGraphBlue" class="sequence-graph" data-team="blue" aria-label="Blue arm detection sequence graph"></div></div>
+  <div class="sequence-add"><select id="sequenceAdd" aria-label="Detection event to add"></select><button id="addSequenceNode" type="button">Add node</button></div>
+  <div id="sequenceError" class="sequence-error"></div>
+  <div id="activatedStatus" class="sub">Activated outer targets: none (0/8)</div>
+ </section>
+ <section class="progress"><div class="step"><b>1 · Pick up</b><span id="step0">Wait for start.</span></div><div class="step"><b>2 · Drop</b><span id="step1">Accelerometer confirms placement.</span></div><div class="step"><b>3 · Verify</b><span id="step2">Camera confirms target coverage.</span></div><div class="step"><b>4 · Cross</b><span id="step3">Create two crossing beams.</span></div></section>
+ <section class="diagnostics"><div class="diag-head"><b>Green Auto PP X ↔ Laser Tag</b><span id="diagState" class="diag-state">No active run</span><a id="diagDownload" class="diag-download" hidden>Download JSONL</a></div><div class="diag-grid"><div class="diag-col"><b>Script intention</b><div id="intentEvents" class="diag-events">Waiting for Auto PP X.</div></div><div class="diag-col"><b>Laser observations</b><div id="laserEvents" class="diag-events">Waiting for Laser Tag.</div></div></div></section>
+ <pre id="log" class="log" aria-live="polite"></pre>
+</main>
+<script>
+const ROOT=location.pathname.replace(/\/p\/.*$/,'');
+const U={self:`${ROOT}/p/laser-tag`,play:`${ROOT}/p/playfield-areas`,webcam:`${ROOT}/p/webcam`,auto:`${ROOT}/p/auto-pickup-game`,atom:`${ROOT}/p/atom-manager`,relay:`${ROOT}/p/dobot-mg400-relay`};
+const $=id=>document.getElementById(id), TEAMS=['green','blue'], COLORS={green:'#35d07f',blue:'#3b82f6'}, HOLD_MS=900;
+const PLAYFIELD_SETTINGS={bloom:.3,dof:0,global_brightness:1,atom_brightness:1,fov:12,cam:{x:0,y:18,z:0},rot:{x:-90,y:0,z:0}};
+const SEQUENCE_KEY='laser-tag-detection-sequence-v1',TARGET_ACTIVATION_GAP_MS=5000;
+const SEQUENCE_STEPS=[
+ {value:'pickup',label:'Tag picked up',device:'Overhead camera',detail:'Detects the physical tag leaving view'},
+ {value:'suction_start',label:'Suction start',device:'MG400 robot pump',detail:'Reports the pump changing to suction mode'},
+ {value:'pickup_impact',label:'Pickup impact',device:'Atom tag accelerometer',detail:'Detects the pickup impact and triggers the team flash'},
+ {value:'target_hidden',label:'Target covered by arm',device:'Overhead camera',detail:'Detects a target marker hidden beneath the robot arm'},
+ {value:'suction_off',label:'Suction off',device:'MG400 robot pump',detail:'Reports suction released by Off or Blow'},
+ {value:'blow',label:'Blow',device:'MG400 robot pump',detail:'Reports the pump changing to blow mode'},
+ {value:'drop',label:'Drop impact',device:'Atom tag accelerometer',detail:'Detects the physical impact when the tag is dropped'},
+ {value:'verify',label:'Confirm drop',device:'Overhead camera',detail:'Confirms the tag overlaps a gamefield square'},
+];
+const DEFAULT_SEQUENCE=SEQUENCE_STEPS.map(step=>step.value);
+const SEQUENCE_VALUES=SEQUENCE_STEPS.map(step=>step.value);
+// Four points on each half of an octagonal ring. A matching slot is mirrored
+// through the board centre (x and z signs reverse), producing diagonal beams.
+const SLOTS={
+ green:[{marker:30,x:-4,z:-2},{marker:31,x:-5,z:-.7},{marker:32,x:-5,z:.7},{marker:33,x:-4,z:2}],
+ blue:[{marker:34,x:4,z:2},{marker:35,x:5,z:.7},{marker:36,x:5,z:-.7},{marker:37,x:4,z:-2}]
+};
+const OUTER_SLOTS=[...SLOTS.green,...SLOTS.blue];
+const CENTER={marker:38,x:0,z:0};
+let state={phase:'setup',tag_ids:{green:[100,101],blue:[102,103]}}, visible=new Set(), flows={}, placements={green:[],blue:[]}, activatedTargets=new Set(), targetCache={}, targetVisibility={}, impactBase={}, latencyBase={}, hold={}, ticking=false, flashing=false, latencyMode=false, stoppedAt=0, beamsReady=false, outerComplete=false,outerCompletionBusy=false, centerPlaced=null;
+let gameSequence=[...DEFAULT_SEQUENCE];
+let assignedTagIds={green:[...state.tag_ids.green],blue:[...state.tag_ids.blue]},tagOwnerById=new Map(TEAMS.flatMap(team=>assignedTagIds[team].map(id=>[id,team])));
+let cachedRelayArms={},armCalibration={},activeFlowByTeam={green:null,blue:null},lastRelayPoll=0,lastTargetActivatedAt=0,hardwareArmsReady=false,startBusy=false;
+let playfieldBusy=false;
+let diagnosticRun=null,diagnosticEvents=[],diagnosticPollBusy=false;
+$('screenLink').href=`${U.play}/screen`;
+async function json(url,opts={}){const r=await fetch(url,opts),t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){}if(!r.ok)throw Error(d.error||t||`HTTP ${r.status}`);return d}
+async function jsonTimed(url,opts={},timeoutMs=10000){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeoutMs);try{return await json(url,{...opts,signal:ctrl.signal})}catch(e){if(e.name==='AbortError')throw Error('request timed out');throw e}finally{clearTimeout(timer)}}
+async function startCameraFeed(){
+ try{
+  const status=await jsonTimed(`${U.webcam}/api/status`,{},2500);
+  if(!status.open){
+   const remembered=status.remembered;
+   if(!remembered||remembered.index==null)throw Error('no camera has been selected in Webcam settings');
+   await jsonTimed(`${U.webcam}/api/select`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(remembered)},8000);
+  }
+  $('camera').src=`${U.webcam}/api/stream?t=${Date.now()}`;
+ }catch(e){
+  $('camera').removeAttribute('src');
+  log(`Camera feed could not start: ${e.message}`);
+  $('status').textContent=`Camera unavailable: ${e.message}`;
+ }
+}
+const post=(path,body)=>json(U.self+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+function log(s){$('log').textContent+=($('log').textContent?'\n':'')+`[${new Date().toLocaleTimeString()}] ${s}`;$('log').scrollTop=$('log').scrollHeight;recordRunEvent('log',{message:s},'log')}
+function recordRunEvent(kind,detail={},category='observation'){if(!diagnosticRun||!diagnosticRun.active)return;fetch(`${U.self}/api/run/event`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:'laser',run_id:diagnosticRun.run_id,kind,category,detail:{client_monotonic_ms:performance.now(),...detail}})}).catch(()=>{})}
+async function startRunLog(ids,sequence){const data=await json(`${U.self}/api/run`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'start',detail:{tag_ids:ids,sequence}})});diagnosticRun=data.run;diagnosticEvents=[];renderDiagnostics()}
+async function endRunLog(reason){if(!diagnosticRun||!diagnosticRun.active)return;try{const data=await json(`${U.self}/api/run`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'end',detail:{reason,phase:state.phase}})});diagnosticRun=data.run}catch(_){}renderDiagnostics()}
+const evProducer=e=>e.producer||e.source,evName=e=>e.event||e.kind,evTime=e=>Number(e.server_epoch||e.epoch||0),evField=(e,key)=>e[key]??e.detail?.[key]??e.payload?.[key];
+function greenScriptTelemetry(){return diagnosticEvents.some(e=>evProducer(e)==='green_auto_pp_x'&&evName(e)==='script_started')}
+function activeGreenOperation(){const starts=diagnosticEvents.filter(e=>evProducer(e)==='green_auto_pp_x'&&evName(e)==='operation_started').sort((a,b)=>evTime(b)-evTime(a));for(const start of starts){const operation_id=evField(start,'operation_id'),related=diagnosticEvents.filter(e=>evField(e,'operation_id')===operation_id);if(!related.some(e=>['operation_completed','operation_failed'].includes(evName(e))))return{operation_id,physical_tag:+evField(start,'physical_tag'),source_pickup:related.some(e=>evName(e)==='source_pickup')}}return null}
+function releasedOperationForTag(id){const starts=diagnosticEvents.filter(e=>evProducer(e)==='green_auto_pp_x'&&evName(e)==='operation_started'&&+evField(e,'physical_tag')===+id).sort((a,b)=>evTime(b)-evTime(a));for(const start of starts){const op=evField(start,'operation_id');if(!op)continue;const related=diagnosticEvents.filter(e=>evField(e,'operation_id')===op),released=related.some(e=>evName(e)==='release_completed'),failed=related.some(e=>evName(e)==='operation_failed'),consumed=diagnosticEvents.some(e=>evName(e)==='target_activated'&&evField(e,'operation_id')===op);if(released&&!failed&&!consumed)return{operation_id:op,physical_tag:+evField(start,'physical_tag'),queue_index:evField(start,'queue_index'),attempt:evField(start,'attempt')}}return null}
+function renderDiagnostics(){const intents=diagnosticEvents.filter(e=>evProducer(e)==='green_auto_pp_x'),observed=diagnosticEvents.filter(e=>evProducer(e)==='laser'&&evName(e)!=='log'),greenObserved=observed.filter(e=>!evField(e,'team')||evField(e,'team')==='green');const fmt=e=>`${new Date(evTime(e)*1000).toLocaleTimeString()}  ${evName(e)}${evField(e,'physical_tag')?` #${evField(e,'physical_tag')}`:''}${evField(e,'target_marker')?` → #${evField(e,'target_marker')}`:''}${evField(e,'operation_id')?` · ${String(evField(e,'operation_id')).slice(0,8)}`:''}`;$('intentEvents').textContent=intents.slice(-8).map(fmt).join('\n')||'Waiting for Auto PP X.';$('laserEvents').textContent=greenObserved.slice(-8).map(fmt).join('\n')||'Waiting for green Laser Tag observations.';let divergence=null;for(const event of greenObserved.filter(e=>['verify','target_activated'].includes(evName(e)))){const op=evField(event,'operation_id'),match=intents.some(i=>evField(i,'operation_id')===op&&evName(i)==='release_completed'&&+evField(i,'physical_tag')===+evField(event,'physical_tag')&&+evField(i,'target_marker')===+evField(event,'target_marker')&&evTime(i)<=evTime(event));if(!match){divergence=`${evName(event)} lacks matching released operation`;break}}const el=$('diagState');el.className=`diag-state ${divergence?'bad':diagnosticRun?'ok':''}`;el.textContent=divergence?`DIVERGED · ${divergence}`:diagnosticRun?(diagnosticRun.active?'Paths aligned':'Run ended · paths aligned'):'No active run';if(diagnosticRun){$('diagDownload').hidden=false;$('diagDownload').href=`${U.self}/api/run/${diagnosticRun.run_id}.jsonl`;$('diagDownload').download=`laser-tag-${diagnosticRun.run_id}.jsonl`}else $('diagDownload').hidden=true}
+async function pollDiagnostics(){if(diagnosticPollBusy)return;diagnosticPollBusy=true;try{const data=await json(`${U.self}/api/run`);diagnosticRun=data.run;diagnosticEvents=data.events||[];renderDiagnostics()}catch(_){}finally{diagnosticPollBusy=false}}
+function elapsed(){if(!state.started_at)return 0;return Math.max(0,(stoppedAt||Date.now()/1000)-state.started_at)}
+function syncTagAssignments(ids){assignedTagIds={green:[...((ids&&ids.green)||[])].map(Number),blue:[...((ids&&ids.blue)||[])].map(Number)};tagOwnerById=new Map;for(const team of TEAMS)for(const id of assignedTagIds[team])tagOwnerById.set(id,team)}
+function assignedTag(team,player){return assignedTagIds[team]&&assignedTagIds[team][player]}
+function tagBelongsToTeam(id,team){return tagOwnerById.get(Number(id))===team}
+function apply(s){const phaseChanged=state.phase!==s.phase;if(phaseChanged)log(`Phase: ${state.phase} → ${s.phase}`);state=s;syncTagAssignments(s.tag_ids);if(s.phase==='won'&&!stoppedAt){stoppedAt=s.finished_at||Date.now()/1000;endRunLog('won')}if(phaseChanged&&document.querySelector('.sequence-graph').children.length)renderSequenceEditor();render()}
+async function patch(body){apply(await post('/api/operator',body))}
+function spec(id,name,t,color,marker=true){return{id,name,x:t.x,y:.03,z:t.z,size:2,color,glow:1.25,marker:t.marker,links:[],show_area:true,show_aruco:marker,show_links:true}}
+async function loadBoard(){
+ const areas=[];for(const team of TEAMS)for(const slot of SLOTS[team])areas.push(spec(`laser-${team}-${slot.marker}`,`Laser Tag - ${team} ${slot.marker}`,slot,COLORS[team]));
+ areas.push(spec('laser-centre','Laser Tag - centre',CENTER,'#ffd35a'));
+ const installed=await jsonTimed(`${U.self}/api/playfield`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({areas,settings:PLAYFIELD_SETTINGS})});
+ if(!installed.ok||!Array.isArray(installed.areas)||installed.areas.length!==areas.length)throw Error('playfield installer did not return all 9 game areas');
+ targetCache={};targetVisibility={};await calibration();
+ log('Laser Tag playfield loaded with 9 game areas.');
+}
+async function loadPlayfield(){
+ if(playfieldBusy)return;
+ playfieldBusy=true;render();$('status').textContent='Loading Laser Tag playfield…';
+ try{
+  // Loading the starting board is also a game reset.  Without clearing the
+  // active run first, the tracking loop can immediately re-highlight and
+  // re-link targets that were activated before this clean board was installed.
+  await endRunLog('playfield_reload');
+  const ids=state.tag_ids||idsFromInputs();
+  apply({...state,phase:'setup',started_at:null,finished_at:null,tag_ids:ids,message:'Configure four physical tags, then start.'});
+  resetLocal();
+  for(const team of TEAMS)for(let i=0;i<2;i++)$(`${team}${i}`).value=ids[team][i];
+  apply(await jsonTimed(`${U.self}/api/operator`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reset:true})},3000));
+  await loadBoard();
+  $('status').textContent='Laser Tag starting playfield is ready.';
+ }
+ catch(e){$('status').textContent=`Could not load Laser Tag playfield: ${e.message}`;log(`Playfield load failed: ${e.message}`)}
+ finally{playfieldBusy=false;render()}
+}
+function loadSequence(){try{const saved=JSON.parse(localStorage.getItem(SEQUENCE_KEY));if(Array.isArray(saved)&&saved.length>0&&new Set(saved).size===saved.length&&saved.every(value=>SEQUENCE_VALUES.includes(value))){const oldDefault=['pickup','pickup_impact','drop','verify','suction_start','suction_off','blow','target_hidden'];if(saved.length===oldDefault.length&&saved.every((value,index)=>value===oldDefault[index])){localStorage.setItem(SEQUENCE_KEY,JSON.stringify(DEFAULT_SEQUENCE));return[...DEFAULT_SEQUENCE]}const verify=saved.indexOf('verify');if(verify>=0&&verify<saved.length-1){const normalized=[...saved.filter(value=>value!=='verify'),'verify'];localStorage.setItem(SEQUENCE_KEY,JSON.stringify(normalized));return normalized}return saved}}catch(_){}return [...DEFAULT_SEQUENCE]}
+function sequenceFromInputs(){return [...gameSequence]}
+function validateSequence(sequence=gameSequence){const valid=sequence.length>0&&new Set(sequence).size===sequence.length&&sequence.every(value=>SEQUENCE_VALUES.includes(value));$('sequenceError').textContent=valid?'':'Add at least one detection event between Start and End.';return valid}
+function saveSequence(){if(validateSequence())localStorage.setItem(SEQUENCE_KEY,JSON.stringify(gameSequence))}
+function graphPart(className,text){const node=document.createElement('div');node.className=className;node.textContent=text;return node}
+function renderTeamSequenceGraph(team){
+ const graph=$(team==='green'?'sequenceGraphGreen':'sequenceGraphBlue');graph.innerHTML='';graph.append(graphPart('sequence-node endpoint start','Start'));
+ gameSequence.forEach((value,index)=>{
+  graph.append(graphPart('sequence-arrow','→'));
+  const step=SEQUENCE_STEPS.find(item=>item.value===value),node=graphPart('sequence-node','');node.dataset.value=value;
+  const title=graphPart('node-title',step?step.label:value),device=graphPart('node-device',step?step.device:'Unknown device'),detail=graphPart('node-detail',step?step.detail:''),status=graphPart('node-status',''),actions=graphPart('node-actions','');
+  const left=document.createElement('button'),right=document.createElement('button'),remove=document.createElement('button');left.type=right.type=remove.type='button';left.textContent='←';right.textContent='→';remove.textContent='Remove';remove.className='remove';left.title='Move node earlier';right.title='Move node later';left.disabled=index===0||state.phase!=='setup';right.disabled=index===gameSequence.length-1||state.phase!=='setup';remove.disabled=state.phase!=='setup';
+  left.onclick=()=>moveSequenceNode(index,-1);right.onclick=()=>moveSequenceNode(index,1);remove.onclick=()=>removeSequenceNode(index);actions.append(left,right,remove);node.append(title,device,detail,status,actions);graph.append(node);
+ });
+ const end=graphPart('sequence-node endpoint end',''),endTitle=graphPart('node-title','End'),endStatus=graphPart('node-status','');end.append(endTitle,endStatus);graph.append(graphPart('sequence-arrow','→'),end);
+}
+function renderSequenceEditor(){
+ for(const team of TEAMS)renderTeamSequenceGraph(team);
+ const add=$('sequenceAdd'),previous=add.value;add.innerHTML='';const available=SEQUENCE_STEPS.filter(step=>!gameSequence.includes(step.value));
+ for(const step of available){const option=document.createElement('option');option.value=step.value;option.textContent=step.label;add.append(option)}if(available.some(step=>step.value===previous))add.value=previous;
+ add.disabled=state.phase!=='setup'||!available.length;$('addSequenceNode').disabled=state.phase!=='setup'||!available.length;validateSequence();
+}
+function updateSequenceGraphState(){
+ for(const graph of document.querySelectorAll('.sequence-graph')){const team=graph.dataset.team,nodes=[...graph.querySelectorAll('.sequence-node[data-value]')];
+ for(const [index,node] of nodes.entries()){
+  const status=node.querySelector('.node-status');status.innerHTML='';node.classList.remove('active','completed');
+  const active=[],completed=[];
+  for(let player=0;player<2;player++){
+   const flow=flows[`${team}${player}`];if(!flow)continue;const id=assignedTag(team,player);
+   const establishedTarget=flow.coveredTargetMarker||flow.targetMarker||null;
+   if(state.phase==='running'&&flow.sequenceIndex===index&&((flow.state==='sequencing'&&activeFlowByTeam[team]===`${team}${player}`)||(flow.state==='awaiting_verify'&&node.dataset.value==='verify')))active.push({team,id,slot:flow.slot,range:flow.armRange,primed:flow.pickupPrimed,background:flow.state==='awaiting_verify',target:establishedTarget});
+   else if(flow.sequenceIndex>index)completed.push({team,id,slot:flow.slot,target:establishedTarget});
+  }
+  node.classList.toggle('active',active.length>0);node.classList.toggle('completed',!active.length&&completed.length>0);
+  const placed=[];
+  const shown=active.length?[...active]:placed.length?[...placed]:[];
+  if(index===0)for(let player=0;player<2;player++){const id=assignedTag(team,player),flow=flows[`${team}${player}`];if(flow&&flow.sequenceIndex===0&&!shown.some(item=>+item.id===+id))shown.push({team,id,expected:true})}
+  for(const item of shown){const covered=item.target&&node.dataset.value==='target_hidden'?`#${item.id} · target #${item.target} covered under arm`:null,waiting=!item.target&&node.dataset.value==='target_hidden'&&active.includes(item)?`#${item.id} · waiting for target visible → hidden`:null,confirming=item.target&&node.dataset.value==='verify'?`#${item.id} · target #${item.target} hidden; tag visible nearby`:item.background?`#${item.id} · waiting in background; arm is free`:null;status.append(graphPart(`node-tag ${item.team}`,covered||waiting||confirming||`${active.includes(item)&&!item.background?`${item.team} arm · `:''}#${item.id}${item.target?` · target #${item.target}`:item.slot?` → square ${item.slot}`:item.primed?' · primed':item.range&&item.range.closest?' · closest tag':item.range&&item.range.ok?' · arm in range':item.expected?' · expected':''}`))}
+ }
+ const endStatus=graph.querySelector('.sequence-node.end .node-status');if(endStatus){endStatus.innerHTML='';const finishedIds=new Set;for(let player=0;player<2;player++){const flow=flows[`${team}${player}`],id=assignedTag(team,player);if(flow&&flow.sequenceIndex>=gameSequence.length&&!finishedIds.has(id)){finishedIds.add(id);endStatus.append(graphPart(`node-tag ${team}`,`#${id} · finished`))}}}
+ }
+}
+function moveSequenceNode(index,offset){if(state.phase!=='setup')return;const next=index+offset;if(next<0||next>=gameSequence.length)return;[gameSequence[index],gameSequence[next]]=[gameSequence[next],gameSequence[index]];saveSequence();renderSequenceEditor();render()}
+function removeSequenceNode(index){if(state.phase!=='setup')return;gameSequence.splice(index,1);saveSequence();renderSequenceEditor();render()}
+function addSequenceNode(){if(state.phase!=='setup')return;const value=$('sequenceAdd').value;if(!value||gameSequence.includes(value))return;gameSequence.push(value);saveSequence();renderSequenceEditor();render()}
+function resetLocal(){flows={};placements={green:[],blue:[]};activatedTargets=new Set();activeFlowByTeam={green:null,blue:null};impactBase={};latencyBase={};hold={};stoppedAt=0;beamsReady=false;outerComplete=false;outerCompletionBusy=false;centerPlaced=null;latencyMode=false;hardwareArmsReady=false;lastRelayPoll=0;lastTargetActivatedAt=0;for(const team of TEAMS)for(let i=0;i<2;i++)flows[`${team}${i}`]={state:'sequencing',seen:false,slot:null,targetMarker:null,pendingTargetMarker:null,pendingTargetAt:0,targetNodeEnteredAt:0,coverageWindowAt:0,coveredTargetMarker:null,coverageConfirmed:false,coverageConfirmedAt:0,visualCandidateMarker:null,visualCandidateAt:0,suctionWasOn:false,suctionOffAt:0,blowLatched:false,sequenceIndex:0,context:'board',lastPumpMode:null,lastTag:null,armRange:null,pickupArmConfirmed:false,pickupPrimed:false,dropArmPose:null,releaseArmPose:null,operationId:null}}
+function restartDetectionFlow(team,key,id,flow,tag,arm,reason){flow.state='sequencing';flow.sequenceIndex=0;flow.context=flow.context==='center'?'center':'board';flow.seen=!!tag;flow.lastTag=tag?{...tag,at:Date.now()}:flow.lastTag;flow.slot=null;flow.targetMarker=null;flow.pendingTargetMarker=null;flow.pendingTargetAt=0;flow.targetNodeEnteredAt=0;flow.coverageWindowAt=0;flow.coveredTargetMarker=null;flow.coverageConfirmed=false;flow.coverageConfirmedAt=0;flow.visualCandidateMarker=null;flow.visualCandidateAt=0;flow.suctionWasOn=(arm&&arm.pump_mode)==='suck';flow.suctionOffAt=0;flow.blowLatched=false;flow.lastPumpMode=arm&&arm.pump_mode||'off';flow.armRange=null;flow.pickupArmConfirmed=false;flow.pickupPrimed=false;flow.dropArmPose=null;flow.releaseArmPose=null;flow.operationId=null;if(activeFlowByTeam[team]===key)activeFlowByTeam[team]=null;for(const suffix of ['unexpected-visible','verify-invalid','pickup-arm','verify','centre'])hold[`${key}-${suffix}`]=0;log(`${team} tag #${id} returned to Start: ${reason}`)}
+function idsFromInputs(){return{green:[+$('green0').value,+$('green1').value],blue:[+$('blue0').value,+$('blue1').value]}}
+async function start(){
+ if(startBusy||state.phase!=='setup')return;
+ const ids=idsFromInputs(),all=[...ids.green,...ids.blue];
+ if(new Set(all).size!==4||all.some(x=>!Number.isInteger(x)||x<100||x>105)){$('status').textContent='Choose four different physical tag IDs from 100–105.';return}
+ const sequence=sequenceFromInputs();
+ if(validateSequence(sequence))gameSequence=[...sequence];
+ else{gameSequence=[...DEFAULT_SEQUENCE];localStorage.setItem(SEQUENCE_KEY,JSON.stringify(gameSequence));log('Invalid saved detection sequence ignored; using the default sequence for this game.')}
+ const cameraMissing=all.filter(id=>!visible.has(id));
+ if(cameraMissing.length)log(`Starting by gamemaster override; camera does not currently see ${cameraMissing.map(id=>'#'+id).join(', ')}. They can appear after the game starts.`);
+ startBusy=true;render();$('status').textContent='Starting Laser Tag…';resetLocal();
+ try{await startRunLog(ids,gameSequence);await patch({phase:'running',started_at:Date.now()/1000,finished_at:null,tag_ids:ids,message:'Build two mirrored crossing beams'})}catch(e){startBusy=false;$('status').textContent=`Could not start logged run: ${e.message}`;log(`Start failed: ${e.message}`);render();return}
+ startBusy=false;
+ log('Game started. The count-up timer is running.');
+ const atomCtrl=new AbortController(),atomTimer=setTimeout(()=>atomCtrl.abort(),1200);
+ try{
+  const units=(await json(`${U.atom}/api/units`,{signal:atomCtrl.signal})).units||[];
+  for(const team of TEAMS)for(let i=0;i<2;i++){const c=impactCount(ids[team][i],units);if(c!==null)impactBase[`${team}${i}`]=c}
+  const missing=all.filter(id=>{const u=unitFor(id,units);return !u||!u.accel||!u.accel.available||!u.accel.enabled});
+  if(missing.length)log(`Running without waiting for tag${missing.length>1?'s':''} ${missing.map(x=>'#'+x).join(', ')}. Their drop sensors will initialize when available.`);
+ }catch(e){log('Game is running; Atom Manager is unavailable and drop sensors will initialize when it reconnects.')}
+ finally{clearTimeout(atomTimer)}
+}
+async function resetGame(){
+ await endRunLog('reset');
+ const ids=state.tag_ids||idsFromInputs();
+ apply({...state,phase:'setup',started_at:null,finished_at:null,tag_ids:ids,message:'Configure four physical tags, then start.'});
+ resetLocal();for(const team of TEAMS)for(let i=0;i<2;i++)$(`${team}${i}`).value=ids[team][i];
+ log('Game reset. The current playfield was left unchanged.');
+ try{apply(await jsonTimed(`${U.self}/api/operator`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reset:true})},3000))}
+ catch(e){log(`Server reset confirmation delayed: ${e.message}`)}
+}
+async function toggleLatencyMode(){
+ if(state.phase!=='running')return;
+ if(latencyMode){latencyMode=false;latencyBase={};log('Flash latency test disabled; visual ArUco game sequence resumed.');render();return}
+ latencyMode=true;latencyBase={};render();
+ log('Flash latency test enabled. Visual ArUco tracking and placement sequencing are suspended; impacts trigger only the global flash.');
+ try{const units=(await jsonTimed(`${U.atom}/api/units`,{},1500)).units||[];for(const team of TEAMS)for(let i=0;i<2;i++){const id=assignedTag(team,i),count=impactCount(id,units);if(count!==null)latencyBase[id]=count}}catch(_){log('Latency mode is active; waiting for Atom Manager to become available.')}
+}
+function mergeTags(d,maxMissing=.7){const m=new Map;for(const t of [...(d.tags||[]),...(d.detections||[])])if(t&&t.id!=null&&Number(t.missing||0)<=maxMissing)m.set(+t.id,t);return [...m.values()]}
+function center(t){return t&&Number.isFinite(+t.nx)&&Number.isFinite(+t.ny)?{x:+t.nx,y:+t.ny}:null}
+function radius(t){if(!t||!Array.isArray(t.corners)||t.corners.length<4)return .06;const xs=t.corners.map(p=>+p[0]),ys=t.corners.map(p=>+p[1]);return Math.max(.035,Math.min(.16,Math.hypot(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys))/2200))}
+function overlaps(a,b){const x=center(a),y=center(b);return x&&y&&Math.hypot(x.x-y.x,x.y-y.y)<Math.max(.025,radius(b)*.65+.005)}
+function armPose(arm){const raw=arm&&((Array.isArray(arm.pose)&&arm.pose)||(Array.isArray(arm.target)&&arm.target));if(!raw||raw.length<2)return null;const x=Number(raw[0]),y=Number(raw[1]),z=Number(raw[2]);return Number.isFinite(x)&&Number.isFinite(y)?{x,y,z:Number.isFinite(z)?z:0}:null}
+function calibratedArmSamples(team){
+ const side=calibrationSide(team),cal=(armCalibration.arms||{})[side]||{},samples=[];
+ for(const point of Object.values(cal.points||{})){const pose=point&&point.pose;if(!pose||!pose.set)continue;const cached=targetCache[Number(point.marker)],camera=cached?center(cached):(point.camera&&{x:Number(point.camera.u),y:Number(point.camera.v)});if(camera&&Number.isFinite(camera.x)&&Number.isFinite(camera.y))samples.push({x:Number(pose.x),y:Number(pose.y),u:camera.x,v:camera.y})}
+ return samples.filter(sample=>[sample.x,sample.y,sample.u,sample.v].every(Number.isFinite));
+}
+function cameraPointForArmPose(team,pose){
+ if(!pose)return null;const nearest=calibratedArmSamples(team).map(sample=>({...sample,mm:Math.hypot(sample.x-pose.x,sample.y-pose.y)})).sort((a,b)=>a.mm-b.mm).slice(0,4);if(nearest.length<2)return null;
+ if(nearest[0].mm<1)return{x:nearest[0].u,y:nearest[0].v,nearestMm:nearest[0].mm};let total=0,u=0,v=0;for(const sample of nearest){const weight=1/Math.max(25,sample.mm)**2;total+=weight;u+=sample.u*weight;v+=sample.v*weight}return{x:u/total,y:v/total,nearestMm:nearest[0].mm};
+}
+function robotPointForCameraTag(team,tag){const point=center(tag);if(!point)return null;const nearest=calibratedArmSamples(team).map(sample=>({...sample,cameraDistance:Math.hypot(sample.u-point.x,sample.v-point.y)})).sort((a,b)=>a.cameraDistance-b.cameraDistance).slice(0,4);if(nearest.length<2)return null;if(nearest[0].cameraDistance<.002)return{x:nearest[0].x,y:nearest[0].y};let total=0,x=0,y=0;for(const sample of nearest){const weight=1/Math.max(.025,sample.cameraDistance)**2;total+=weight;x+=sample.x*weight;y+=sample.y*weight}return{x:x/total,y:y/total}}
+function armTagMatch(team,armOrPose,tag){const tagPoint=center(tag),pose=armOrPose&&Number.isFinite(armOrPose.x)?armOrPose:armPose(armOrPose),armPoint=cameraPointForArmPose(team,pose),expectedRobot=robotPointForCameraTag(team,tag);if(!tagPoint||!pose||(!armPoint&&!expectedRobot))return{ok:false,distance:Infinity,pose};const distance=armPoint?Math.hypot(tagPoint.x-armPoint.x,tagPoint.y-armPoint.y):Infinity,limit=Math.max(.10,radius(tag)*1.8),robotDistance=expectedRobot?Math.hypot(pose.x-expectedRobot.x,pose.y-expectedRobot.y):Infinity,robotLimit=90;return{ok:distance<=limit||robotDistance<=robotLimit,distance,limit,robotDistance,robotLimit,pose,armPoint,expectedRobot}}
+function bindTeamFlow(team,tags,arm){
+ if(team==='green'&&greenScriptTelemetry()){const operation=activeGreenOperation();if(operation){const player=assignedTagIds.green.findIndex(id=>+id===operation.physical_tag),key=player>=0?`green${player}`:null,flow=key&&flows[key];if(flow&&flow.state==='sequencing'){activeFlowByTeam.green=key;flow.operationId=operation.operation_id;if(operation.source_pickup)flow.pickupArmConfirmed=true;return key}}}
+ const current=activeFlowByTeam[team];if(current&&flows[current]&&flows[current].state==='sequencing')return current;activeFlowByTeam[team]=null;
+ const liveIds=new Set(tags.map(tag=>Number(tag.id))),recentlyBlocked=[];for(let player=0;player<2;player++){const key=`${team}${player}`,flow=flows[key],id=assignedTag(team,player);if(flow&&flow.state==='sequencing'&&expectedStep(flow)==='pickup'&&flow.seen&&flow.lastTag&&!liveIds.has(id)&&Date.now()-Number(flow.lastTag.at||0)<1800)recentlyBlocked.push(key)}
+ if(recentlyBlocked.length===1){const key=recentlyBlocked[0],flow=flows[key];activeFlowByTeam[team]=key;flow.pickupArmConfirmed=true;flow.armRange={ok:true,fallback:true};log(`${team} camera uniquely identified assigned tag #${assignedTag(team,+key.slice(-1))} as blocked; priming it for ${team} suction confirmation.`)}
+ if(recentlyBlocked.length>1){const closest=recentlyBlocked.map(key=>{const match=armTagMatch(team,arm,flows[key].lastTag),score=Number.isFinite(match.robotDistance)?match.robotDistance:Number.isFinite(match.distance)?match.distance*1000:Infinity;return{key,match,score}}).sort((a,b)=>a.score-b.score)[0];if(closest&&Number.isFinite(closest.score)){const flow=flows[closest.key];activeFlowByTeam[team]=closest.key;flow.pickupArmConfirmed=true;flow.armRange={...closest.match,ok:true,closest:true};log(`${team} tags disappeared together; the arm was assigned to closest tag #${assignedTag(team,+closest.key.slice(-1))} (${closest.score.toFixed(1)} ${Number.isFinite(closest.match.robotDistance)?'mm':'camera-distance units'}).`)}}
+ if(activeFlowByTeam[team])return activeFlowByTeam[team];
+ const candidates=[];for(let player=0;player<2;player++){const key=`${team}${player}`,flow=flows[key];if(!flow||flow.state!=='sequencing')continue;const id=assignedTag(team,player),tag=tags.find(item=>+item.id===+id&&tagBelongsToTeam(item.id,team))||flow.lastTag,match=armTagMatch(team,arm,tag);if(tag&&tagBelongsToTeam(id,team)&&match.ok)candidates.push({key,distance:match.distance})}
+ candidates.sort((a,b)=>a.distance-b.distance);if(candidates[0]){activeFlowByTeam[team]=candidates[0].key;const flow=flows[candidates[0].key];flow.armRange=armTagMatch(team,arm,flow.lastTag);flow.pickupArmConfirmed=flow.pickupArmConfirmed||flow.armRange.ok}
+ return activeFlowByTeam[team];
+}
+function closestCoveredTarget(team,tags,arm,flow){
+ const visibleMarkers=new Set(tags.map(tag=>+tag.id)),windowAt=Number(flow&&flow.coverageWindowAt)||0,hidden=OUTER_SLOTS.filter(slot=>{const visibility=targetVisibility[slot.marker]||{};return windowAt&&targetCache[slot.marker]&&visibility.seen&&visibility.missingSince>=windowAt-250&&!activatedTargets.has(slot.marker)&&!visibleMarkers.has(slot.marker)});
+ return hidden.map(slot=>{const match=armTagMatch(team,arm,targetCache[slot.marker]),score=Number.isFinite(match.robotDistance)?match.robotDistance:Number.isFinite(match.distance)?match.distance*1000:Infinity;return{slot,match,score}}).filter(candidate=>candidate.match.ok).sort((a,b)=>a.score-b.score)[0]||null;
+}
+function closestUnactivatedTargetAtPose(team,pose){
+ if(!pose)return null;
+ return OUTER_SLOTS.filter(slot=>!activatedTargets.has(slot.marker)&&targetCache[slot.marker]).map(slot=>{const match=armTagMatch(team,pose,targetCache[slot.marker]),score=Number.isFinite(match.robotDistance)?match.robotDistance:Number.isFinite(match.distance)?match.distance*1000:Infinity;return{slot,match,score}}).filter(candidate=>Number.isFinite(candidate.score)).sort((a,b)=>a.score-b.score)[0]||null;
+}
+function observeTargetCoverage(team,key,flow,tags,arm){
+ if(flow.context!=='board'||flow.sequenceIndex===0||!flow.coverageWindowAt)return null;const closest=closestCoveredTarget(team,tags,arm,flow);if(!closest){flow.pendingTargetMarker=null;flow.pendingTargetAt=0;return null}
+ if(flow.pendingTargetMarker!==closest.slot.marker){flow.pendingTargetMarker=closest.slot.marker;flow.pendingTargetAt=performance.now();log(`${team} coverage candidate: target #${closest.slot.marker} disappeared while the arm was in range; waiting for confirmation.`)}
+ flow.armRange={...closest.match,ok:true,closest:true};
+ return closest;
+}
+function sustainedMs(k,v,ms){if(!v){hold[k]=0;return false}if(!hold[k])hold[k]=performance.now();return performance.now()-hold[k]>=ms}
+function sustained(k,v){return sustainedMs(k,v,HOLD_MS)}
+function unitFor(id,units){return (units||[]).find(u=>u.online&&+u.mid===+id-100)||null}
+function impactCount(id,units){const u=unitFor(id,units),n=Number(u&&u.accel&&u.accel.impactCount);return Number.isFinite(n)?n:null}
+function fell(key,id,units){const n=impactCount(id,units);if(n===null)return false;if(impactBase[key]===undefined){impactBase[key]=n;return false}if(n>impactBase[key]){impactBase[key]=n;return true}return false}
+async function flashBoard(team){
+ if(state.phase!=='running'||flashing)return;flashing=true;
+ try{
+  const snapshot=await json(`${U.play}/api/state`),areas=(snapshot.areas||[]).filter(a=>a.name.startsWith('Laser Tag -'));
+  await Promise.all([...areas.map(a=>json(`${U.play}/api/areas/${a.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({color:COLORS[team]})})),json(`${U.play}/api/settings`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({bloom:2.5})})]);
+  setTimeout(async()=>{try{await Promise.all(areas.map(a=>json(`${U.play}/api/areas/${a.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({color:a.color})})));await json(`${U.play}/api/settings`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({bloom:.3})})}catch(_){}},180);
+ }finally{setTimeout(()=>flashing=false,240)}
+}
+async function areaForMarker(marker){const s=await json(`${U.play}/api/state`);return (s.areas||[]).find(a=>+a.marker===+marker&&a.name.startsWith('Laser Tag -'))}
+async function completeOuterRing(){
+ if(outerComplete||outerCompletionBusy)return;outerCompletionBusy=true;
+ try{
+  const snapshot=await json(`${U.play}/api/state`),outerAreas=(snapshot.areas||[]).filter(area=>+area.marker>=30&&+area.marker<=37&&area.name.startsWith('Laser Tag -')),centre=(snapshot.areas||[]).find(area=>+area.marker===CENTER.marker&&area.name.startsWith('Laser Tag -'));
+  const removals=await Promise.allSettled(outerAreas.map(area=>json(`${U.play}/api/areas/${area.id}`,{method:'DELETE'})));
+  const failed=removals.filter(result=>result.status==='rejected').length;if(failed)log(`${failed} outer target${failed===1?'':'s'} could not be removed on the first completion pass; continuing with centre activation.`);
+  if(!centre)throw Error('centre target #38 is missing from the Laser Tag playfield');
+  await json(`${U.play}/api/areas/${centre.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({color:'#ffffff',glow:4,show_area:true,show_aruco:true})});
+  await json(`${U.play}/api/settings`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({bloom:2.5,global_brightness:2,atom_brightness:2})});
+  outerComplete=true;beamsReady=true;
+  for(const flow of Object.values(flows)){flow.state='armed';flow.sequenceIndex=gameSequence.length;flow.context='board'}
+  activeFlowByTeam={green:null,blue:null};log('All eight outer targets activated. Markers 30–37 were removed; centre 38 remains at maximum glow and global brightness.');
+ }catch(e){log(`Outer-ring completion will retry: ${e.message}`)}finally{outerCompletionBusy=false}
+}
+async function armSlot(team,key,slot){
+ const a=await areaForMarker(slot.marker);if(!a)return;
+ await json(`${U.play}/api/areas/${a.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({color:'#ff334d',glow:3})});
+ const centre=await areaForMarker(CENTER.marker);if(centre&&!centre.links.includes(a.id))await json(`${U.play}/api/areas/${centre.id}/links`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:a.id})});
+ const physicalTag=assignedTag(team,+key.slice(-1)),side=slot.marker<=33?'green':'blue',operationId=flows[key].operationId;placements[side].push({key,ownerTeam:team,slot:slot.marker,index:SLOTS[side].findIndex(item=>item.marker===slot.marker),area:a.id});activatedTargets.add(slot.marker);flows[key].slot=slot.marker;flows[key].state='armed';recordRunEvent('target_activated',{team,physical_tag:physicalTag,target_marker:slot.marker,operation_id:operationId,side,activation_count:activatedTargets.size},'decision');log(`${team} tag #${physicalTag} activated ${side}-side target ${slot.marker} (${activatedTargets.size}/8).`);
+ log(`Centre target #${CENTER.marker} linked to confirmed outer target #${slot.marker}.`);
+ try{await updateBeams()}catch(e){log(`Final link update was incomplete: ${e.message}`)}
+ if(activatedTargets.size>=OUTER_SLOTS.length)await completeOuterRing();
+}
+async function updateBeams(){
+ const all=[...placements.green,...placements.blue];let pairs=[];
+ for(const g of placements.green)for(const b of placements.blue)if(g.index===b.index)pairs.push([g,b]);
+ for(const [g,b] of pairs){const a=await areaForMarker(g.slot);if(a&&!a.links.includes(b.area))await json(`${U.play}/api/areas/${a.id}/links`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:b.area})})}
+ $('step3').textContent=`${activatedTargets.size}/8 outer targets activated · ${pairs.length}/4 mirrored links.`;
+}
+async function recoverPlayfieldProgress(){
+ const snapshot=await json(`${U.play}/api/state`),areas=snapshot.areas||[],centre=areas.find(area=>+area.marker===CENTER.marker&&area.name.startsWith('Laser Tag -'));if(!centre)return;
+ const linked=new Set((centre.links||[]).map(String)),recovered=areas.filter(area=>+area.marker>=30&&+area.marker<=37&&area.name.startsWith('Laser Tag -')&&(linked.has(String(area.id))||String(area.color||'').toLowerCase()==='#ff334d')).map(area=>+area.marker);
+ for(const marker of recovered){activatedTargets.add(marker);recordRunEvent('target_recovered',{target_marker:marker,reason:'playfield colour or centre link'})}
+ if(recovered.length)log(`Recovered ${recovered.length}/8 activated outer targets from the live playfield${recovered.length===8?'; completing the centre transition now.':'.'}`);
+ if(activatedTargets.size>=OUTER_SLOTS.length)await completeOuterRing();
+}
+function crossing(pairs){const indexes=pairs.map(p=>p[0].index);return Math.min(...indexes)<=1&&Math.max(...indexes)>=2}
+function expectedStep(flow){return gameSequence[flow.sequenceIndex]||null}
+function advanceSequence(flow){flow.sequenceIndex+=1}
+function visualDropCandidates(id,tags,trackedTags){
+ const visibleMarkers=new Set(tags.map(tag=>+tag.id)),physicalTags=trackedTags.filter(tag=>+tag.id>=100&&+tag.id<=105&&center(tag));
+ return OUTER_SLOTS.filter(slot=>!activatedTargets.has(slot.marker)&&targetCache[slot.marker]&&!visibleMarkers.has(slot.marker)).map(slot=>{const target=targetCache[slot.marker],targetPoint=center(target),ranked=physicalTags.map(tag=>({tag,distance:Math.hypot(center(tag).x-targetPoint.x,center(tag).y-targetPoint.y)})).sort((a,b)=>a.distance-b.distance);return{slot,ranked,distance:ranked.find(item=>+item.tag.id===+id)?.distance??Infinity,target}}).filter(item=>item.ranked[0]&&+item.ranked[0].tag.id===+id&&overlaps(item.ranked[0].tag,item.target)).sort((a,b)=>a.distance-b.distance);
+}
+async function processSequenceStep(team,key,id,flow,p,tags,units,arm,trackedTags=tags){
+ const step=expectedStep(flow);if(!step)return;
+ if(step==='verify'&&flow.state==='sequencing'){
+  flow.state='awaiting_verify';
+  if(activeFlowByTeam[team]===key)activeFlowByTeam[team]=null;
+  log(`${team} tag #${id} is waiting for final visual confirmation in the background; the arm is free for the next pickup.`);
+ }
+ if(p){flow.seen=true;flow.lastTag={...p,at:Date.now()}}
+ const pumpMode=arm&&arm.pump_mode||'off',previousPumpMode=flow.lastPumpMode;flow.lastPumpMode=pumpMode;
+ if(pumpMode==='suck')flow.suctionWasOn=true;
+ if((pumpMode==='off'||pumpMode==='blow')&&previousPumpMode==='suck'){flow.suctionOffAt=performance.now();flow.releaseArmPose=armPose(arm)}
+ if(pumpMode==='blow'){flow.blowLatched=true;flow.releaseArmPose=armPose(arm)}
+ if(step==='suction_start'||step==='suction_off'||step==='blow'){
+  const detected=step==='suction_start'?pumpMode==='suck':step==='suction_off'?flow.coverageConfirmed&&flow.suctionWasOn&&(pumpMode==='off'||pumpMode==='blow')&&flow.suctionOffAt>=flow.coverageConfirmedAt:flow.blowLatched;
+  if(detected){if(step==='suction_start'){flow.coverageWindowAt=performance.now();flow.pendingTargetMarker=null;flow.pendingTargetAt=0;flow.targetNodeEnteredAt=0;log(`${team} coverage window opened for tag #${id}; waiting for a target to change from visible to hidden.`)}if(step==='blow')flow.blowLatched=false;recordRunEvent(step,{team,physical_tag:id,operation_id:flow.operationId,pump_mode:pumpMode});advanceSequence(flow);log(`${SEQUENCE_STEPS.find(item=>item.value===step).label} detected by the ${team} arm for tag #${id}; next expected: ${SEQUENCE_STEPS.find(item=>item.value===expectedStep(flow))?.label||'complete'}.`)}
+  return;
+ }
+ if(step==='target_hidden'){
+  if(flow.suctionWasOn&&flow.suctionOffAt&&flow.releaseArmPose){const inferred=closestUnactivatedTargetAtPose(team,flow.releaseArmPose);if(inferred){const marker=inferred.slot.marker;flow.coveredTargetMarker=marker;flow.coverageConfirmed=true;flow.coverageConfirmedAt=flow.suctionOffAt;flow.armRange={...inferred.match,ok:true,closest:true,inferredAtRelease:true};recordRunEvent('target_hidden',{team,physical_tag:id,target_marker:marker,operation_id:flow.operationId,inference:'nearest_unactivated_target_at_suction_off',release_arm_pose:flow.releaseArmPose,distance_mm:Number.isFinite(inferred.match.robotDistance)?inferred.match.robotDistance:null,camera_distance:Number.isFinite(inferred.match.distance)?inferred.match.distance:null});advanceSequence(flow);log(`${team} suction-off placed tag #${id} on closest unactivated target #${marker} from the measured release pose. Next expected: ${SEQUENCE_STEPS.find(item=>item.value===expectedStep(flow))?.label||'complete'}.`);flow.pendingTargetMarker=null;flow.pendingTargetAt=0;flow.targetMarker=null;return}}
+  if(!flow.targetNodeEnteredAt)flow.targetNodeEnteredAt=performance.now();const current=observeTargetCoverage(team,key,flow,tags,arm),marker=flow.pendingTargetMarker;if(!marker||!current||current.slot.marker!==marker)return;
+  if(performance.now()-flow.targetNodeEnteredAt<1000||performance.now()-flow.pendingTargetAt<180)return;
+  flow.coveredTargetMarker=marker;flow.coverageConfirmed=true;flow.coverageConfirmedAt=performance.now();recordRunEvent('target_hidden',{team,physical_tag:id,target_marker:marker,operation_id:flow.operationId});advanceSequence(flow);log(`${team} arm covered target #${marker}; latched coverage registered it for tag #${id}. Next expected: ${SEQUENCE_STEPS.find(item=>item.value===expectedStep(flow))?.label||'complete'}.`);flow.pendingTargetMarker=null;flow.pendingTargetAt=0;flow.targetMarker=null;return;
+ }
+ if(step==='pickup'){
+  const match=armTagMatch(team,arm,flow.lastTag);flow.armRange=match;
+  if(p&&match.ok)flow.pickupArmConfirmed=true;
+  if(p&&flow.pickupPrimed){flow.pickupPrimed=false;log(`${team} tag #${id} is visible again; pickup returned to expected.`)}
+  if(flow.seen&&!p&&flow.pickupArmConfirmed&&!flow.pickupPrimed){flow.pickupPrimed=true;log(`${team} tag #${id} is blocked by the arm and primed; waiting for suction.`);return}
+  if(flow.pickupPrimed&&pumpMode==='suck'){flow.pickupPrimed=false;recordRunEvent('pickup',{team,physical_tag:id,operation_id:flow.operationId});advanceSequence(flow);log(`${team} suction confirmed pickup of tag #${id}; moved to ${SEQUENCE_STEPS.find(item=>item.value===expectedStep(flow))?.label||'End'}.`)}
+  return;
+ }
+ if(step==='pickup_impact'){
+  if(fell(key,id,units)){await flashBoard(team);recordRunEvent('pickup_impact',{team,physical_tag:id,operation_id:flow.operationId});advanceSequence(flow);log(`Initial post-suction signal for ${flow.context==='center'?'centre ':''}tag #${id}; ${team} flash fired, still waiting for the configured next step.`)}
+  return;
+ }
+ if(step==='drop'){
+  if(fell(key,id,units)){flow.dropArmPose=armPose(arm);await flashBoard(team);recordRunEvent('drop',{team,physical_tag:id,operation_id:flow.operationId,arm_pose:flow.dropArmPose});advanceSequence(flow);log(`${flow.context==='center'?'Centre drop':'Drop'} impact sensed for tag #${id}; ${team} arm location recorded for visual confirmation.`)}
+  return;
+ }
+ if(step!=='verify')return;const confirmTag=p||trackedTags.find(tag=>+tag.id===+id&&tagBelongsToTeam(tag.id,team));if(!confirmTag)return;
+ const recordedPose=flow.releaseArmPose||flow.dropArmPose||armPose(arm),armMatch=armTagMatch(team,recordedPose,confirmTag);flow.armRange=armMatch;
+ if(flow.context==='center'){
+  const target=targetCache[CENTER.marker],centreStillHidden=!tags.some(tag=>+tag.id===CENTER.marker);if(!target||!centreStillHidden||!overlaps(confirmTag,target)||!sustained(`${key}-centre`,true))return;
+  flow.slot=CENTER.marker;advanceSequence(flow);
+  if(!centerPlaced){centerPlaced={team,key,tag:id,last:confirmTag};flow.state='centre_first';if(activeFlowByTeam[team]===key)activeFlowByTeam[team]=null;log(`${team} tag #${id} visually confirmed on centre ${CENTER.marker} against its recorded arm location. Cover it with a ${team==='green'?'blue':'green'} tag.`)}
+  else if(centerPlaced.team!==team){await patch({phase:'won',finished_at:Date.now()/1000,message:'Laser grid completed'});log(`Laser Tag complete: ${team} tag #${id} covered ${centerPlaced.team} tag #${centerPlaced.tag} on the centre.`)}
+  return;
+ }
+ const scripted=team==='green'&&greenScriptTelemetry(),operation=scripted?releasedOperationForTag(id):null;
+ if(scripted&&!operation){if(flow.scriptBlockReason!=='release'){flow.scriptBlockReason='release';recordRunEvent('activation_blocked',{team,physical_tag:id,reason:'no unconsumed release_completed operation'},'decision');log(`Safety gate blocked tag #${id}: no matching released Auto PP X operation.`)}return}
+ flow.scriptBlockReason=null;if(operation)flow.operationId=operation.operation_id;
+ const candidates=visualDropCandidates(id,tags,trackedTags);
+ if(candidates.length){flow.targetMarker=candidates[0].slot.marker;sustainedMs(`${key}-verify-invalid`,false,600);if(sustainedMs(`${key}-verify`,true,180)&&performance.now()-lastTargetActivatedAt>=TARGET_ACTIVATION_GAP_MS){const marker=candidates[0].slot.marker;if(operation&&+operation.physical_tag!==+id){recordRunEvent('activation_blocked',{team,physical_tag:id,target_marker:marker,operation_id:operation.operation_id,reason:'operation physical tag mismatch'},'decision');return}lastTargetActivatedAt=performance.now();flow.coveredTargetMarker=marker;recordRunEvent('verify',{team,physical_tag:id,target_marker:marker,operation_id:operation&&operation.operation_id,distance:candidates[0].distance,physical_detection:{nx:confirmTag.nx,ny:confirmTag.ny,missing:confirmTag.missing||0},target_last_detection:targetCache[marker],visible_ids:tags.map(tag=>Number(tag.id)),arm_pose:recordedPose},'decision');flow.sequenceIndex=gameSequence.length;await armSlot(team,key,candidates[0].slot);if(activeFlowByTeam[team]===key)activeFlowByTeam[team]=null;log(`Confirmed drop: target #${marker} stayed hidden and tag #${id} matched ${operation?'released operation '+operation.operation_id:'the manual placement flow'}.`);flow.targetMarker=null;if(!outerComplete)restartDetectionFlow(team,key,id,flow,confirmTag,arm,`outer target #${marker} activated; ready for another outer target`)}}else{flow.targetMarker=null;sustained(`${key}-verify`,false);if(sustainedMs(`${key}-verify-invalid`,!!confirmTag,600))restartDetectionFlow(team,key,id,flow,confirmTag,arm,'the physical tag became visible without covering a hidden target')}
+}
+async function tick(){
+ render();if(document.hidden||ticking)return;ticking=true;
+ try{
+  if(latencyMode){
+   const units=(await jsonTimed(`${U.atom}/api/units`,{},1200).catch(()=>({units:[]}))).units||[];let connected=0;
+   for(const team of TEAMS)for(let i=0;i<2;i++){const id=assignedTag(team,i),count=impactCount(id,units);if(count===null)continue;connected++;if(latencyBase[id]===undefined){latencyBase[id]=count;continue}if(count>latencyBase[id]){latencyBase[id]=count;await flashBoard(team);log(`Latency test impact from ${team} tag #${id}: ${team} flash triggered.`)}}
+   $('status').textContent=`Flash latency test · ${connected}/4 drop sensors connected · visual tracking disabled`;
+   return;
+  }
+  // Each team owns one physical arm. Its compact relay snapshot is reused
+  // between polls so the two arm/tag sequences can advance independently.
+  const running=state.phase==='running',cam=await json(`${U.webcam}/api/tags`),tags=mergeTags(cam),liveTags=mergeTags(cam,.18);
+  visible=new Set(liveTags.map(t=>+t.id));
+  const selectedIds=new Set(TEAMS.flatMap(team=>assignedTagIds[team]).map(Number));
+  const gameTagVisible=tags.some(tag=>selectedIds.has(Number(tag.id)));
+  let units=[],arms=cachedRelayArms;
+  // Do not touch shared robot/Atom state merely because the Laser Tag tab is
+  // open. Hardware polling starts only when a selected physical tag appears.
+  const hardwareNeeded=gameTagVisible||Object.values(flows).some(flow=>flow&&(flow.seen||flow.sequenceIndex>0||flow.state==='awaiting_verify'));
+  if(running&&hardwareNeeded){
+   const shouldPollRelay=Date.now()-lastRelayPoll>=180;
+   const requests=[jsonTimed(`${U.atom}/api/units`,{},1200).catch(()=>({units:[]}))];
+   if(shouldPollRelay)requests.push(jsonTimed(`${U.self}/api/arms`,{},1200).catch(()=>({arms:cachedRelayArms})));
+   const hardware=await Promise.all(requests);units=hardware[0].units||[];
+   if(shouldPollRelay){cachedRelayArms=(hardware[1]&&hardware[1].arms)||cachedRelayArms;lastRelayPoll=Date.now();arms=cachedRelayArms;hardwareArmsReady=!!(arms.green&&arms.green.connected&&arms.blue&&arms.blue.connected)}
+  }
+  for(const team of TEAMS)for(const s of SLOTS[team]){const t=tags.find(x=>+x.id===s.marker),live=liveTags.find(x=>+x.id===s.marker),visibility=targetVisibility[s.marker]||(targetVisibility[s.marker]={seen:false,missingSince:0});if(t)targetCache[s.marker]={...t,at:Date.now()};if(live){visibility.seen=true;visibility.missingSince=0}else if(visibility.seen&&!visibility.missingSince)visibility.missingSince=performance.now()}
+  const ct=tags.find(x=>+x.id===CENTER.marker);if(ct)targetCache[CENTER.marker]={...ct,at:Date.now()};
+  if(state.phase==='running')for(const team of TEAMS){
+   for(let i=0;i<2;i++){const f=flows[`${team}${i}`],id=assignedTag(team,i),p=liveTags.find(x=>+x.id===+id&&tagBelongsToTeam(x.id,team));if(f&&p){f.lastTag={...p,at:Date.now()};f.seen=true}}
+   // Final camera confirmation does not own the robot. Keep checking every
+   // dropped tag against its recorded release pose while this team's arm is
+   // already allowed to bind to and move the other tag.
+   for(let i=0;i<2;i++){const key=`${team}${i}`,f=flows[key];if(!f||f.state!=='awaiting_verify')continue;const id=assignedTag(team,i),p=liveTags.find(x=>+x.id===+id&&tagBelongsToTeam(x.id,team))||null;await processSequenceStep(team,key,id,f,p,liveTags,units,arms[team],tags)}
+   if(beamsReady&&!activeFlowByTeam[team]){const centreCandidates=[];for(let i=0;i<2;i++){const key=`${team}${i}`,f=flows[key];if(!f||f.state!=='armed')continue;const match=armTagMatch(team,arms[team],f.lastTag);if(match.ok)centreCandidates.push({key,distance:match.distance})}centreCandidates.sort((a,b)=>a.distance-b.distance);if(centreCandidates[0]){const key=centreCandidates[0].key,f=flows[key],i=+key.slice(-1),id=assignedTag(team,i),p=tags.find(x=>+x.id===+id&&tagBelongsToTeam(x.id,team));activeFlowByTeam[team]=key;f.state='sequencing';f.context='center';f.sequenceIndex=0;f.slot=null;f.seen=!!p;f.pendingTargetMarker=null;f.pendingTargetAt=0;f.targetNodeEnteredAt=0;f.coverageWindowAt=0;f.coveredTargetMarker=null;f.coverageConfirmed=false;f.coverageConfirmedAt=0;f.suctionOffAt=0;f.blowLatched=false;f.dropArmPose=null;f.releaseArmPose=null;log(`${team} arm bound to its assigned tag #${id} for the centre sequence.`)}}
+   const key=bindTeamFlow(team,liveTags,arms[team]);if(!key)continue;const f=flows[key],i=+key.slice(-1),id=assignedTag(team,i),p=liveTags.find(x=>+x.id===+id&&tagBelongsToTeam(x.id,team))||null;
+   if(f.state==='sequencing'){
+    const step=expectedStep(f),unexpectedVisible=f.sequenceIndex>0&&step!=='verify'&&!!p&&!f.visualCandidateMarker;if(sustainedMs(`${key}-unexpected-visible`,unexpectedVisible,300)){restartDetectionFlow(team,key,id,f,p,arms[team],'the physical tag reappeared before Confirm Drop');continue}
+    observeTargetCoverage(team,key,f,liveTags,arms[team]);await processSequenceStep(team,key,id,f,p,liveTags,units,arms[team],tags)
+   }else if(f.state==='centre_first'&&p)centerPlaced.last=p;
+  }
+  if(activatedTargets.size>=OUTER_SLOTS.length&&!outerComplete)await completeOuterRing();
+  $('status').textContent=`Camera live: ${liveTags.map(t=>'#'+t.id).join(', ')||'no tags'} · active arms: ${TEAMS.filter(team=>activeFlowByTeam[team]).length}/2`;
+ }catch(e){$('status').textContent=`Tracking unavailable: ${e.message}`}finally{ticking=false}
+}
+function render(){
+ $('timer').textContent=elapsed().toFixed(1);$('phase').textContent=state.phase==='running'?'Live':state.phase==='won'?'Complete':'Setup';$('mission').textContent=state.phase==='running'?(outerComplete?`Outer ring complete. Use the remaining centre target ${CENTER.marker}.`:'Activate all eight outer targets. Any assigned physical tag may move to either side.'):state.phase==='won'?'Laser grid complete!':'Choose four different physical tags and start the game.';
+ for(const team of TEAMS){const ids=[+$(`${team}0`).value,+$(`${team}1`).value],ok=ids.every(id=>visible.has(id));$(`${team}Lock`).textContent=state.phase==='setup'?(ok?`VISIBLE — tags #${ids.join(' and #')} detected`:`Not visible: #${ids.filter(id=>!visible.has(id)).join(' and #')} · start is still allowed`):`${placements[team].length}/4 ${team}-side targets activated`;$(`${team}Lock`).classList.toggle('ok',ok)}
+ for(const team of TEAMS)for(let i=0;i<2;i++)$(`${team}${i}`).disabled=state.phase!=='setup';$('start').disabled=state.phase!=='setup'||startBusy;
+ $('loadPlayfield').disabled=playfieldBusy;
+ $('latency').disabled=state.phase!=='running';$('latency').textContent=latencyMode?'Disable flash latency test':'Enable flash latency test';
+ const activated=[...activatedTargets].sort((a,b)=>a-b),f=Object.values(flows),pickupIndex=gameSequence.indexOf('pickup'),dropIndex=gameSequence.indexOf('drop');$('activatedStatus').textContent=`Activated outer targets: ${activated.length?activated.map(id=>'#'+id).join(', '):'none'} (${activated.length}/8)`;$('step0').textContent=pickupIndex<0?'Pickup is not in this sequence.':`${f.filter(x=>x.sequenceIndex>pickupIndex).length}/4 active runs past pickup.`;$('step1').textContent=dropIndex<0?'Drop impact is not in this sequence.':`${f.filter(x=>x.sequenceIndex>dropIndex).length}/4 active runs past drop impact.`;$('step2').textContent=`${activated.length}/8 outer targets confirmed.`;$('step3').textContent=outerComplete?`Outer ring complete · centre ${CENTER.marker} remains.`:`${activated.length}/8 outer targets activated.`;updateSequenceGraphState();
+}
+function calibrationSide(team){return team==='blue'?'purple':team}
+async function calibration(){
+ try{
+  const d=await json(`${U.auto}/api/calibration2`),cal=d.calibration||{};armCalibration=cal;
+  for(const arm of Object.values(cal.arms||{}))for(const point of Object.values((arm&&arm.points)||{})){const marker=Number(point&&point.marker),camera=point&&point.camera;if(marker>=30&&marker<=38&&camera&&Number.isFinite(Number(camera.u))&&Number.isFinite(Number(camera.v))&&!targetCache[marker])targetCache[marker]={id:marker,nx:Number(camera.u),ny:Number(camera.v),at:Date.now(),calibrated:true}}
+  const missing=TEAMS.filter(team=>{const arm=(cal.arms||{})[calibrationSide(team)]||{};return !Object.values(arm.points||{}).length||Object.values(arm.points||{}).some(point=>!(point.pose&&point.pose.set))});
+  $('calibration').textContent=missing.length?`Auto PP Cal 2 incomplete for: ${missing.join(', ')}.`:'Auto PP Cal 2 loaded for both teams and used for arm/tag matching.';
+ }catch(e){armCalibration={};$('calibration').textContent=`Auto PP Cal 2 could not be loaded: ${e.message}`}
+}
+$('loadPlayfield').onclick=loadPlayfield;$('start').onclick=start;$('latency').onclick=toggleLatencyMode;$('reset').onclick=resetGame;$('addSequenceNode').onclick=addSequenceNode;gameSequence=loadSequence();renderSequenceEditor();
+new EventSource(`${U.self}/api/events`).onmessage=e=>{try{apply(JSON.parse(e.data))}catch(_){}};
+async function init(){
+ resetLocal();
+ await startCameraFeed();
+ try{
+  apply(await jsonTimed(`${U.self}/api/state`));
+  if(state.phase==='running')await recoverPlayfieldProgress();
+  if(state.phase!=='setup')log(`Resumed ${state.phase} Laser Tag game; timer state was preserved while this page was away.`);
+ }catch(e){$('status').textContent=`Laser Tag initialization failed: ${e.message}`}
+}
+init();calibration();pollDiagnostics();setInterval(tick,200);setInterval(pollDiagnostics,500);
+</script>
+</body>
+</html>

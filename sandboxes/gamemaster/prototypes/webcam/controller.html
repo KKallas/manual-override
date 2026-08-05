@@ -79,12 +79,27 @@
       <button id="stop" title="Release the camera">Stop</button>
     </div>
     <div class="row" style="margin-top:10px;">
-      <select id="resSel" title="Capture resolution"></select>
+      <select id="resSel" title="Preview resolution"></select>
     </div>
-    <p class="note">Choose the camera and capture resolution. The camera reports the
-      closest mode it supports — the <b>Resolution</b> stat below shows what you
-      actually got. High modes (1080p+/4K) use the MJPG codec. The selection is
+    <p class="note">Choose the camera and preview resolution. The selection is
       remembered, so reopening this page brings the feed back automatically.</p>
+  </div>
+
+  <div class="panel">
+    <h2>ArUco detection</h2>
+    <div class="row">
+      <select id="trackingResSel" title="ArUco detection resolution"></select>
+      <select id="detectionFpsSel" title="ArUco detection FPS">
+        <option value="1">1 FPS</option><option value="2">2 FPS</option>
+        <option value="5">5 FPS</option><option value="10">10 FPS</option>
+        <option value="15">15 FPS</option><option value="20">20 FPS</option>
+        <option value="25">25 FPS</option><option value="30">30 FPS</option>
+      </select>
+    </div>
+    <p class="note">Tracking can use up to 3840×2160 independently of the preview.
+      When tracking is larger, the camera is captured at the tracking resolution;
+      ArUco coordinates stay in that full capture space and only the browser preview
+      is reduced.</p>
   </div>
 
   <div class="panel">
@@ -93,8 +108,11 @@
     <div class="grid">
       <div class="stat"><div class="k">Status</div>
         <div class="v"><span id="pill" class="pill idle"><span class="dot"></span><span id="pillTxt">…</span></span></div></div>
-      <div class="stat"><div class="k">Resolution</div><div class="v" id="res">—</div></div>
-      <div class="stat"><div class="k">FPS</div><div class="v" id="fps">—</div></div>
+      <div class="stat"><div class="k">Capture</div><div class="v" id="res">—</div></div>
+      <div class="stat"><div class="k">Preview</div><div class="v" id="previewRes">—</div></div>
+      <div class="stat"><div class="k">Tracking</div><div class="v" id="trackingRes">—</div></div>
+      <div class="stat"><div class="k">Camera FPS</div><div class="v" id="fps">—</div></div>
+      <div class="stat"><div class="k">Detection FPS</div><div class="v" id="detectionFps">—</div></div>
       <div class="stat"><div class="k">Index</div><div class="v" id="idx">—</div></div>
     </div>
     <p class="note">Frames come from OpenCV on the server, served as MJPEG. ArUco
@@ -122,6 +140,8 @@ const el = id => document.getElementById(id);
 
 const camSel = el('cam');
 const resSel = el('resSel');
+const trackingResSel = el('trackingResSel');
+const detectionFpsSel = el('detectionFpsSel');
 let autoSelected = false;   // only auto-pick the remembered camera once
 
 function startStream() {
@@ -138,9 +158,13 @@ async function loadCameras() {
   // resolution dropdown
   const res = data.resolutions || [];
   if (res.length && !resSel.options.length) {
-    resSel.innerHTML = res.map(r => `<option value="${r.w}x${r.h}">${r.label}</option>`).join('');
+    const options = res.map(r => `<option value="${r.w}x${r.h}">${r.label}</option>`).join('');
+    resSel.innerHTML = options;
+    trackingResSel.innerHTML = options;
     const rem = data.remembered;
     if (rem && rem.width) resSel.value = `${rem.width}x${rem.height}`;
+    if (rem && rem.tracking_width) trackingResSel.value = `${rem.tracking_width}x${rem.tracking_height}`;
+    if (rem && rem.detection_fps) detectionFpsSel.value = String(rem.detection_fps);
   }
 
   // camera dropdown
@@ -161,11 +185,17 @@ function chosenRes() {
   return (w && h) ? { width: w, height: h } : {};
 }
 
+function chosenTracking() {
+  const [tracking_width, tracking_height] = (trackingResSel.value || '').split('x').map(Number);
+  return (tracking_width && tracking_height) ? { tracking_width, tracking_height } : {};
+}
+
 async function selectCamera(index) {
   try {
     const r = await (await fetch(U('/api/select'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ index: Number(index), ...chosenRes() }),
+      body: JSON.stringify({ index: Number(index), ...chosenRes(), ...chosenTracking(),
+        detection_fps: Number(detectionFpsSel.value) }),
     })).json();
     if (!r.ok) showAlert(r.error || 'could not open that camera');
     else hideAlert();
@@ -175,6 +205,8 @@ async function selectCamera(index) {
 
 camSel.onchange = () => { if (camSel.value !== '') selectCamera(camSel.value); };
 resSel.onchange = () => { if (camSel.value !== '') selectCamera(camSel.value); };
+trackingResSel.onchange = () => { if (camSel.value !== '') selectCamera(camSel.value); };
+detectionFpsSel.onchange = () => { if (camSel.value !== '') selectCamera(camSel.value); };
 el('refresh').onclick = loadCameras;
 el('stop').onclick = async () => {
   try { await fetch(U('/api/stop'), { method: 'POST' }); } catch (_) {}
@@ -199,7 +231,10 @@ function applyStatus(s) {
   else { pill.className = 'pill idle'; txt.textContent = 'no camera'; }
 
   el('res').textContent = s.width ? `${s.width}×${s.height}` : '—';
+  el('previewRes').textContent = s.preview_width ? `${s.preview_width}×${s.preview_height}` : '—';
+  el('trackingRes').textContent = s.tracking_width ? `${s.tracking_width}×${s.tracking_height}` : '—';
   el('fps').textContent = s.open ? (s.fps || 0).toFixed(0) : '—';
+  el('detectionFps').textContent = s.open ? `${(s.detection_fps || 0).toFixed(1)} / ${s.detection_fps_limit}` : '—';
   el('idx').textContent = (s.index != null) ? s.index : '—';
 
   // first update: if nothing is open but we remember a camera, bring it up once
@@ -207,6 +242,8 @@ function applyStatus(s) {
     autoSelected = true;
     if (camSel.value === '') camSel.value = String(s.remembered.index);
     if (s.remembered.width) resSel.value = `${s.remembered.width}x${s.remembered.height}`;
+    if (s.remembered.tracking_width) trackingResSel.value = `${s.remembered.tracking_width}x${s.remembered.tracking_height}`;
+    if (s.remembered.detection_fps) detectionFpsSel.value = String(s.remembered.detection_fps);
     selectCamera(s.remembered.index);
   }
 }

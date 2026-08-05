@@ -34,7 +34,11 @@
         "webcam": [
           "green",
           "purple"
-        ]
+        ],
+      "camera-calibration": [
+        "green",
+        "purple"
+      ]
       },
       "password": "2d555ed8"
     },

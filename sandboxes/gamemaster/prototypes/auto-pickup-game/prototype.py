@@ -35,6 +35,9 @@ from relay_arm import DobotMG400, DobotError  # noqa: E402
 
 LOG_PATH = os.path.join(HERE, "auto-pickup-log.csv")
 CALIBRATION_PATH = os.path.join(HERE, "auto-calibration.json")
+CALIBRATION2_PATH = os.path.join(HERE, "auto-calibration-2.json")
+FIXED_CAL2_PLAYFIELD_PATH = os.path.join(
+    HERE, "fixed-auto-pp-cal-2-playfield.json")
 PLAYFIELD_SNAPSHOT_PATH = os.path.join(HERE, "auto-playfield.json")
 HIGHSCORE_RESET_PATH = os.path.join(HERE, "auto-highscore-reset.json")
 LOG_FIELDS = [
@@ -75,6 +78,12 @@ WORKSPACE = {
 }
 RADIUS_MIN = 150.0
 RADIUS_MAX = 440.0
+# Auto PP applies a stricter 200..400 mm motion ring than the robot's raw
+# 150..440 mm workspace. Keep Cal 2 targets another 20 mm inside that ring.
+CAL2_RADIUS_MIN = 220.0
+CAL2_RADIUS_MAX = 380.0
+CAL2_MARKERS = tuple(range(30, 36))
+CAL2_PARALLAX_MARKERS = (31, 35, 33, 34)
 
 MANIFEST = {
     "name": "Auto Pick and Place",
@@ -172,8 +181,66 @@ def _default_calibration():
 _calibration = _default_calibration()
 
 
+def _default_calibration2():
+    targets = {
+        f"p{i + 1}": {
+            "key": f"p{i + 1}", "label": f"Point {i + 1}",
+            "marker": marker, "s": None, "t": None, "area_id": None,
+        }
+        for i, marker in enumerate(CAL2_MARKERS)
+    }
+    return {
+        "format": "auto-pp-calibration-2-v1",
+        "shared_z": {"pickup_height": None, "transport_height": None},
+        "playfield": {
+            "targets": targets,
+            "saved_areas": None,
+            "saved_settings": None,
+            "saved_camera_view": "normal",
+            "updated_at": None,
+        },
+        "arms": {
+            side: {
+                "camera_view": "normal",
+                "parallax_points": {
+                    str(marker): {"marker": marker, "ground": None, "raised": None}
+                    for marker in CAL2_PARALLAX_MARKERS
+                },
+                "points": {
+                    key: {**target, "camera": None, "pose": _empty_pose()}
+                    for key, target in targets.items()
+                },
+                "updated_at": None,
+            }
+            for side in TEAMS
+        },
+    }
+
+
+_calibration2 = _default_calibration2()
+
+
 def _roles():
     return request.environ.get("hhh.roles") or set()
+
+
+@bp.route("/api/laser-intent", methods=["POST"])
+def api_laser_intent():
+    """Forward Green Auto PP X intentions to the active Laser Tag run."""
+    if "green" not in _roles() and "gamemaster" not in _roles():
+        return jsonify({"ok": False, "error": "green role required"}), 403
+    data = request.get_json(silent=True) or {}
+    kind = str(data.get("kind") or "")[:80]
+    laser = _hub_ctx.get_prototype("laser-tag") if _hub_ctx is not None else None
+    if laser is None or not hasattr(laser, "append_external_event"):
+        return jsonify({"ok": False, "error": "Laser Tag logging unavailable"}), 503
+    event, error = laser.append_external_event(
+        "green_auto_pp_x", kind, data.get("detail"), category=data.get("category")
+    )
+    if error:
+        status = 409 if error == "no active Laser Tag run" else 400
+        return jsonify({"ok": False, "error": error}), status
+    return jsonify({"ok": True, "event": event})
 
 
 def _is_operator():
@@ -581,11 +648,454 @@ def _load_calibration():
 
 
 def _save_calibration():
+    with open(CALIBRATION_PATH, "w", encoding="utf-8") as fh:
+        json.dump(_calibration, fh, indent=2)
+
+
+def _load_calibration2():
+    global _calibration2
     try:
-        with open(CALIBRATION_PATH, "w", encoding="utf-8") as fh:
-            json.dump(_calibration, fh, indent=2)
-    except OSError:
-        pass
+        with open(CALIBRATION2_PATH, "r", encoding="utf-8") as fh:
+            saved = json.load(fh)
+    except (OSError, ValueError, TypeError):
+        return
+    base = _default_calibration2()
+    if not isinstance(saved, dict):
+        return
+    for key, target in ((saved.get("playfield") or {}).get("targets") or {}).items():
+        if key in base["playfield"]["targets"] and isinstance(target, dict):
+            base["playfield"]["targets"][key].update({
+                field: target.get(field)
+                for field in ("s", "t", "area_id") if target.get(field) is not None
+            })
+    saved_areas = (saved.get("playfield") or {}).get("saved_areas")
+    if isinstance(saved_areas, list):
+        base["playfield"]["saved_areas"] = json.loads(json.dumps(saved_areas))
+    saved_settings = (saved.get("playfield") or {}).get("saved_settings")
+    if isinstance(saved_settings, dict):
+        base["playfield"]["saved_settings"] = json.loads(json.dumps(saved_settings))
+    saved_view = (saved.get("playfield") or {}).get("saved_camera_view")
+    if saved_view in ("normal", "rot180"):
+        base["playfield"]["saved_camera_view"] = saved_view
+    for side in TEAMS:
+        arm = ((saved.get("arms") or {}).get(side) or {})
+        if arm.get("camera_view") in ("normal", "rot180"):
+            base["arms"][side]["camera_view"] = arm["camera_view"]
+        for key, point in (arm.get("points") or {}).items():
+            if key not in base["arms"][side]["points"] or not isinstance(point, dict):
+                continue
+            camera = point.get("camera")
+            if isinstance(camera, dict):
+                try:
+                    base["arms"][side]["points"][key]["camera"] = {
+                        "u": float(camera["u"]), "v": float(camera["v"])
+                    }
+                except (KeyError, TypeError, ValueError):
+                    pass
+            pose = point.get("pose")
+            if isinstance(pose, dict) and pose.get("set"):
+                try:
+                    base["arms"][side]["points"][key]["pose"] = _clean_pose(pose)
+                except ValueError:
+                    pass
+        for marker, sample in (arm.get("parallax_points") or {}).items():
+            marker_key = str(marker)
+            if marker_key not in base["arms"][side]["parallax_points"] or not isinstance(sample, dict):
+                continue
+            try:
+                ground, raised = sample["ground"], sample["raised"]
+                base["arms"][side]["parallax_points"][marker_key].update({
+                    "ground": {"u": float(ground["u"]), "v": float(ground["v"])},
+                    "raised": {"u": float(raised["u"]), "v": float(raised["v"])},
+                })
+            except (KeyError, TypeError, ValueError):
+                pass
+        base["arms"][side]["updated_at"] = arm.get("updated_at")
+    shared_z = saved.get("shared_z") or {}
+    for key in ("pickup_height", "transport_height"):
+        try:
+            value = float(shared_z[key])
+            base["shared_z"][key] = value
+        except (KeyError, TypeError, ValueError):
+            pass
+    base["playfield"]["updated_at"] = (saved.get("playfield") or {}).get("updated_at")
+    _calibration2 = base
+
+
+def _save_calibration2():
+    with open(CALIBRATION2_PATH, "w", encoding="utf-8") as fh:
+        json.dump(_calibration2, fh, indent=2)
+
+
+def _calibration2_public():
+    with _calibration_lock:
+        return json.loads(json.dumps(_calibration2))
+
+
+def _fixed_cal2_playfield():
+    try:
+        with open(FIXED_CAL2_PLAYFIELD_PATH, "r", encoding="utf-8") as fh:
+            snapshot = json.load(fh)
+    except (OSError, ValueError, TypeError):
+        return None
+    areas = snapshot.get("areas") if isinstance(snapshot, dict) else None
+    if not isinstance(areas, list) or len(areas) != len(CAL2_MARKERS):
+        return None
+    try:
+        if {int(area["marker"]) for area in areas} != set(CAL2_MARKERS):
+            return None
+    except (KeyError, TypeError, ValueError):
+        return None
+    return snapshot
+
+
+def _legacy_robot_xy(side, s, t):
+    arm = _calibration["arms"][side]
+    pts = arm.get("points") or {}
+    try:
+        tl = pts["top_left"]["pose"]
+        tr = pts["top_right"]["pose"]
+        br = pts["bottom_right"]["pose"]
+        bl = pts["bottom_left"]["pose"]
+        if not all(p.get("set") for p in (tl, tr, br, bl)):
+            return None
+        x = ((1-s)*(1-t)*tl["x"] + s*(1-t)*tr["x"] +
+             s*t*br["x"] + (1-s)*t*bl["x"])
+        y = ((1-s)*(1-t)*tl["y"] + s*(1-t)*tr["y"] +
+             s*t*br["y"] + (1-s)*t*bl["y"])
+        return float(x), float(y)
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _cal2_axis_positions():
+    area = _calibration["playfield"].get("active_area") or {}
+    s0, s1 = float(area.get("sMin", 0)), float(area.get("sMax", 1))
+    t0, t1 = float(area.get("tMin", 0)), float(area.get("tMax", 1))
+    # Convert the requested 20 mm robot-space inset to normalized field units.
+    spans = []
+    for side in TEAMS:
+        a = _legacy_robot_xy(side, s0, (t0+t1)/2)
+        b = _legacy_robot_xy(side, s1, (t0+t1)/2)
+        c = _legacy_robot_xy(side, (s0+s1)/2, t0)
+        d = _legacy_robot_xy(side, (s0+s1)/2, t1)
+        if a and b:
+            spans.append((abs(s1-s0) * 20.0 / max(1.0, math.dist(a, b)), "s"))
+        if c and d:
+            spans.append((abs(t1-t0) * 20.0 / max(1.0, math.dist(c, d)), "t"))
+    inset_s = max([v for v, axis in spans if axis == "s"] or [abs(s1-s0)*0.05])
+    inset_t = max([v for v, axis in spans if axis == "t"] or [abs(t1-t0)*0.05])
+    inset_s = min(inset_s, abs(s1-s0)*0.22)
+    inset_t = min(inset_t, abs(t1-t0)*0.22)
+    return (
+        [s0 + inset_s, (s0+s1)/2, s1 - inset_s],
+        [t0 + inset_t, (t0+t1)/2, t1 - inset_t],
+    )
+
+
+def _cal2_safe_at(s, t, selected_side=None):
+    sides = (selected_side,) if selected_side in TEAMS else TEAMS
+    for side in sides:
+        xy = _legacy_robot_xy(side, s, t)
+        if xy is None:
+            continue
+        radius = math.hypot(*xy)
+        if radius < CAL2_RADIUS_MIN or radius > CAL2_RADIUS_MAX:
+            return False
+    return True
+
+
+def _cal2_restore_targets_from_captures():
+    """Recover the marker field coordinates from completed Cal 2 captures.
+
+    A playfield from another game can replace the shared Playfield Areas state.
+    The captured robot poses remain authoritative: invert the legacy bilinear
+    field mapping to recover the s/t coordinate at which every marker was
+    calibrated, without changing any arm calibration measurements.
+    """
+    for side in TEAMS:
+        points = _calibration2["arms"][side].get("points") or {}
+        if not all((points.get(key) or {}).get("pose", {}).get("set")
+                   for key in _calibration2["playfield"]["targets"]):
+            continue
+        restored = {}
+        for key in _calibration2["playfield"]["targets"]:
+            pose = points[key]["pose"]
+            s = t = 0.5
+            for _ in range(24):
+                xy = _legacy_robot_xy(side, s, t)
+                xy_s = _legacy_robot_xy(side, s + 1e-5, t)
+                xy_t = _legacy_robot_xy(side, s, t + 1e-5)
+                if not xy or not xy_s or not xy_t:
+                    return False
+                ex, ey = xy[0] - float(pose["x"]), xy[1] - float(pose["y"])
+                a, c = (xy_s[0] - xy[0]) / 1e-5, (xy_s[1] - xy[1]) / 1e-5
+                b, d = (xy_t[0] - xy[0]) / 1e-5, (xy_t[1] - xy[1]) / 1e-5
+                determinant = a*d - b*c
+                if abs(determinant) < 1e-9:
+                    return False
+                s -= (d*ex - b*ey) / determinant
+                t -= (-c*ex + a*ey) / determinant
+            restored[key] = (round(s, 6), round(t, 6))
+        for key, (s, t) in restored.items():
+            _calibration2["playfield"]["targets"][key].update({
+                "s": s, "t": t, "area_id": None,
+            })
+        return True
+    return False
+
+
+def _cal2_reachable_contour(side, rotate_layout=False):
+    """Return three left/centre/right rows following this arm's usable contour.
+
+    This samples the same legacy bilinear robot mapping used by the player's
+    red reach overlay. Rows are selected near the first, middle, and last
+    sufficiently-wide reachable cross-sections, so boundary points sit close
+    to both the screen and the actual curved reach boundary.
+    """
+    ss, ts = _cal2_axis_positions()
+    s_lo, s_hi = min(ss[0], ss[2]), max(ss[0], ss[2])
+    t_lo, t_hi = min(ts[0], ts[2]), max(ts[0], ts[2])
+    if rotate_layout:
+        s_lo, s_hi = 1.0-s_hi, 1.0-s_lo
+        t_lo, t_hi = 1.0-t_hi, 1.0-t_lo
+    rows = []
+    s_steps, t_steps = 320, 220
+    for row_index in range(t_steps + 1):
+        t = t_lo + (t_hi-t_lo) * row_index / t_steps
+        runs, run = [], []
+        for col_index in range(s_steps + 1):
+            s = s_lo + (s_hi-s_lo) * col_index / s_steps
+            if _cal2_safe_at(s, t, side):
+                run.append(s)
+            elif run:
+                runs.append(run)
+                run = []
+        if run:
+            runs.append(run)
+        if not runs:
+            continue
+        widest = max(runs, key=lambda values: values[-1]-values[0])
+        rows.append({
+            "t": t, "lo": widest[0], "hi": widest[-1],
+            "width": widest[-1]-widest[0],
+        })
+    if not rows:
+        return None
+    max_width = max(row["width"] for row in rows)
+    useful = [row for row in rows if row["width"] >= max_width * 0.30]
+    if len(useful) < 3:
+        useful = rows
+    selected = [useful[0], useful[len(useful)//2], useful[-1]]
+    result = []
+    for row in selected:
+        result.extend([
+            (row["lo"], row["t"]),
+            ((row["lo"]+row["hi"])/2.0, row["t"]),
+            (row["hi"], row["t"]),
+        ])
+    return result
+
+
+def _ensure_playfield_calibration2_areas(side=None, camera_view=None):
+    playfield = _playfield_module()
+    if playfield is None or not hasattr(playfield, "remove_area"):
+        return False, "Playfield Areas prototype is not loaded"
+    for area in list(playfield.list_areas()):
+        area_id = area.get("id")
+        if area_id:
+            playfield.remove_area(area_id)
+    fixed_snapshot = _fixed_cal2_playfield()
+    saved_areas = (fixed_snapshot.get("areas") if fixed_snapshot else
+                   _calibration2["playfield"].get("saved_areas"))
+    # Laser Tag also uses the Cal 2 marker range. Older controller code accidentally
+    # adopted whatever happened to be on the shared playfield on page load,
+    # so reject that foreign snapshot and reconstruct the original Cal 2 field
+    # from its already-captured robot calibration points.
+    restored_from_captures = False
+    if isinstance(saved_areas, list) and any(
+            str(area.get("name", "")).startswith("Laser Tag")
+            for area in saved_areas if isinstance(area, dict)):
+        with _calibration_lock:
+            _calibration2["playfield"]["saved_areas"] = None
+            _calibration2["playfield"]["saved_settings"] = None
+            restored_from_captures = _cal2_restore_targets_from_captures()
+            _save_calibration2()
+        saved_areas = None
+    if isinstance(saved_areas, list) and len(saved_areas) == len(CAL2_MARKERS):
+        requested_view = camera_view if camera_view in ("normal", "rot180") else \
+            (_calibration2["arms"][side].get("camera_view", "normal")
+             if side in TEAMS else _calibration2["playfield"].get("saved_camera_view", "normal"))
+        saved_view = (fixed_snapshot.get("camera_view", "normal")
+                      if fixed_snapshot else
+                      _calibration2["playfield"].get("saved_camera_view", "normal"))
+        rotate_saved = requested_view != saved_view
+        created = {}
+        for saved in saved_areas:
+            fields = {
+                key: saved[key]
+                for key in (
+                    "name", "x", "y", "z", "size", "color", "glow", "marker",
+                    "show_area", "show_aruco", "show_links",
+                )
+                if key in saved
+            }
+            if rotate_saved:
+                fields["x"] = -float(fields.get("x", 0.0))
+                fields["z"] = -float(fields.get("z", 0.0))
+            area = playfield.create_area(**fields)
+            if area:
+                created[int(area["marker"])] = area
+        with _calibration_lock:
+            if side in TEAMS:
+                _calibration2["arms"][side]["camera_view"] = requested_view
+                _calibration2["arms"][side]["updated_at"] = time.time()
+            for target in _calibration2["playfield"]["targets"].values():
+                area = created.get(target["marker"])
+                if not area:
+                    continue
+                x, z = float(area["x"]), float(area["z"])
+                target.update({
+                    "s": round((1.0-x/CALIBRATION_TAG_SPAN_X)/2.0, 6),
+                    "t": round((1.0-z/CALIBRATION_TAG_SPAN_Z)/2.0, 6),
+                    "area_id": area.get("id"),
+                })
+            _calibration2["playfield"]["updated_at"] = time.time()
+            _save_calibration2()
+        saved_settings = (fixed_snapshot.get("settings") if fixed_snapshot else
+                          _calibration2["playfield"].get("saved_settings"))
+        if isinstance(saved_settings, dict) and hasattr(playfield, "set_view_settings"):
+            playfield.set_view_settings(**saved_settings)
+        else:
+            _reset_playfield_camera(playfield)
+        if hasattr(playfield, "save_areas_now"):
+            playfield.save_areas_now()
+        return True, None
+    ss, ts = _cal2_axis_positions()
+    view = camera_view if camera_view in ("normal", "rot180") else \
+        (_calibration2["arms"][side].get("camera_view", "normal")
+         if side in TEAMS else "normal")
+    rotate_layout = side in TEAMS and view == "rot180"
+    candidates = None
+    if restored_from_captures:
+        candidates = [
+            (float(target["s"]), float(target["t"]))
+            for target in _calibration2["playfield"]["targets"].values()
+        ]
+        if rotate_layout:
+            candidates = [(1.0-s, 1.0-t) for s, t in candidates]
+    elif side in TEAMS:
+        candidates = _cal2_reachable_contour(side, rotate_layout)
+    if candidates is None:
+        candidates = [(s, t) for t in ts for s in ss]
+        if rotate_layout:
+            candidates = [(1.0-s, 1.0-t) for s, t in candidates]
+    # Pull an unsafe candidate toward the field centre until it is 20 mm
+    # inside both robot reach rings.
+    center_s, center_t = (
+        (1.0-ss[1], 1.0-ts[1]) if rotate_layout else (ss[1], ts[1])
+    )
+    safe = list(candidates) if restored_from_captures else []
+    if not restored_from_captures:
+        for s, t in candidates:
+            for _ in range(20):
+                if _cal2_safe_at(s, t, side):
+                    break
+                s = center_s + (s-center_s)*0.9
+                t = center_t + (t-center_t)*0.9
+            safe.append((s, t))
+    with _calibration_lock:
+        # Seed the shared Cal 2 heights from the current calibration. They can
+        # subsequently be refined from either player tab.
+        for height in ("pickup_height", "transport_height"):
+            if _calibration2["shared_z"].get(height) is None:
+                values = []
+                for side in TEAMS:
+                    record = _calibration["arms"][side].get(height) or {}
+                    try:
+                        if record.get("set"):
+                            values.append(float(record["z"]))
+                    except (KeyError, TypeError, ValueError):
+                        pass
+                if values:
+                    _calibration2["shared_z"][height] = round(sum(values) / len(values), 3)
+        target_items = list(_calibration2["playfield"]["targets"].items())
+        if side in TEAMS:
+            _calibration2["arms"][side]["camera_view"] = view
+            _calibration2["arms"][side]["updated_at"] = time.time()
+        for (key, target), (s, t) in zip(target_items, safe):
+            # Legacy calibration field maps s/t 0..1 to +/- spans.
+            fields = {
+                "name": f"Auto PP Cal 2 - {target['label']}",
+                "x": CALIBRATION_TAG_SPAN_X * (1.0 - 2.0*s),
+                "y": 0.02,
+                "z": CALIBRATION_TAG_SPAN_Z * (1.0 - 2.0*t),
+                "size": CALIBRATION_TAG_SIZE,
+                "color": "#ffffff", "glow": 0.0,
+                "marker": target["marker"],
+                "show_area": False, "show_aruco": True, "show_links": False,
+            }
+            area = playfield.create_area(**fields)
+            target.update({"s": round(s, 6), "t": round(t, 6),
+                           "area_id": area.get("id") if area else None})
+        _calibration2["playfield"]["updated_at"] = time.time()
+        _save_calibration2()
+    _reset_playfield_camera(playfield)
+    if hasattr(playfield, "save_areas_now"):
+        playfield.save_areas_now()
+    return True, None
+
+
+def _adopt_current_playfield_calibration2(side=None, camera_view=None):
+    """Use the currently rendered marker objects without moving them."""
+    playfield = _playfield_module()
+    if playfield is None or not hasattr(playfield, "list_areas"):
+        return False, "Playfield Areas prototype is not loaded"
+    by_marker = {}
+    for area in playfield.list_areas():
+        try:
+            marker = int(area.get("marker"))
+        except (TypeError, ValueError):
+            continue
+        if marker in CAL2_MARKERS and area.get("show_aruco", True):
+            by_marker[marker] = area
+    missing = [marker for marker in CAL2_MARKERS if marker not in by_marker]
+    if missing:
+        return False, "current playfield is missing Cal 2 markers: " + \
+            ", ".join(str(marker) for marker in missing)
+    with _calibration_lock:
+        saved_areas = []
+        for target in _calibration2["playfield"]["targets"].values():
+            area = by_marker[target["marker"]]
+            try:
+                x, z = float(area["x"]), float(area["z"])
+            except (KeyError, TypeError, ValueError):
+                return False, f"marker {target['marker']} has invalid playfield coordinates"
+            target.update({
+                "s": round((1.0-x/CALIBRATION_TAG_SPAN_X)/2.0, 6),
+                "t": round((1.0-z/CALIBRATION_TAG_SPAN_Z)/2.0, 6),
+                "area_id": area.get("id"),
+            })
+            saved_areas.append({
+                key: area[key]
+                for key in (
+                    "name", "x", "y", "z", "size", "color", "glow", "marker",
+                    "show_area", "show_aruco", "show_links",
+                )
+                if key in area
+            })
+        _calibration2["playfield"]["saved_areas"] = saved_areas
+        if hasattr(playfield, "get_view_settings"):
+            settings = playfield.get_view_settings()
+            if isinstance(settings, dict):
+                _calibration2["playfield"]["saved_settings"] = settings
+        view = camera_view if camera_view in ("normal", "rot180") else \
+            (_calibration2["arms"][side].get("camera_view", "normal")
+             if side in TEAMS else "normal")
+        _calibration2["playfield"]["saved_camera_view"] = view
+        _calibration2["playfield"]["updated_at"] = time.time()
+        _save_calibration2()
+    return True, None
 
 
 def _calibration_public():
@@ -781,6 +1291,144 @@ def api_calibration_playfield():
     return jsonify({"ok": True, "calibration": _calibration_public()})
 
 
+@bp.route("/api/calibration2")
+def api_calibration2():
+    return jsonify({"ok": True, "calibration": _calibration2_public(),
+                    "access": _calibration_access_public()})
+
+
+@bp.route("/api/calibration2/playfield", methods=["POST"])
+def api_calibration2_playfield():
+    if not _is_operator():
+        return jsonify({"ok": False, "error": "gamemaster required"}), 403
+    data = request.get_json(silent=True) or {}
+    side = data.get("side") or data.get("team")
+    view = data.get("camera_view")
+    if side not in TEAMS:
+        side = None
+    ok, err = _ensure_playfield_calibration2_areas(side, view)
+    if not ok:
+        return jsonify({"ok": False, "error": err}), 409
+    return jsonify({"ok": True, "calibration": _calibration2_public(),
+                    "access": _calibration_access_public()})
+
+
+@bp.route("/api/calibration2/orientation", methods=["POST"])
+def api_calibration2_orientation():
+    if not _is_operator():
+        return jsonify({"ok": False, "error": "gamemaster required"}), 403
+    data = request.get_json(silent=True) or {}
+    side = data.get("side") or data.get("team")
+    view = data.get("camera_view")
+    if side not in TEAMS:
+        return jsonify({"ok": False, "error": "team required"}), 400
+    if view not in ("normal", "rot180"):
+        return jsonify({"ok": False, "error": "camera_view must be normal or rot180"}), 400
+    ok, err = _ensure_playfield_calibration2_areas(side, view)
+    if not ok:
+        return jsonify({"ok": False, "error": err}), 409
+    return jsonify({"ok": True, "side": side, "camera_view": view,
+                    "calibration": _calibration2_public(),
+                    "access": _calibration_access_public()})
+
+
+@bp.route("/api/calibration2/use-current-playfield", methods=["POST"])
+def api_calibration2_use_current_playfield():
+    if not _is_operator():
+        return jsonify({"ok": False, "error": "gamemaster required"}), 403
+    data = request.get_json(silent=True) or {}
+    side = data.get("side") or data.get("team")
+    if side not in TEAMS:
+        side = None
+    ok, err = _adopt_current_playfield_calibration2(
+        side, data.get("camera_view"))
+    if not ok:
+        return jsonify({"ok": False, "error": err}), 409
+    return jsonify({
+        "ok": True,
+        "calibration": _calibration2_public(),
+        "access": _calibration_access_public(),
+    })
+
+
+@bp.route("/api/calibration2/capture", methods=["POST"])
+def api_calibration2_capture():
+    data = request.get_json(silent=True) or {}
+    side = _calibration_side(data)
+    if side not in TEAMS:
+        return jsonify({"ok": False, "error": "team required"}), 403
+    if not _is_operator() and not _calibration_access[side]["enabled"]:
+        return jsonify({"ok": False, "error": f"{side} calibration is not enabled by the gamemaster"}), 403
+    key = data.get("target")
+    if key not in _calibration2["arms"][side]["points"]:
+        return jsonify({"ok": False, "error": "unknown calibration target"}), 400
+    try:
+        pose = _clean_pose(data.get("pose"))
+        camera = data.get("camera") or {}
+        camera = {"u": round(float(camera["u"]), 8),
+                  "v": round(float(camera["v"]), 8)}
+    except (ValueError, KeyError, TypeError):
+        return jsonify({"ok": False, "error": "numeric pose and camera coordinates required"}), 400
+    view = data.get("camera_view")
+    if view not in ("normal", "rot180"):
+        view = "normal"
+    with _calibration_lock:
+        arm = _calibration2["arms"][side]
+        arm["points"][key]["pose"] = pose
+        arm["points"][key]["camera"] = camera
+        arm["camera_view"] = view
+        arm["updated_at"] = time.time()
+        # Z is shared: the latest explicitly supplied values apply to both.
+        for zkey in ("pickup_height", "transport_height"):
+            if data.get(zkey) is not None:
+                _calibration2["shared_z"][zkey] = round(float(data[zkey]), 3)
+        _save_calibration2()
+    return jsonify({"ok": True, "calibration": _calibration2_public()})
+
+
+@bp.route("/api/calibration2/parallax", methods=["POST"])
+def api_calibration2_parallax():
+    data = request.get_json(silent=True) or {}
+    side = _calibration_side(data)
+    if side not in TEAMS:
+        return jsonify({"ok": False, "error": "team required"}), 403
+    if not _is_operator() and not _calibration_access[side]["enabled"]:
+        return jsonify({"ok": False, "error": f"{side} calibration is not enabled by the gamemaster"}), 403
+    try:
+        marker = int(data.get("marker"))
+        if marker not in CAL2_PARALLAX_MARKERS:
+            raise ValueError
+        ground, raised = data["ground"], data["raised"]
+        sample = {
+            "marker": marker,
+            "ground": {"u": round(float(ground["u"]), 8), "v": round(float(ground["v"]), 8)},
+            "raised": {"u": round(float(raised["u"]), 8), "v": round(float(raised["v"]), 8)},
+        }
+        if not all(0 <= sample[k][axis] <= 1 for k in ("ground", "raised") for axis in ("u", "v")):
+            raise ValueError
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"ok": False, "error": "valid marker, ground and raised camera coordinates required"}), 400
+    with _calibration_lock:
+        _calibration2["arms"][side]["parallax_points"][str(marker)] = sample
+        _calibration2["arms"][side]["updated_at"] = time.time()
+        _save_calibration2()
+    return jsonify({"ok": True, "calibration": _calibration2_public()})
+
+
+@bp.route("/api/calibration2/reset", methods=["POST"])
+def api_calibration2_reset():
+    data = request.get_json(silent=True) or {}
+    side = _calibration_side(data)
+    if side not in TEAMS:
+        return jsonify({"ok": False, "error": "team required"}), 403
+    if not _is_operator() and not _calibration_access[side]["enabled"]:
+        return jsonify({"ok": False, "error": f"{side} calibration is not enabled by the gamemaster"}), 403
+    with _calibration_lock:
+        _calibration2["arms"][side] = _default_calibration2()["arms"][side]
+        _save_calibration2()
+    return jsonify({"ok": True, "calibration": _calibration2_public()})
+
+
 @bp.route("/api/playfield/save", methods=["POST"])
 def api_playfield_save():
     if not _is_operator():
@@ -877,7 +1525,11 @@ def api_calibration_active_area():
         _save_calibration()
         out = json.loads(json.dumps(_calibration))
     _live.bump()
-    return jsonify({"ok": True, "calibration": out})
+    return jsonify({
+        "ok": True,
+        "calibration": out,
+        "active_area": out["playfield"]["active_area"],
+    })
 
 
 @bp.route("/api/calibration/marker-cache", methods=["POST"])
@@ -1352,5 +2004,6 @@ def api_log_csv():
 
 
 _load_calibration()
+_load_calibration2()
 _state["highscore_reset_at"] = _load_highscore_reset_at()
 _seed_best_from_log()

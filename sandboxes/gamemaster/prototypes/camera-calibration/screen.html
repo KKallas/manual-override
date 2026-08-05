@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Camera Calibration — Grid</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#777; }
+  body { font-family:system-ui,-apple-system,sans-serif; }
+  #stage { position:fixed; inset:0; background:#777; }
+  #board { position:absolute; left:50%; top:50%; display:grid; background:#fff; transform:translate(-50%,-50%); }
+  .cell.white { background:#fff; }
+  .cell.black { background:#000; }
+  #centerMark {
+    position:fixed; left:50%; top:50%; z-index:1; width:42px; height:42px;
+    border:3px solid #50ff78; border-radius:50%; transform:translate(-50%,-50%);
+    box-shadow:0 0 0 1px rgba(0,0,0,.75),0 0 8px rgba(80,255,120,.8);
+    pointer-events:none;
+  }
+  #centerMark::before,#centerMark::after { content:""; position:absolute; background:#50ff78; }
+  #centerMark::before { left:50%; top:-11px; width:2px; height:9px; transform:translateX(-50%); box-shadow:0 55px 0 #50ff78; }
+  #centerMark::after { left:-11px; top:50%; width:9px; height:2px; transform:translateY(-50%); box-shadow:55px 0 0 #50ff78; }
+  #tools {
+    position:fixed; right:16px; top:16px; z-index:2; display:flex; gap:8px;
+    padding:8px; border-radius:9px; background:rgba(15,17,21,.88); color:#e6e9ef;
+    opacity:.24; transition:opacity .15s;
+  }
+  #tools:hover, #tools:focus-within { opacity:1; }
+  button {
+    padding:8px 12px; border-radius:6px; border:1px solid #4b5363;
+    background:#252a34; color:#e6e9ef; cursor:pointer; font:inherit;
+  }
+  #info { align-self:center; padding:0 5px; font-size:12px; white-space:nowrap; }
+  body.fullscreen #tools { opacity:0; }
+  body.fullscreen #tools:hover { opacity:1; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="board"></div><div id="centerMark" aria-label="Image centre alignment mark"></div></div>
+<div id="tools">
+  <span id="info">Loading…</span>
+  <button id="invert">Invert</button>
+  <button id="fullscreen">Fullscreen</button>
+</div>
+<script>
+const BASE=location.pathname.replace(/\/[^/]*$/,'/'),U=p=>BASE+p.replace(/^\//,'');
+const board=document.getElementById('board'),info=document.getElementById('info');
+const TARGET_BRIGHTNESS_KEY='hhh-calibration-target-brightness';
+let cols=15,rows=9,inverted=false,pattern={mode:'alignment',scale:1,x:.5,y:.5},lastRevision=-1;
+
+function applyBrightness(value=localStorage.getItem(TARGET_BRIGHTNESS_KEY)) {
+  const brightness=Math.max(10,Math.min(200,Number(value)||100));
+  board.style.filter=`brightness(${brightness/100})`;
+}
+
+function render() {
+  // A board with C×R inner corners requires (C+1)×(R+1) squares.
+  const squaresX=cols+1, squaresY=rows+1;
+  // Keep every physical cell square. Stretching a 16×10 board over a 16:9
+  // display creates rectangular cells and teaches calibration a false aspect.
+  const cellSize=Math.min(innerWidth/squaresX,innerHeight/squaresY)*pattern.scale;
+  const boardWidth=cellSize*squaresX,boardHeight=cellSize*squaresY;
+  board.style.width=`${boardWidth}px`;
+  board.style.height=`${boardHeight}px`;
+  board.style.left=`${(innerWidth-boardWidth)*pattern.x}px`;
+  board.style.top=`${(innerHeight-boardHeight)*pattern.y}px`;
+  board.style.transform='none';
+  board.style.gridTemplateColumns=`repeat(${squaresX},1fr)`;
+  board.style.gridTemplateRows=`repeat(${squaresY},1fr)`;
+  board.replaceChildren();
+  const frag=document.createDocumentFragment();
+  for(let y=0;y<squaresY;y++) for(let x=0;x<squaresX;x++){
+    const cellEl=document.createElement('div');
+    const black=((x+y+(inverted?1:0))%2)===0;
+    cellEl.className='cell '+(black?'black':'white');
+    frag.appendChild(cellEl);
+  }
+  board.appendChild(frag);
+  document.getElementById('centerMark').hidden=pattern.mode!=='alignment';
+  info.textContent=`${cols} × ${rows} inner corners · ${squaresX} × ${squaresY} squares`;
+}
+
+async function config() {
+  try {
+    const s=await(await fetch(U('api/config'),{cache:'no-store'})).json();
+    if(s.board){ cols=s.board[0]; rows=s.board[1]; }
+    if(s.pattern){
+      pattern=s.pattern;render();
+      if(pattern.revision!==lastRevision){
+        lastRevision=pattern.revision;
+        await fetch(U('api/pattern-ack'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:lastRevision})});
+      }
+    }
+  } catch (_) { info.textContent='Calibration service offline'; }
+}
+document.getElementById('invert').onclick=()=>{inverted=!inverted;render()};
+document.getElementById('fullscreen').onclick=async()=>{
+  if(!document.fullscreenElement) await document.documentElement.requestFullscreen();
+  else await document.exitFullscreen();
+};
+document.addEventListener('fullscreenchange',()=>{
+  document.body.classList.toggle('fullscreen',!!document.fullscreenElement);
+  document.getElementById('fullscreen').textContent=document.fullscreenElement?'Exit fullscreen':'Fullscreen';
+  render();
+});
+addEventListener('resize',render);
+addEventListener('storage',event=>{if(event.key===TARGET_BRIGHTNESS_KEY)applyBrightness(event.newValue)});
+applyBrightness();
+render();config();setInterval(config,100);
+</script>
+</body>
+</html>

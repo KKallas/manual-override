@@ -87,9 +87,9 @@ def _new_area():
     return area
 ARUCO_COUNT = 50        # DICT_4X4_50
 NUM_LIMITS = {
-    "x": (-12.0, 12.0),
+    "x": (-24.0, 24.0),
     "y": (-6.0, 6.0),   # height; negative drops the area below the ground plane
-    "z": (-12.0, 12.0),
+    "z": (-24.0, 24.0),
     "size": (0.2, 6.0),
     "glow": (0.0, 4.0),
 }
@@ -242,18 +242,23 @@ SETTINGS_PATH = os.path.join(HERE, "settings.json")
 DEFAULT_SETTINGS = {
     "bloom": 1.1,
     "dof": 1.2,
+    "global_brightness": 1.0,
+    "atom_brightness": 1.0,
     "fov": 50.0,                              # camera field of view (degrees)
     "cam": {"x": 0.0, "y": 9.0, "z": 13.0},   # camera location (translation)
     "rot": {"x": -33.0, "y": 0.0, "z": 0.0},  # camera rotation, Euler degrees (z = roll)
 }
-SETTINGS_LIMITS = {"bloom": (0.0, 2.5), "dof": (0.0, 3.0), "fov": (10.0, 120.0)}
+SETTINGS_LIMITS = {
+    "bloom": (0.0, 2.5), "dof": (0.0, 3.0), "fov": (10.0, 120.0),
+    "global_brightness": (0.1, 2.0), "atom_brightness": (0.1, 2.0),
+}
 VEC_LIMIT = (-40.0, 40.0)
 ROT_LIMIT = (-180.0, 180.0)
 _srev = 0
 
 
 def _coerce_settings(dst, data):
-    for key in ("bloom", "dof", "fov"):
+    for key in ("bloom", "dof", "fov", "global_brightness", "atom_brightness"):
         if key in data:
             lo, hi = SETTINGS_LIMITS[key]
             dst[key] = _clamp(float(data[key]), lo, hi)
@@ -296,6 +301,12 @@ def set_view_settings(**fields):
         out = json.loads(json.dumps(_settings))
     _live.bump()
     return out
+
+
+def get_view_settings():
+    """Return a copy of the current camera and global effect settings."""
+    with _lock:
+        return json.loads(json.dumps(_settings))
 
 
 # ---- pages -----------------------------------------------------------------

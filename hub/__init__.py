@@ -187,6 +187,16 @@ class HubContext:
             return request.host_url.rstrip("/")
         return self._sandbox.hub.local_base
 
+    @property
+    def internal_base(self):
+        """Loopback URL for one prototype to call another on this hub.
+
+        Unlike ``local_base``, this must not inherit the incoming Host header:
+        that may be a LAN alias or public tunnel which is unsuitable for a
+        server-to-itself relay request.
+        """
+        return f"http://127.0.0.1:{self._sandbox.hub.port}"
+
     # -- same-sandbox machine lookups ------------------------------------------
     def is_enabled(self):
         """Is THIS machine currently enabled in its sandbox?"""

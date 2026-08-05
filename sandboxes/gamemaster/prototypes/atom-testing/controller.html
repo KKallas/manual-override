@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atom Testing</title>
+<link rel="stylesheet" href="/theme.css">
+<style>
+*{box-sizing:border-box} body{margin:0;color:var(--ink)}
+header{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:baseline}
+header h1{font-size:15px;margin:0} main{max-width:1440px;margin:auto;padding:18px}
+.grid{display:grid;grid-template-columns:minmax(330px,440px) 1fr;gap:16px;align-items:start}
+.panel{padding:16px 18px}.panel h2{font-size:12px;margin:0 0 14px}
+.field{display:grid;gap:6px;margin:0 0 12px}.field label,.eyebrow{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em}
+.field input,.field select{width:100%;padding:8px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions{display:flex;gap:10px;margin-top:17px}.actions button{flex:1;padding:10px}
+#start{color:var(--hot);border-color:var(--hot)}#stop{color:#ff5b3a;border-color:#ff5b3a}
+#status{border-left:3px solid var(--line);padding:11px 13px;margin-bottom:14px;background:#0c0e0c}
+#status.running{border-color:#ffb13a}#status.complete{border-color:var(--hot)}#status.error{border-color:#ff5b3a}
+#statusMain{font-size:14px;margin-bottom:5px}#statusSub{font:11px ui-monospace,Menlo,monospace;color:var(--dim)}
+.progress{height:5px;background:#20251f;border-radius:9px;overflow:hidden;margin-top:10px}.progress i{display:block;height:100%;width:0;background:var(--hot)}
+#recordings{display:flex;flex-direction:column;gap:10px}.recording{border:1px solid var(--line);border-radius:8px;padding:11px;background:#0c0e0c}
+.recordHead{display:flex;gap:9px;align-items:center;margin-bottom:8px}.badge{font-size:9px;text-transform:uppercase;letter-spacing:.1em;padding:2px 7px;border:1px solid var(--hot);color:var(--hot);border-radius:10px}
+.badge.drop{border-color:#ffb13a;color:#ffb13a}.file{font:10px ui-monospace,Menlo,monospace;color:var(--dim);overflow-wrap:anywhere}
+.graphs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:9px}.graph{min-width:0}.graph span{font-size:9px;color:var(--dim);text-transform:uppercase}.graph canvas{display:block;width:100%;height:110px;border:1px solid var(--line);border-radius:4px}
+.empty{padding:36px;text-align:center;color:var(--dim);border:1px dashed var(--line);border-radius:8px}
+#formMsg{font-size:11px;color:#ff5b3a;margin-top:9px;min-height:15px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.graphs{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>Atom Testing</h1><span class="sub">automated lift / drop dataset capture</span></header>
+<main>
+<div class="grid">
+<section class="panel">
+  <h2>Sequence setup</h2>
+  <div class="field"><label for="tag">Tag to record</label><select id="tag"></select></div>
+  <div class="field"><label for="project">Project name</label><input id="project" placeholder="e.g. foam-tag-study"></div>
+  <div class="field"><label for="folder">Save data in folder</label><input id="folder" placeholder="/Users/name/Documents/atom-data"></div>
+  <div class="row">
+    <div class="field"><label for="side">Robot arm</label><select id="side"><option value="purple">Purple</option><option value="green">Green</option></select></div>
+    <div class="field"><label for="calibration">Calibration</label><select id="calibration"><option value="legacy">Auto PP calibration</option><option value="cal2">Auto PP Cal 2</option></select></div>
+  </div>
+  <div class="row">
+    <div class="field"><label for="pickup">Pickup point</label><select id="pickup"></select></div>
+    <div class="field"><label for="drop">Drop point</label><select id="drop"></select></div>
+  </div>
+  <div class="field"><label for="runs">Runs in sequence</label><input id="runs" type="number" min="1" max="10000" value="10"></div>
+  <div class="actions"><button id="start">▶ Play sequence</button><button id="stop" disabled>■ Stop</button></div>
+  <div id="formMsg"></div>
+</section>
+<section>
+  <section class="panel">
+    <h2>Run status</h2>
+    <div id="status"><div id="statusMain">Ready</div><div id="statusSub">No sequence running</div><div class="progress"><i id="bar"></i></div></div>
+  </section>
+  <section class="panel">
+    <h2>Previous recordings</h2>
+    <div id="recordings"><div class="empty">Lift and drop captures will appear here with full accelerometer and gyroscope telemetry.</div></div>
+  </section>
+</section>
+</div>
+</main>
+<script>
+const BASE=location.pathname.endsWith('/')?location.pathname:location.pathname+'/';
+const U=p=>BASE+p.replace(/^\//,''); const $=id=>document.getElementById(id);
+let setup={calibrations:{legacy:{},cal2:{}}}, lastCount=0;
+async function json(path,options){try{const r=await fetch(U(path),options);return await r.json()}catch(e){return{ok:false,error:'offline'}}}
+function options(select,items,empty){
+  const current=select.value; select.innerHTML='';
+  if(!items.length)select.append(new Option(empty,''));
+  items.forEach(x=>select.append(new Option(x.label,x.key)));
+  if(items.some(x=>x.key===current))select.value=current;
+}
+function refreshPoints(){
+  const kind=$('calibration').value,side=$('side').value;
+  const points=setup.calibrations?.[kind]?.[side]||[];
+  options($('pickup'),points,'No calibrated points');
+  options($('drop'),points,'No calibrated points');
+  if(points.length>1&&!$('drop').value)$('drop').value=points.at(-1).key;
+}
+function draw(canvas,records,series){
+  const dpr=devicePixelRatio||1,w=Math.max(180,canvas.clientWidth),h=110;
+  canvas.width=w*dpr;canvas.height=h*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);
+  c.fillStyle='#0c0e0c';c.fillRect(0,0,w,h);
+  let values=records.flatMap(r=>series.map(s=>+r[s.key])).filter(Number.isFinite);
+  let lo=Math.min(...values),hi=Math.max(...values);if(!isFinite(lo)){lo=-1;hi=1}if(hi-lo<.01){lo-=.5;hi+=.5}
+  const x=i=>6+i*(w-12)/Math.max(1,records.length-1),y=v=>5+(hi-v)*(h-10)/(hi-lo);
+  c.strokeStyle='#293027';c.beginPath();c.moveTo(0,y(0));c.lineTo(w,y(0));c.stroke();
+  series.forEach(s=>{c.strokeStyle=s.color;c.lineWidth=1;c.beginPath();records.forEach((r,i)=>{const yy=y(+r[s.key]);i?c.lineTo(x(i),yy):c.moveTo(x(i),yy)});c.stroke()});
+}
+function recording(entry){
+  const box=document.createElement('article');box.className='recording';
+  box.innerHTML=`<div class="recordHead"><span class="badge ${entry.kind}">${entry.kind}</span><strong>Run ${entry.run}</strong><span class="file">${entry.samples} samples · ${entry.file}</span></div>
+  <div class="graphs"><div class="graph"><span>Magnitude</span><canvas></canvas></div><div class="graph"><span>Acceleration x/y/z</span><canvas></canvas></div><div class="graph"><span>Gyroscope x/y/z</span><canvas></canvas></div></div>`;
+  const cs=box.querySelectorAll('canvas'),axes=[{key:'accel_x',color:'#ff5b3a'},{key:'accel_y',color:'#b6ff3a'},{key:'accel_z',color:'#4aa8ff'}];
+  requestAnimationFrame(()=>{draw(cs[0],entry.records,[{key:'accel_magnitude',color:'#b6ff3a'}]);draw(cs[1],entry.records,axes);draw(cs[2],entry.records,axes.map((a,i)=>({...a,key:['gyro_x','gyro_y','gyro_z'][i]})))});
+  return box;
+}
+function apply(state){
+  $('statusMain').textContent=state.message||state.phase;
+  const savedCount=state.saved_count??state.saved?.length??0;
+  $('statusSub').textContent=state.running?`Run ${state.run} of ${state.runs} · ${state.phase}`:`${savedCount} recordings · ${state.phase}`;
+  $('status').className=state.running?'running':state.phase;
+  $('bar').style.width=state.runs?`${Math.min(100,100*(state.run-(state.running?.5:0))/state.runs)}%`:'0';
+  $('start').disabled=state.running;$('stop').disabled=!state.running;
+  document.querySelectorAll('input,select').forEach(e=>e.disabled=state.running);
+  const incoming=state.recordings??state.saved??[];
+  if(incoming.length){
+    const root=$('recordings');if(!lastCount)root.innerHTML='';
+    incoming.forEach(x=>root.prepend(recording(x)));
+    lastCount=savedCount;
+  }
+}
+async function init(){
+  const r=await json('api/setup');if(!r.ok)return;
+  setup=r;
+  const online=r.units.filter(u=>u.online&&u.accel_available);
+  $('tag').innerHTML='';online.forEach(u=>$('tag').append(new Option(`${u.name} · ${u.ip}`,u.id)));
+  if(!online.length)$('tag').append(new Option('No connected tags',''));
+  refreshPoints();apply(r.state);
+}
+$('side').onchange=refreshPoints;$('calibration').onchange=refreshPoints;
+$('start').onclick=async()=>{
+  $('formMsg').textContent='';
+  const body={unit:$('tag').value,project:$('project').value,folder:$('folder').value,side:$('side').value,calibration:$('calibration').value,pickup_point:$('pickup').value,drop_point:$('drop').value,runs:$('runs').value};
+  const r=await json('api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){$('formMsg').textContent=r.error||'Could not start';return}lastCount=0;$('recordings').innerHTML='<div class="empty">Waiting for first capture…</div>';apply(r.state);
+};
+$('stop').onclick=async()=>{const r=await json('api/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(r.ok)apply(r.state)};
+setInterval(async()=>{const r=await json(`api/state?since=${lastCount}`);if(r.ok)apply(r.state)},300);
+init();
+</script>
+</body>
+</html>

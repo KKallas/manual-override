@@ -635,11 +635,38 @@ class DobotMG400:
                 continue
             no_servo_count = 0
             dt = interval
-            # Acceleration-limited slew: ramp velocity up toward the cap, then brake
-            # early enough (v <= sqrt(2*a*dist)) to arrive at the target with ~zero
-            # speed. This eases the start AND the stop, so the arm tracks a smooth
-            # velocity profile instead of overshooting and creeping back.
-            for i, (v_max, a) in enumerate(caps):
+            # Cartesian XYZ must share one path-progress value. Slewing each axis
+            # independently makes an apparently safe straight XY command bow away
+            # from its line whenever the axis distances differ, which can cut across
+            # circular keep-out zones. Use one acceleration-limited scalar speed for
+            # XYZ so every streamed ServoP point remains on the segment from the
+            # current setpoint to the requested target. Tool rotation remains an
+            # independent scalar axis.
+            first_scalar_axis = 0
+            if cartesian:
+                delta = [target[i] - setpoint[i] for i in range(3)]
+                distance = sum(value * value for value in delta) ** 0.5
+                current_speed = sum(vel[i] * vel[i] for i in range(3)) ** 0.5
+                acceleration = self._max_lin_acc
+                desired_speed = min(self._max_lin, (2.0 * acceleration * distance) ** 0.5)
+                speed_delta = max(-acceleration * dt,
+                                  min(acceleration * dt, desired_speed - current_speed))
+                next_speed = max(0.0, current_speed + speed_delta)
+                travel = min(distance, next_speed * dt)
+                if distance <= 1e-9 or travel >= distance:
+                    for i in range(3):
+                        setpoint[i] = target[i]
+                        vel[i] = 0.0
+                else:
+                    direction = [value / distance for value in delta]
+                    for i in range(3):
+                        setpoint[i] += direction[i] * travel
+                        vel[i] = direction[i] * next_speed
+                first_scalar_axis = 3
+
+            # Joint axes, and Cartesian tool rotation, retain their scalar slew.
+            for i in range(first_scalar_axis, 4):
+                v_max, a = caps[i]
                 remaining = target[i] - setpoint[i]
                 dist = abs(remaining)
                 direction = 1.0 if remaining >= 0 else -1.0

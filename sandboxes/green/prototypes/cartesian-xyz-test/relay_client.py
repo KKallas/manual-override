@@ -143,6 +143,10 @@ class RelayClient:
         """Acquire our side's arm and start heartbeating. Each side owns its own
         arm now, so acquire never collides across sides — only a missing relay or a
         genuinely bad request is an error. Raises RelayError in those cases."""
+        # A player is allowed to connect without the relay operator page being
+        # opened first. Establish the relay-owned robot sockets before taking a
+        # short-lived lease or asking the route layer to enable the arm.
+        self._ensure_arm_connected()
         status, body = self._post("/api/acquire",
                                   {"side": self.side, "mode": self.control_mode})
         if status is None:

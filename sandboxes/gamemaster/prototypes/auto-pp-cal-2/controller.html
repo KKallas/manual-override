@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Auto PP Cal 2</title><link rel="stylesheet" href="/theme.css">
+<style>
+main{max-width:1050px;margin:auto;padding:20px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}button,a{padding:9px 12px;border-radius:6px;border:1px solid var(--line);background:#232733;color:var(--txt);text-decoration:none;cursor:pointer}
+button.primary{background:var(--accent);color:#10140a;font-weight:800}.teams{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:700px){.teams{grid-template-columns:1fr}}.muted{color:var(--muted)}.ok{color:var(--ok)}
+.preview{position:relative;overflow:hidden;aspect-ratio:16/9;background:#030405;border:1px solid var(--line);border-radius:8px}.preview img{width:100%;height:100%;display:block;object-fit:contain}.preview.rot img{transform:rotate(180deg)}.pins{position:absolute;inset:0;pointer-events:none}.pin{position:absolute;transform:translate(-50%,-50%);padding:3px 7px;border:2px solid var(--accent);border-radius:99px;background:#05070ddd;color:#fff;font-size:11px;font-weight:900}select{padding:9px 12px;border-radius:6px;border:1px solid var(--line);background:#232733;color:var(--txt)}
+</style></head><body><main>
+<h1>Auto PP Cal 2</h1><p class="muted">Calibrate six outer-edge targets against each arm’s calibrated reach.</p>
+<section class="panel"><h2>Distortion-corrected calibration camera</h2>
+<div id="preview" class="preview"><img id="camera" alt="Auto PP Cal 2 corrected camera preview"><div id="pins" class="pins"></div></div>
+<div class="row" style="margin-top:10px"><label>Preview player <select id="previewSide"><option value="green">Green</option><option value="purple">Purple</option></select></label><span id="previewState" class="muted">Loading camera…</span></div>
+<p class="muted">The preview follows the selected player’s saved orientation. Applying 180° rotation below rotates both this view and the marker layout loaded on the playfield.</p>
+</section>
+<section class="panel"><h2>Calibration gamefield</h2><div class="row">
+<button id="load" class="primary">Load Cal 2 gamefield</button>
+<a href="/s/gamemaster/p/playfield-areas/" target="_blank">Open gamefield</a><span id="field" class="muted"></span>
+</div><p class="muted">Loads the fixed Auto PP Cal 2 marker field (30–35), including its saved positions, camera, FOV, and effects. Other games cannot overwrite this snapshot.</p></section>
+<section class="panel"><h2>Player access</h2><div class="teams">
+<div><h3>Green</h3><div class="row"><button data-side="green" data-on="1">Enable only Green</button><button data-side="green">Disable</button><a href="/s/green/p/auto-pp-cal-2/" target="_blank">Open tab</a></div><div class="row"><label>Camera + marker field <select id="greenView"><option value="normal">Normal</option><option value="rot180">Rotate 180°</option></select></label><button data-apply-view="green">Apply orientation</button></div><p id="green" class="muted">—</p></div>
+<div><h3>Purple</h3><div class="row"><button data-side="purple" data-on="1">Enable only Purple</button><button data-side="purple">Disable</button><a href="/s/purple/p/auto-pp-cal-2/" target="_blank">Open tab</a></div><div class="row"><label>Camera + marker field <select id="purpleView"><option value="normal">Normal</option><option value="rot180">Rotate 180°</option></select></label><button data-apply-view="purple">Apply orientation</button></div><p id="purple" class="muted">—</p></div>
+</div></section>
+<section class="panel"><h2>Progress</h2><div id="progress" class="muted">Loading…</div></section>
+<script>
+const GM=`${location.origin}/s/gamemaster/p/auto-pickup-game`;
+const TAGS=`${location.origin}/s/gamemaster/p/webcam/api/tags?space=corrected`;
+const CAMERA=`${location.origin}/s/gamemaster/p/camera-calibration/api/corrected-stream`;
+let calibration={},visibleTags=[];
+const orientationDirty={green:false,purple:false};
+async function api(path,body){const r=await fetch(GM+path,{method:body?"POST":"GET",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):null});const d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||`HTTP ${r.status}`);return d}
+function activeView(){const side=document.getElementById("previewSide").value;return (((calibration.arms||{})[side]||{}).camera_view)==="rot180"?"rot180":"normal"}
+function renderPreview(){const rotated=activeView()==="rot180";document.getElementById("preview").classList.toggle("rot",rotated);const markers=new Set(Object.values((calibration.playfield||{}).targets||{}).map(p=>Number(p.marker)));document.getElementById("pins").innerHTML=visibleTags.filter(t=>markers.has(Number(t.id))).map(t=>{let u=Number(t.nx??t.u),v=Number(t.ny??t.v);if(rotated){u=1-u;v=1-v}return `<span class="pin" style="left:${u*100}%;top:${v*100}%">${t.id}</span>`}).join("");document.getElementById("previewState").textContent=`${document.getElementById("previewSide").value} · ${rotated?"180° rotated":"normal"} · ${visibleTags.length} tags visible`}
+function render(d){const c=d.calibration||{},a=d.access||{};calibration=c;for(const side of ["green","purple"]){const arm=(c.arms||{})[side]||{};const done=Object.values(arm.points||{}).filter(p=>p.pose&&p.pose.set&&p.camera).length;document.getElementById(side).textContent=`${done}/6 points · ${((a.teams||{})[side]||{}).enabled?"ENABLED":"disabled"}`;if(!orientationDirty[side])document.getElementById(`${side}View`).value=arm.camera_view==="rot180"?"rot180":"normal"}document.getElementById("progress").textContent=`Shared Z: pickup ${(c.shared_z&&c.shared_z.pickup_height)??"—"} mm · transport ${(c.shared_z&&c.shared_z.transport_height)??"—"} mm`;renderPreview()}
+async function refresh(){try{render(await api("/api/calibration2"))}catch(e){document.getElementById("progress").textContent=e.message}}
+async function refreshTags(){try{const r=await fetch(TAGS);const d=await r.json();visibleTags=d.tags||d.detections||[];renderPreview()}catch(_){}}
+async function loadCal2Gamefield(automatic=false){const field=document.getElementById("field"),side=document.getElementById("previewSide").value,view=document.getElementById(`${side}View`).value;field.textContent=automatic?"Loading fixed Cal 2 gamefield…":"Loading six targets…";try{const d=await api("/api/calibration2/playfield",{side,camera_view:view});orientationDirty[side]=false;field.textContent=`Fixed six-point Cal 2 gamefield loaded for ${side} (${view==="rot180"?"180°":"normal"}).`;render(d)}catch(e){field.textContent=`Cal 2 gamefield was not loaded: ${e.message}`}}
+async function useCurrentPlayfield(){const field=document.getElementById("field"),side=document.getElementById("previewSide").value,view=document.getElementById(`${side}View`).value;field.textContent="Using current playfield as the Cal 2 default…";try{const d=await api("/api/calibration2/use-current-playfield",{side,camera_view:view});field.textContent="Current playfield setup is the default Cal 2 gamefield.";render(d)}catch(e){field.textContent=`Current playfield could not be used: ${e.message}`}}
+document.getElementById("load").onclick=()=>loadCal2Gamefield(false);
+document.querySelectorAll("button[data-side]").forEach(b=>b.onclick=async()=>{try{await api("/api/calibration/access",{side:b.dataset.side,enabled:b.dataset.on==="1"});await refresh()}catch(e){alert(e.message)}});
+for(const side of ["green","purple"]){document.getElementById(`${side}View`).onchange=()=>{orientationDirty[side]=true}}
+document.querySelectorAll("button[data-apply-view]").forEach(b=>b.onclick=async()=>{const side=b.dataset.applyView,view=document.getElementById(`${side}View`).value,field=document.getElementById("field");field.textContent=`Applying ${side} orientation…`;try{const d=await api("/api/calibration2/orientation",{side,camera_view:view});orientationDirty[side]=false;document.getElementById("previewSide").value=side;field.textContent=`${side} camera and playfield set to ${view==="rot180"?"180° rotated":"normal"}.`;render(d)}catch(e){field.textContent=e.message}});
+document.getElementById("previewSide").onchange=renderPreview;document.getElementById("camera").src=CAMERA+`?t=${Date.now()}`;(async()=>{await refresh();await loadCal2Gamefield(true);await refreshTags()})();setInterval(refresh,1200);setInterval(refreshTags,800);
+</script></main></body></html>

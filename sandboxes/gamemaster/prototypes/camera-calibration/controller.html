@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Camera Calibration</title>
+<style>
+:root{--bg:#0f1115;--panel:#1a1d24;--line:#2a2f3a;--txt:#e6e9ef;--muted:#8a93a6;--accent:#b6ff3a;--ok:#36c46b;--err:#ff5462}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#05070a;color:var(--txt);font:14px system-ui,-apple-system,sans-serif}.hero,.content{width:min(calc(100vw - 24px),1500px);margin:12px auto}.hero{display:flex;align-items:center;justify-content:space-between;gap:16px}.hero h1{margin:0;font-size:21px;letter-spacing:.08em;text-transform:uppercase}.sub,.note{color:var(--muted)}.stage{position:relative;height:min(68vh,720px);min-height:420px;background:#000;border-block:1px solid #263141;overflow:hidden}.stage img{width:100%;height:100%;object-fit:contain;display:block}.stage-note{position:absolute;left:16px;bottom:16px;margin:0;padding:8px 12px;border:1px solid #ffffff30;border-radius:8px;background:#05080dcc;backdrop-filter:blur(7px)}.layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:16px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}.row{display:flex;gap:8px;margin:10px 0;align-items:center;flex-wrap:wrap}input,select{background:#0c0e12;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:8px}input{width:76px}select{min-width:220px}input[type=range]{width:min(680px,100%);padding:0;accent-color:var(--accent)}button{background:#252a34;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:9px 12px;cursor:pointer}button.primary,.button{background:var(--accent);border:1px solid var(--accent);color:#10140a;font-weight:700}.button{display:inline-flex;align-items:center;text-decoration:none;border-radius:6px;padding:9px 12px}button:disabled,input:disabled,select:disabled{opacity:.4;cursor:not-allowed}.stat{padding:10px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.ok{color:var(--ok)}.bad{color:var(--err)}#msg,#focusMsg{min-height:22px}.steps{padding-left:20px;color:var(--muted);line-height:1.55}@media(max-width:800px){.layout{grid-template-columns:1fr}.hero{align-items:stretch;flex-direction:column}.stage{height:58vh;min-height:320px}}
+</style><link rel="stylesheet" href="/theme.css">
+</head>
+<body>
+<header class="hero"><div><h1>Camera Calibration</h1><span class="sub">OpenCV wide-angle lens correction</span></div><a class="button" href="screen" target="_blank">Open calibration grid ↗</a></header>
+<section class="stage"><img id="feed" alt="calibration camera feed"><p class="note stage-note">Yellow reference grid · green image centre · board detection shown in Status</p></section>
+<main class="content"><div class="layout">
+<section><div class="panel"><b>Calibration board</b><div class="row">
+<label>Inner columns <input id="cols" type="number" min="3" value="15"></label>
+<label>Inner rows <input id="rows" type="number" min="3" value="9"></label>
+<label>Physical square mm <input id="square" type="number" min=".1" step=".1" value="25"></label>
+<button id="apply">Apply</button></div>
+<div class="row"><button class="primary" id="capture">Scan 9 patterns</button><button id="reset">Clear samples</button><button class="primary" id="calibrate">Calculate calibration</button><button id="clearCalibration">Clear calibration</button></div>
+<div id="msg" class="note"></div></div>
+<div class="panel"><b>Webcam focus</b>
+<p class="note">For UVC webcams that expose focus controls. Disable autofocus before adjusting manual focus.</p>
+<div class="row"><label for="focusCamera">Camera</label><select id="focusCamera" disabled><option>Scanning cameras…</option></select><button id="refreshCameras" type="button">Refresh</button></div>
+<div class="row"><label><input id="autofocus" type="checkbox" style="width:auto"> Autofocus</label><span id="focusSupport" class="note">Checking camera controls…</span></div>
+<div class="row"><label for="manualFocus">Manual focus</label><input id="manualFocus" type="range" min="0" max="255" step="1" disabled><output id="focusValue">—</output></div>
+<hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+<b>Webcam exposure</b>
+<p class="note">Disable auto exposure before adjusting exposure time. The logarithmic scale gives finer control at short exposures; values are shown in seconds.</p>
+<div class="row"><label><input id="autoexposure" type="checkbox" style="width:auto"> Auto exposure</label><span id="exposureSupport" class="note">Checking camera controls…</span></div>
+<div class="row"><label for="manualExposure">Manual exposure</label><input id="manualExposure" type="range" min="0" max="1000" step="1" disabled><output id="exposureValue">—</output></div>
+<hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+<b>Display brightness</b>
+<p class="note">Target, playfield objects, and Atom tags are linked by default. Unlink to tune them independently; linking again preserves their current ratios.</p>
+<div class="row"><label><input id="linkBrightness" type="checkbox" style="width:auto" checked> Link brightness sliders</label></div>
+<div class="row"><label for="targetBrightness">Calibration target</label><input id="targetBrightness" type="range" min="10" max="200" step="1" value="100"><output id="targetBrightnessValue">100%</output><button id="resetTargetBrightness" type="button">Reset</button></div>
+<div class="row"><label for="globalBrightness">Playfield objects</label><input id="globalBrightness" type="range" min="10" max="200" step="1" value="100"><output id="globalBrightnessValue">100%</output></div>
+<div class="row"><label for="atomBrightness">Atom tags</label><input id="atomBrightness" type="range" min="10" max="200" step="1" value="100"><output id="atomBrightnessValue">100%</output></div>
+<div id="focusMsg" class="note"></div>
+</div></section>
+<aside><div class="panel"><b>Status</b>
+<div class="stat"><span>Camera</span><span id="camera">—</span></div>
+<div class="stat"><span>Chessboard</span><span id="board">—</span></div>
+<div class="stat"><span>Samples</span><span id="samples">0 / 1</span></div>
+<div class="stat"><span>Calibration</span><span id="result">none</span></div>
+<div class="row"><label><input id="enabled" type="checkbox" checked style="width:auto"> Preview correction</label></div></div>
+<div class="panel"><b>Physical display</b><p class="note">The default 15×9 inner-corner board is 16×10 square cells. On a 16:9 display it is automatically letterboxed to keep every cell square and prevent aspect-ratio distortion. Enter the measured width of one physical square above.</p><p><a class="button" href="screen" target="_blank">Open calibration grid ↗</a></p></div>
+<div class="panel"><b>How to calibrate</b><ol class="steps"><li>Open the camera in the Webcam tab.</li><li>Open the calibration grid on the physical display and enter fullscreen.</li><li>Align the centre targets, then scan all nine shifted patterns.</li><li>Calculate calibration and inspect the straightness of the preview grid.</li></ol><p class="note">The alignment board returns automatically after the fixed-display scan.</p></div></aside>
+</div></main>
+<script>
+const BASE=location.pathname.replace(/\/?$/,'/'),U=p=>BASE+p.replace(/^\//,'/'),$=id=>document.getElementById(id);
+const TARGET_BRIGHTNESS_KEY='hhh-calibration-target-brightness';
+const BRIGHTNESS_LINK_KEY='hhh-brightness-sliders-linked';
+const PLAYFIELD_SETTINGS='/s/gamemaster/p/playfield-areas/api/settings';
+$('feed').src=U('api/stream')+'?t='+Date.now();
+let configLoaded=false,focusSaving=false;
+let exposureRange={min:1,max:1000,step:1};
+function exposureSliderPosition(value){
+  const {min,max,step}=exposureRange,offset=Math.max(step,1);
+  if(max<=min)return 0;
+  return 1000*Math.log((Math.max(min,Math.min(max,value))+offset)/(min+offset))/Math.log((max+offset)/(min+offset));
+}
+function exposureFromSlider(position){
+  const {min,max,step}=exposureRange,offset=Math.max(step,1),ratio=Math.max(0,Math.min(1,position/1000));
+  const value=Math.exp(Math.log(min+offset)+ratio*Math.log((max+offset)/(min+offset)))-offset;
+  return Math.max(min,Math.min(max,min+Math.round((value-min)/step)*step));
+}
+function exposureSeconds(value){return `${(Number(value)/10000).toFixed(4)} s`}
+function setTargetBrightness(value){
+  const brightness=Math.max(10,Math.min(200,Math.round(Number(value)||100)));
+  $('targetBrightness').value=brightness;$('targetBrightnessValue').value=`${brightness}%`;
+  localStorage.setItem(TARGET_BRIGHTNESS_KEY,String(brightness));
+}
+const brightnessValues={target:100,global:100,atom:100};
+const brightnessIds={target:'targetBrightness',global:'globalBrightness',atom:'atomBrightness'};
+let brightnessSaveTimer;
+function clampBrightness(value){return Math.max(10,Math.min(200,Math.round(Number(value)||100)))}
+function renderBrightness(){
+  for(const [kind,id] of Object.entries(brightnessIds)){
+    $(id).value=brightnessValues[kind];$(`${id}Value`).value=`${brightnessValues[kind]}%`;
+  }
+  setTargetBrightness(brightnessValues.target);
+}
+function savePlayfieldBrightness(){
+  clearTimeout(brightnessSaveTimer);
+  brightnessSaveTimer=setTimeout(()=>fetch(PLAYFIELD_SETTINGS,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({global_brightness:brightnessValues.global/100,atom_brightness:brightnessValues.atom/100})}).catch(()=>focusMessage('Could not save playfield brightness')),60);
+}
+function changeBrightness(kind,value){
+  const next=clampBrightness(value),old=brightnessValues[kind];
+  if($('linkBrightness').checked&&old>0){
+    const ratio=next/old;
+    for(const key of Object.keys(brightnessValues))brightnessValues[key]=clampBrightness(brightnessValues[key]*ratio);
+  }
+  brightnessValues[kind]=next;
+  renderBrightness();savePlayfieldBrightness();
+}
+async function loadPlayfieldBrightness(){
+  try{const r=await fetch(PLAYFIELD_SETTINGS),d=await r.json(),s=d.settings||{};brightnessValues.global=clampBrightness(Number(s.global_brightness??1)*100);brightnessValues.atom=clampBrightness(Number(s.atom_brightness??1)*100);renderBrightness()}catch(e){focusMessage('Could not load playfield brightness')}
+}
+async function post(path,body={}){const r=await fetch(U(path),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||'Request failed');return d}
+async function del(path){const r=await fetch(U(path),{method:'DELETE'});const d=await r.json();if(!r.ok)throw Error(d.error||'Request failed');return d}
+function message(text,ok=false){$('msg').textContent=text;$('msg').className=ok?'ok':'bad'}
+function focusMessage(text,ok=false){$('focusMsg').textContent=text;$('focusMsg').className=ok?'ok':'bad'}
+function calibrationQuality(rms){
+  if(!Number.isFinite(Number(rms)))return {label:'unknown',good:false};
+  if(rms<0.3)return {label:'excellent',good:true};
+  if(rms<0.5)return {label:'good',good:true};
+  if(rms<1.0)return {label:'usable',good:true};
+  return {label:'poor — recalibrate',good:false};
+}
+async function loadCameras(){
+  $('refreshCameras').disabled=true;
+  try{
+    const r=await fetch(U('api/cameras')),d=await r.json();
+    if(!r.ok)throw Error(d.error||'Could not list cameras');
+    $('focusCamera').innerHTML=d.cameras.length?d.cameras.map(c=>`<option value="${c.index}">${c.label}</option>`).join(''):'<option value="">No cameras found</option>';
+    $('focusCamera').disabled=!d.cameras.length;
+    if(d.active_index!==null&&d.active_index!==undefined)$('focusCamera').value=String(d.active_index);
+  }catch(e){focusMessage(e.message)}
+  finally{$('refreshCameras').disabled=false}
+}
+function renderFocus(c){
+  const autoSupported=!!c.autofocus_supported,manualSupported=!!c.focus_supported;
+  const autoExposureSupported=!!c.autoexposure_supported,exposureSupported=!!c.exposure_supported;
+  $('autofocus').disabled=!c.camera_open||!autoSupported;
+  $('autofocus').checked=autoSupported&&!!c.autofocus;
+  $('manualFocus').min=c.focus_min??0;$('manualFocus').max=c.focus_max??255;$('manualFocus').step=c.focus_step??1;
+  if(manualSupported&&Number.isFinite(Number(c.focus))){$('manualFocus').value=c.focus;$('focusValue').value=c.focus}else $('focusValue').value='—';
+  $('manualFocus').disabled=!c.camera_open||!manualSupported||$('autofocus').checked;
+  $('focusSupport').textContent=!c.camera_open?'Open a camera in the Webcam tab':(autoSupported||manualSupported?'UVC focus controls available':'Focus controls not supported by this camera/backend');
+  $('autoexposure').disabled=!c.camera_open||!autoExposureSupported;
+  $('autoexposure').checked=autoExposureSupported&&!!c.autoexposure;
+  const exposureMin=Number(c.exposure_min??1),exposureMax=Number(c.exposure_max??1000),exposureStep=Math.max(1,Number(c.exposure_step??1));
+  exposureRange={min:exposureMin,max:exposureMax,step:exposureStep};
+  if(exposureSupported&&Number.isFinite(Number(c.exposure))){$('manualExposure').value=exposureSliderPosition(Number(c.exposure));$('exposureValue').value=exposureSeconds(c.exposure)}else $('exposureValue').value='—';
+  $('manualExposure').disabled=!c.camera_open||!exposureSupported||$('autoexposure').checked;
+  $('exposureSupport').textContent=!c.camera_open?'Open a camera in the Webcam tab':(autoExposureSupported||exposureSupported?'UVC exposure controls available':'Exposure controls not supported by this camera/backend');
+  if(c.camera_index!==null&&c.camera_index!==undefined)$('focusCamera').value=String(c.camera_index);
+}
+async function pollFocus(){if(focusSaving)return;try{const r=await fetch(U('api/focus'));const d=await r.json();if(r.ok)renderFocus(d)}catch(e){}}
+async function poll(){try{const s=await(await fetch(U('api/status'))).json();$('camera').textContent=s.camera_ready?'ready':'open Webcam tab';$('camera').className=s.camera_ready?'ok':'bad';$('board').textContent=s.board_found?'detected':'not detected';$('board').className=s.board_found?'ok':'';$('samples').textContent=`${s.samples} / ${s.minimum_samples}`;if(s.calibrated){const q=calibrationQuality(s.rms);$('result').textContent=`saved · RMS ${s.rms.toFixed(3)} px · ${q.label}`;$('result').className=q.good?'ok':'bad';$('result').title='RMS reprojection error: <0.3 px excellent, <0.5 px good, <1.0 px usable, ≥1.0 px poor'}else{$('result').textContent='none';$('result').className=''}$('enabled').checked=s.enabled;$('capture').disabled=!s.camera_ready||!s.board_found;$('calibrate').disabled=s.samples<s.minimum_samples;if(!configLoaded){$('cols').value=s.board[0];$('rows').value=s.board[1];$('square').value=s.square_size;configLoaded=true}}catch(e){}}
+$('apply').onclick=async()=>{try{await post('api/config',{cols:+$('cols').value,rows:+$('rows').value,square_size:+$('square').value});message('Board settings applied.',true);poll()}catch(e){message(e.message)}};
+$('capture').onclick=async()=>{try{$('capture').disabled=true;message('Scanning 9 checkerboard positions… keep the target screen open.',true);const d=await post('api/capture'),skipped=d.skipped?.length?` Positions ${d.skipped.join(', ')} were obstructed and skipped.`:'';message(`Captured ${d.patterns} shifted checkerboards.${skipped} Ready to calculate calibration.`,true);poll()}catch(e){message(e.message)}finally{$('capture').disabled=false}};
+$('reset').onclick=async()=>{await post('api/reset');message('Samples cleared.',true);poll()};
+$('calibrate').onclick=async()=>{try{const d=await post('api/calibrate'),q=calibrationQuality(d.rms);message(`Calibration saved. RMS reprojection error: ${d.rms.toFixed(4)} px — ${q.label}.`,q.good);poll()}catch(e){message(e.message)}};
+$('clearCalibration').onclick=async()=>{try{await del('api/calibration');message('Saved calibration and samples cleared. Ready for a new calibration.',true);poll()}catch(e){message(e.message)}};
+$('enabled').onchange=()=>post('api/enabled',{enabled:$('enabled').checked});
+$('refreshCameras').onclick=loadCameras;
+$('focusCamera').onchange=async()=>{const index=Number($('focusCamera').value);if(!Number.isInteger(index))return;focusSaving=true;$('focusCamera').disabled=true;focusMessage(`Opening Camera ${index}…`);try{await post('api/camera',{index});await pollFocus();focusMessage(`Camera ${index} selected.`,true)}catch(e){focusMessage(e.message);await loadCameras()}finally{focusSaving=false;$('focusCamera').disabled=false;pollFocus()}};
+$('autofocus').onchange=async()=>{focusSaving=true;try{const d=await post('api/focus',{autofocus:$('autofocus').checked});renderFocus(d);focusMessage(d.autofocus?'Autofocus enabled.':'Autofocus disabled; manual focus is available.',true)}catch(e){focusMessage(e.message)}finally{focusSaving=false;pollFocus()}};
+$('autoexposure').onchange=async()=>{focusSaving=true;try{const d=await post('api/focus',{autoexposure:$('autoexposure').checked});renderFocus(d);focusMessage(d.autoexposure?'Auto exposure enabled.':'Auto exposure disabled; manual exposure is available.',true)}catch(e){focusMessage(e.message)}finally{focusSaving=false;pollFocus()}};
+let focusTimer;
+$('manualFocus').oninput=()=>{$('focusValue').value=$('manualFocus').value;clearTimeout(focusTimer);focusTimer=setTimeout(async()=>{focusSaving=true;try{const d=await post('api/focus',{focus:+$('manualFocus').value});renderFocus(d);focusMessage(`Manual focus set to ${d.focus}.`,true)}catch(e){focusMessage(e.message)}finally{focusSaving=false;pollFocus()}},120)};
+let exposureTimer;
+$('manualExposure').oninput=()=>{const exposure=exposureFromSlider(+$('manualExposure').value);$('exposureValue').value=exposureSeconds(exposure);clearTimeout(exposureTimer);exposureTimer=setTimeout(async()=>{focusSaving=true;try{const d=await post('api/focus',{exposure});renderFocus(d);focusMessage(`Manual exposure set to ${exposureSeconds(d.exposure)}.`,true)}catch(e){focusMessage(e.message)}finally{focusSaving=false;pollFocus()}},120)};
+$('targetBrightness').oninput=()=>changeBrightness('target',$('targetBrightness').value);
+$('globalBrightness').oninput=()=>changeBrightness('global',$('globalBrightness').value);
+$('atomBrightness').oninput=()=>changeBrightness('atom',$('atomBrightness').value);
+$('resetTargetBrightness').onclick=()=>changeBrightness('target',100);
+$('linkBrightness').checked=localStorage.getItem(BRIGHTNESS_LINK_KEY)!=='false';
+$('linkBrightness').onchange=()=>localStorage.setItem(BRIGHTNESS_LINK_KEY,String($('linkBrightness').checked));
+brightnessValues.target=clampBrightness(localStorage.getItem(TARGET_BRIGHTNESS_KEY)||100);
+renderBrightness();loadPlayfieldBrightness();
+poll();pollFocus();loadCameras();setInterval(poll,750);setInterval(pollFocus,2000);
+</script></body></html>

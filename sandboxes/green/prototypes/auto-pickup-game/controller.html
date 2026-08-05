@@ -160,15 +160,30 @@
   .calOverlay .calPin { position:absolute; min-width:30px; height:20px; padding:0 6px; display:flex; align-items:center; justify-content:center; border:2px solid #fff; border-radius:999px; background:rgba(3,4,5,.78); color:#fff; font-size:10px; font-weight:900; line-height:1; transform:translate(-50%, -50%); box-shadow:0 0 0 2px rgba(0,0,0,.35); }
   .calOverlay .calPin.center { border-color:var(--accent); color:var(--accent); }
   .calOverlay .calPin.corner { border-color:var(--ok); color:var(--ok); }
+  .calOverlay .physicalTagShape { fill:none; stroke:#ffd35a; stroke-width:.45;
+    vector-effect:non-scaling-stroke; }
+  .calOverlay .physicalTagLabel { position:absolute; color:#ffd35a; font-size:12px;
+    font-weight:900; line-height:1; white-space:nowrap; text-shadow:0 1px 2px #000,0 0 3px #000;
+    transform:translate(5px,-50%); }
   .calOverlay[hidden] { display:none; }
   .moveZoneLayer { position:absolute; inset:0; pointer-events:none; z-index:4;
     transform-origin:0 0; transform:var(--feedOverlayTransform); }
   .reachMask { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
   .moveZoneShape { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
   .moveZoneShape polygon { fill:rgba(245,166,35,.08); stroke:var(--warn); stroke-width:.55; vector-effect:non-scaling-stroke; }
+  .armLimitShape { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+  .armLimitShape polygon { fill:none; stroke:#ff3b4d; stroke-width:1.1; stroke-dasharray:7 5; vector-effect:non-scaling-stroke; }
+  .baseNoGoShape { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+  .baseNoGoShape polygon { fill:rgba(255,59,77,.34); stroke:#ff3b4d; stroke-width:.25; vector-effect:non-scaling-stroke; }
   .moveZoneLayer[hidden] { display:none; }
   .clickDot { position:absolute; width:16px; height:16px; border:3px solid var(--accent); border-radius:50%; transform:translate(-50%, -50%); z-index:5; box-shadow:0 0 0 9999px rgba(79,157,255,.04); pointer-events:none; }
   .clickDot[hidden] { display:none; }
+  .armTrail { position:absolute; inset:0; width:100%; height:100%; z-index:5; pointer-events:none; overflow:visible; }
+  .armTrail line { stroke:#258dff; stroke-width:3; stroke-linecap:round; vector-effect:non-scaling-stroke; }
+  .armTrail[hidden] { display:none; }
+  .armPoseMarker { position:absolute; z-index:6; transform:translate(-50%,-50%); padding:4px 7px; border:2px solid var(--ok); border-radius:999px; background:rgba(5,8,10,.9); color:var(--ok); font-size:11px; font-weight:950; pointer-events:none; white-space:nowrap; }
+  .armPoseMarker.out { border-color:#ff3b4d; background:rgba(150,0,20,.92); color:#fff; box-shadow:0 0 0 5px rgba(255,59,77,.25); }
+  .armPoseMarker[hidden] { display:none; }
   .markerStamp { position:absolute; left:10px; bottom:10px; z-index:6; padding:5px 8px; border:1px solid var(--line); border-radius:6px; background:rgba(12,14,18,.86); color:var(--txt); font-size:12px; font-variant-numeric:tabular-nums; }
   .markerStamp[hidden] { display:none; }
   .feedBanner { position:absolute; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.55);
@@ -229,6 +244,8 @@
       <div id="calOverlay" class="calOverlay" hidden></div>
       <div id="moveZoneLayer" class="moveZoneLayer" hidden></div>
       <div id="clickDot" class="clickDot" hidden></div>
+      <svg id="armTrail" class="armTrail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" hidden></svg>
+      <div id="armPoseMarker" class="armPoseMarker" hidden></div>
       <div id="markerStamp" class="markerStamp" hidden></div>
       <div id="feedBanner" class="feedBanner" hidden></div>
       <div class="feedTools">
@@ -302,6 +319,12 @@
 
   <section class="panel autoPpxPanel" id="autoPpxPanel" hidden>
     <h2>Auto PP X</h2>
+    <div class="row" style="margin-bottom:10px">
+      <label for="autoPpxCalibration">Position calibration</label>
+      <select id="autoPpxCalibration">
+        <option value="cal2">Auto PP Cal 2 (Affine + TPS)</option>
+      </select>
+    </div>
     <div id="autoPpxQueue" class="autoPpxQueue">
       <div class="autoPpxQueueRow">
         <label for="autoPpxSource">Choose target
@@ -417,8 +440,9 @@
    ===================================================================== */
 const TEAM = (location.pathname.match(/\/s\/([^/]+)/) || [])[1] === 'green' ? 'green' : 'purple';
 const GM = `${location.origin}/s/gamemaster/p/auto-pickup-game`;
-const WEBCAM = `${location.origin}/s/gamemaster/p/webcam/api/stream`;
-const WEBCAM_TAGS = `${location.origin}/s/gamemaster/p/webcam/api/tags`;
+const WEBCAM = `${location.origin}/s/gamemaster/p/camera-calibration/api/corrected-stream`;
+const WEBCAM_TAGS = `${location.origin}/s/gamemaster/p/webcam/api/tags?space=corrected`;
+const LASER_RUN = `${location.origin}/s/gamemaster/p/laser-tag/api/run`;
 const CART = `${location.origin}/s/${TEAM}/p/cartesian-xyz-test`;
 const AUTO_PPX = /\/p\/auto-pp-x(?:\/|$)/.test(location.pathname);
 const FLIP_KEY = `auto-pickup-game-flip-${TEAM}`;
@@ -426,6 +450,7 @@ const TAG_OVERLAY_KEY = `auto-pickup-game-tags-${TEAM}`;
 const PLAYER_NAME_KEY = `auto-pickup-game-player-name-${TEAM}`;
 const NAME_HISTORY_KEY = "auto-pickup-game-player-names";
 const FINE_CAL_KEY = `auto-pp-x-fine-cal-${TEAM}`;
+const AUTO_PPX_CAL_KEY = `auto-pp-x-position-calibration-${TEAM}`;
 const QUEUE_KEY = `auto-pp-x-queue-${TEAM}`;
 const CORNER_MARKERS = [20, 21, 22, 23];
 const CORNER_KEYS = ["top_left", "top_right", "bottom_right", "bottom_left"];
@@ -447,6 +472,7 @@ let armLinked = false;     // is this team's arm currently connected?
 let autoStartDone = false; // guard so connect only auto-starts the timer once
 let autoRegistering = false;
 let gameCalibration = {};
+let gameCalibration2 = {};
 let latestGameTags = null;
 let cachedGameTagSet = null;
 let gameActiveArea = { sMin:0, sMax:1, tMin:0, tMax:1 };
@@ -455,15 +481,33 @@ let gameRadiusMin = 150, gameRadiusMax = 440;
 const REACH_GRID_COLS = 56;
 const REACH_GRID_ROWS = 36;
 const EXTRAPOLATION_MARGIN = 1.0;
-const AUTO_PP_BASE_SAFE_RADIUS = 200;
+const AUTO_PP_BASE_SAFE_RADIUS = 220;
+const AUTO_PP_ROUTE_CLEARANCE_MM = 25;
+const AUTO_PP_OUTER_GUARD_MM = 4;
+const AUTO_PP_PATH_STEP_MM = 25;
+const AUTO_PP_TRANSPORT_TIMEOUT_MS = 45000;
+const AUTO_PP_TRANSPORT_TOLERANCE_MM = 16;
+const AUTO_PP_DROP_TOLERANCE_MM = 1;
+const AUTO_PPX_SOURCE_GRACE_MS = 10000;
 let feedZoomState = { scale:1, tx:0, ty:0 };
+let autoPpxCal2FeedBoundary = [];
 let videoClickSeq = 0;
 let lastVideoTargetPoint = null;
+let currentArmPose = null;
+const ARM_TRAIL_LIFETIME_MS = 10000;
+const ARM_TRAIL_MIN_MOVE_MM = 0.5;
+let armTrailPoints = [];
+let armTrailAnimation = 0;
+let cal2BaseGuardBusy = false;
+let cal2RecoveryBusy = false;
+let cal2MotionGeneration = 0;
 let gamePollBusy = false;
 let scoreRefreshBusy = false;
 let userFlipOverride = HAS_STORED_FLIP;
 let latestVisibleArucoTags = [];
 const autoPpxRememberedTags = new Map();
+let autoPpxTagRefreshBusy = false;
+let autoPpxOptionsSignature = "";
 let autoPpxRunning = false;
 let autoPpxAbort = false;
 let autoPpxFineTuneAnchor = null;
@@ -480,15 +524,32 @@ function invalidateVideoClicks() {
 
 async function gmFetch(path, opts = {}) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 6000);
+  const timer = setTimeout(() => ctrl.abort(), 12000);
   try {
     const res = await fetch(GM + path, { ...opts, signal:ctrl.signal });
     const text = await res.text();
     let data = {}; try { data = text ? JSON.parse(text) : {}; } catch (_) {}
     if (!res.ok) throw new Error(data.error || text || `HTTP ${res.status}`);
     return data;
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error("request timed out");
+    throw e;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+async function laserIntent(kind, detail = {}, category = "intent") {
+  if (!AUTO_PPX || TEAM !== "green") return;
+  try {
+    const res = await fetch(`${GM}/api/laser-intent`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({kind, category, detail:{player:playerName, client_monotonic_ms:performance.now(), ...detail}}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  } catch (e) {
+    log(`Laser Tag intention log ✗ ${kind}: ${e.message}`, "log-err");
   }
 }
 
@@ -507,6 +568,7 @@ function applyFlip(userInitiated = true) {
   latestGameTags = null;
   autoPpxRememberedTags.clear();
   latestVisibleArucoTags = [];
+  clearArmTrail();
   setMarkerStamp(null);
   loadGameCalibration({ syncCameraView:false }).then(refreshGameField).catch(() => refreshGameField());
 }
@@ -532,6 +594,18 @@ function cleanActiveArea(value) {
   return out;
 }
 function gameArmCal() { return (gameCalibration.arms && gameCalibration.arms[TEAM]) || {}; }
+function gameArmCal2() { return (gameCalibration2.arms && gameCalibration2.arms[TEAM]) || {}; }
+function selectedAutoPpxCalibration() {
+  // Auto PP X is calibrated exclusively in Auto PP Cal 2. Do not let an old
+  // saved selection make its camera crop follow whichever playfield tags are
+  // currently displayed.
+  if (AUTO_PPX) return "cal2";
+  const node = gid("autoPpxCalibration");
+  return node && node.value === "cal2" ? "cal2" : "auto-pp";
+}
+function autoPpxFineCalKey() {
+  return `${FINE_CAL_KEY}-${selectedAutoPpxCalibration()}`;
+}
 function gamePlayfieldCal() { return gameCalibration.playfield || {}; }
 function gameCornerMap() {
   const saved = gameArmCal().corner_map || gamePlayfieldCal().corner_map || {};
@@ -680,6 +754,11 @@ async function loadGameCalibration({ syncCameraView = true } = {}) {
   cachedGameTagSet = markerCacheFromGameCalibration();
   updateAutoZReadout();
 }
+async function loadGameCalibration2() {
+  const data = await gmFetch('/api/calibration2');
+  gameCalibration2 = data.calibration || {};
+  return gameCalibration2;
+}
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 }
@@ -758,12 +837,24 @@ function setFeedZoom(tags) {
     feedZoomState = { scale:1, tx:0, ty:0 };
     applyTransform(1, 0, 0);
   };
-  if (!(tags && tags.top_left && tags.top_right && tags.bottom_right && tags.bottom_left)) {
+  let zonePoints = null;
+  if (AUTO_PPX) {
+    const samples = cal2CalibrationSamples();
+    if (samples.length >= 6) autoPpxCal2FeedBoundary = cal2ReachBoundary(samples);
+    // Keep the last valid Cal 2 boundary while calibration data is refreshing.
+    // Visible ArUco detections must never become an alternate crop source.
+    if (autoPpxCal2FeedBoundary.length >= 3) {
+      zonePoints = autoPpxCal2FeedBoundary.map(p => feedPointFromCamera(p.u, p.v));
+    }
+  } else if (tags && tags.top_left && tags.top_right && tags.bottom_right && tags.bottom_left) {
+    const corners = zoneFeedCorners(tags, gameActiveArea);
+    zonePoints = [corners.top_left, corners.top_right, corners.bottom_right, corners.bottom_left];
+  }
+  if (!zonePoints || zonePoints.length < 3) {
     reset();
     return;
   }
-  const corners = zoneFeedCorners(tags, gameActiveArea);
-  const bounds = boundsFromPoints([corners.top_left, corners.top_right, corners.bottom_right, corners.bottom_left]);
+  const bounds = boundsFromPoints(zonePoints);
   const left = bounds.left / 100 * wrap.width;
   const top = bounds.top / 100 * wrap.height;
   const right = bounds.right / 100 * wrap.width;
@@ -936,21 +1027,47 @@ async function readVisibleArucoTags() {
   for (const tag of [...(data.detections || []), ...(data.tags || [])]) {
     const id = Number(tag.id);
     if (!Number.isFinite(id) || !Number.isFinite(Number(tag.nx)) || !Number.isFinite(Number(tag.ny))) continue;
+    const width = Number(data.width), height = Number(data.height);
+    const normalizedCorners = Array.isArray(tag.ncorners) && tag.ncorners.length >= 4
+      ? tag.ncorners.map(point => [Number(point[0]), Number(point[1])])
+      : (Array.isArray(tag.corners) && tag.corners.length >= 4 && width > 0 && height > 0
+        ? tag.corners.map(point => [Number(point[0]) / width, Number(point[1]) / height])
+        : []);
     const rec = gameDisplayTag({
       id,
       nx:Number(tag.nx),
       ny:Number(tag.ny),
       missing:Number(tag.missing || 0),
+      rotation:Number(tag.rotation || 0),
+      ncorners:normalizedCorners,
     });
+    if (gid('flipToggle').checked && rec.ncorners.length) {
+      rec.ncorners = rec.ncorners.map(point => [1 - point[0], 1 - point[1]]);
+    }
     const prev = seen.get(id);
     if (rec.missing <= 1.0 && (!prev || rec.missing < prev.missing)) seen.set(id, rec);
   }
   return [...seen.values()].sort((a, b) => a.id - b.id);
 }
-function autoPpxTagInsideActiveArea(tag) {
+function autoPpxTagInsideActiveArea(tag, requireCalibration = false) {
+  if (selectedAutoPpxCalibration() === "cal2") {
+    try {
+      const corrected = compensateCal2Parallax(Number(tag.nx), Number(tag.ny), tag.id);
+      const samples = cal2CalibrationSamples();
+      if (samples.length < 6) return !requireCalibration;
+      const boundary = cal2ReachBoundary(samples);
+      if (!pointInsideCalibratedBoundary(boundary, samples, corrected.u, corrected.v)) return false;
+      return robotPointReachable(cal2RawPose(samples, corrected.u, corrected.v));
+    } catch (_) {
+      return !requireCalibration;
+    }
+  }
   const cached = cachedGameTagSet || markerCacheFromGameCalibration();
   const cam = completeGameTagSet(latestGameTags) ? latestGameTags : (cached && cached.tags);
-  if (!completeGameTagSet(cam)) return false;
+  // Detection and calibration are separate concerns. A visible marker is still
+  // a valid detection when the four calibration corners are temporarily
+  // incomplete; operation-time validation below will prevent unsafe moves.
+  if (!completeGameTagSet(cam)) return !requireCalibration;
   try {
     const solved = linearSolveCameraST(
       Number(tag.nx), Number(tag.ny),
@@ -964,7 +1081,7 @@ function autoPpxTagInsideActiveArea(tag) {
     if (!insideActiveArea) return false;
     return robotPointReachable(robotPointFromST(cam, solved.rawS, solved.rawT));
   } catch (_) {
-    return false;
+    return !requireCalibration;
   }
 }
 function selectedAutoPpxIds() {
@@ -1044,7 +1161,7 @@ function cleanAutoPpxFinePoint(point) {
 }
 function loadAutoPpxFineCal() {
   try {
-    const raw = JSON.parse(localStorage.getItem(FINE_CAL_KEY) || "[]");
+    const raw = JSON.parse(localStorage.getItem(autoPpxFineCalKey()) || "[]");
     autoPpxFineCalPoints = Array.isArray(raw) ? raw.map(cleanAutoPpxFinePoint).filter(Boolean).slice(-40) : [];
   } catch (_) {
     autoPpxFineCalPoints = [];
@@ -1052,7 +1169,7 @@ function loadAutoPpxFineCal() {
   renderAutoPpxFineCalList();
 }
 function saveAutoPpxFineCal() {
-  localStorage.setItem(FINE_CAL_KEY, JSON.stringify(autoPpxFineCalPoints));
+  localStorage.setItem(autoPpxFineCalKey(), JSON.stringify(autoPpxFineCalPoints));
   renderAutoPpxFineCalList();
 }
 function renderAutoPpxFineCalList() {
@@ -1122,6 +1239,12 @@ function updateAutoPpxControls(tags = latestVisibleArucoTags) {
 function renderAutoPpxTagOptions(tags) {
   if (!AUTO_PPX) return;
   const selects = [...gid("autoPpxQueue").querySelectorAll("select")];
+  const signature = `${tags.map(tag => String(tag.id)).join(",")}|${selects.length}`;
+  if (signature === autoPpxOptionsSignature) {
+    updateAutoPpxControls(tags);
+    return;
+  }
+  autoPpxOptionsSignature = signature;
   const previous = selects.map(sel => sel.value);
   const options = tags.length
     ? tags.map(tag => `<option value="${tag.id}">ArUco ${tag.id}${tag.obscured ? " (last position)" : ""}</option>`).join("")
@@ -1151,27 +1274,43 @@ function renderAutoPpxTagOptions(tags) {
   updateAutoPpxControls(tags);
 }
 async function refreshAutoPpxTags() {
-  if (!AUTO_PPX) return [];
+  if (!AUTO_PPX || autoPpxTagRefreshBusy) return latestVisibleArucoTags;
+  autoPpxTagRefreshBusy = true;
   try {
-    // Keep this page synchronized with the area saved in Auto PP calibration,
-    // including while both pages are already open.
-    await loadGameCalibration({ syncCameraView:false });
+    // Keep this page synchronized with the currently selected calibration,
+    // including while the calibration and player pages are already open.
+    if (selectedAutoPpxCalibration() === "cal2") await loadGameCalibration2();
+    else await loadGameCalibration({ syncCameraView:false });
     const visibleTags = await readVisibleArucoTags();
     const visibleIds = new Set(visibleTags.map(tag => Number(tag.id)));
     for (const tag of visibleTags) {
-      autoPpxRememberedTags.set(Number(tag.id), { ...tag, obscured:false, lastSeenAt:Date.now() });
+      const id = Number(tag.id);
+      const missingMs = Math.max(0, Number(tag.missing || 0) * 1000);
+      if (missingMs <= 350) {
+        autoPpxRememberedTags.set(id, { ...tag, obscured:false, lastSeenAt:Date.now() - missingMs });
+      } else if (!autoPpxRememberedTags.has(id)) {
+        // The webcam API may retain a disappeared tag for display.  Keep it
+        // selectable, but do not give that retained record a fresh timestamp.
+        autoPpxRememberedTags.set(id, { ...tag, obscured:true, lastSeenAt:0 });
+      }
     }
     latestVisibleArucoTags = [...autoPpxRememberedTags.values()]
       .map(tag => ({ ...tag, obscured:!visibleIds.has(Number(tag.id)) }))
-      .filter(autoPpxTagInsideActiveArea)
       .sort((a, b) => a.id - b.id);
     renderAutoPpxTagOptions(latestVisibleArucoTags);
+    // Redraw immediately with the active area loaded above. Previously the
+    // area and overlay refreshed on separate timers and could remain out of
+    // sync until another unrelated UI action.
+    await refreshGameField();
     return latestVisibleArucoTags;
   } catch (e) {
-    latestVisibleArucoTags = [];
-    updateAutoPpxControls([]);
+    // Do not erase working detections or rebuild the dropdowns because of one
+    // transient camera/calibration request failure.
+    updateAutoPpxControls(latestVisibleArucoTags);
     setAutoPpxStatus(e.message, "err");
-    return [];
+    return latestVisibleArucoTags;
+  } finally {
+    autoPpxTagRefreshBusy = false;
   }
 }
 async function activeGameTags() {
@@ -1197,11 +1336,41 @@ function renderGameField(tags) {
   const layer = gid("moveZoneLayer");
   const keys = ["top_left", "top_right", "bottom_right", "bottom_left", "center"];
   const entries = keys.filter(k => tags[k]).map(k => ({ key:k, marker:gameMarkerForCorner(k), point:feedPointFromCamera(tags[k].nx, tags[k].ny) }));
+  const physicalEntries = AUTO_PPX
+    ? latestVisibleArucoTags
+      .filter(tag => !tag.obscured)
+      .map(tag => ({
+        id:Number(tag.id),
+        rotation:Number(tag.rotation || 0),
+        point:feedPointFromCamera(tag.nx, tag.ny),
+        corners:(tag.ncorners || []).map(corner => feedPointFromCamera(corner[0], corner[1])),
+      }))
+    : [];
   const showTags = tagOverlayVisible();
-  overlay.hidden = !showTags || !entries.length;
-  overlay.innerHTML = showTags ? entries.map(({ key, marker, point }) =>
+  overlay.hidden = !showTags || (!entries.length && !physicalEntries.length);
+  const calibrationPins = entries.map(({ key, marker, point }) =>
     `<div class="calPin ${key === "center" ? "center" : "corner"}" style="left:${point.x.toFixed(2)}%;top:${point.y.toFixed(2)}%">${key === "center" ? "C" : marker}</div>`
-  ).join("") : "";
+  ).join("");
+  const physicalShapes = physicalEntries
+    .filter(tag => tag.corners.length >= 4)
+    .map(tag => `<polygon class="physicalTagShape" points="${tag.corners.map(point => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ")}"></polygon>`)
+    .join("");
+  const physicalLabels = physicalEntries.map(({ id, rotation, point }) =>
+    `<div class="physicalTagLabel" style="left:${point.x.toFixed(2)}%;top:${point.y.toFixed(2)}%">#${id} ${Math.round(rotation)}deg</div>`
+  ).join("");
+  const physicalOverlay = physicalEntries.length
+    ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${physicalShapes}</svg>${physicalLabels}`
+    : "";
+  overlay.innerHTML = showTags ? calibrationPins + physicalOverlay : "";
+  if (AUTO_PPX && selectedAutoPpxCalibration() === "cal2") {
+    const samples = cal2CalibrationSamples();
+    const hull = samples.length >= 3 ? calibrationConvexHull(samples) : [];
+    const armLimit = samples.length >= 6 ? cal2ReachBoundary(samples) : [];
+    layer.hidden = hull.length < 3;
+    layer.innerHTML = hull.length >= 3 ? `${cal2BoundarySvg(hull)}${cal2BaseNoGoSvg(samples,armLimit)}${cal2ArmLimitSvg(armLimit)}` : "";
+    renderCurrentArmPose();
+    return;
+  }
   if (!(tags.top_left && tags.top_right && tags.bottom_right && tags.bottom_left)) {
     layer.hidden = true;
     layer.innerHTML = "";
@@ -1245,7 +1414,297 @@ function baseSafePose(pose) {
   if (radius > 400) { const scale = 400 / radius; out.x *= scale; out.y *= scale; }
   return out;
 }
-function clickToPose(u, v) {
+function assertAutoPpxPoseSafe(pose, label="target") {
+  const x=Number(pose.x), y=Number(pose.y), z=Number(pose.z);
+  if (![x,y,z].every(Number.isFinite)) throw new Error(`${label} is invalid`);
+  if (gameReachWorkspace.x && (x < gameReachWorkspace.x[0] || x > gameReachWorkspace.x[1])) throw new Error(`${label} is outside the X workspace`);
+  if (gameReachWorkspace.y && (y < gameReachWorkspace.y[0] || y > gameReachWorkspace.y[1])) throw new Error(`${label} is outside the Y workspace`);
+  const radius=Math.hypot(x,y), radiusMin=Math.max(gameRadiusMin,AUTO_PP_BASE_SAFE_RADIUS), radiusMax=gameRadiusMax;
+  if (radius < radiusMin) throw new Error(`${label} is too close to the robot base (${radius.toFixed(1)} mm; minimum ${radiusMin} mm)`);
+  if (radius > radiusMax) throw new Error(`${label} is outside the safe reach (${radius.toFixed(1)} mm; maximum ${radiusMax} mm)`);
+  return pose;
+}
+function solveLinearSystem(matrix, values) {
+  const n = values.length;
+  const a = matrix.map((row, i) => row.map(Number).concat(Number(values[i])));
+  for (let col = 0; col < n; col += 1) {
+    let pivot = col;
+    for (let row = col + 1; row < n; row += 1) {
+      if (Math.abs(a[row][col]) > Math.abs(a[pivot][col])) pivot = row;
+    }
+    if (Math.abs(a[pivot][col]) < 1e-12) throw new Error("Cal 2 points do not span a stable 2D field");
+    [a[col], a[pivot]] = [a[pivot], a[col]];
+    const divisor = a[col][col];
+    for (let j = col; j <= n; j += 1) a[col][j] /= divisor;
+    for (let row = 0; row < n; row += 1) {
+      if (row === col) continue;
+      const factor = a[row][col];
+      for (let j = col; j <= n; j += 1) a[row][j] -= factor * a[col][j];
+    }
+  }
+  return a.map(row => row[n]);
+}
+function tpsKernel(r2) {
+  return r2 <= 1e-16 ? 0 : r2 * Math.log(r2) / 2;
+}
+function fitTps(points, outputKey) {
+  const n = points.length, size = n + 3;
+  const matrix = Array.from({ length:size }, () => Array(size).fill(0));
+  const values = Array(size).fill(0);
+  for (let i = 0; i < n; i += 1) {
+    for (let j = 0; j < n; j += 1) {
+      const du = points[i].u-points[j].u, dv = points[i].v-points[j].v;
+      matrix[i][j] = tpsKernel(du*du + dv*dv);
+    }
+    matrix[i][i] += 1e-7;
+    matrix[i][n] = 1; matrix[i][n+1] = points[i].u; matrix[i][n+2] = points[i].v;
+    matrix[n][i] = 1; matrix[n+1][i] = points[i].u; matrix[n+2][i] = points[i].v;
+    values[i] = points[i][outputKey];
+  }
+  return solveLinearSystem(matrix, values);
+}
+function evalTps(points, coeff, u, v) {
+  const n = points.length;
+  let value = coeff[n] + coeff[n+1]*u + coeff[n+2]*v;
+  for (let i = 0; i < n; i += 1) {
+    const du=u-points[i].u, dv=v-points[i].v;
+    value += coeff[i] * tpsKernel(du*du + dv*dv);
+  }
+  return value;
+}
+function calibrationConvexHull(points) {
+  const sorted = points.map(p => ({u:p.u, v:p.v}))
+    .sort((a,b) => a.u-b.u || a.v-b.v);
+  const cross = (o,a,b) => (a.u-o.u)*(b.v-o.v)-(a.v-o.v)*(b.u-o.u);
+  const lower = [];
+  for (const point of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], point) <= 0) lower.pop();
+    lower.push(point);
+  }
+  const upper = [];
+  for (const point of [...sorted].reverse()) {
+    while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], point) <= 0) upper.pop();
+    upper.push(point);
+  }
+  lower.pop(); upper.pop();
+  return lower.concat(upper);
+}
+function cal2CalibrationSamples() {
+  return Object.values(gameArmCal2().points || {}).filter(p =>
+    p.camera && p.pose && p.pose.set).map(p => ({
+      u:Number(p.camera.u), v:Number(p.camera.v),
+      x:Number(p.pose.x), y:Number(p.pose.y),
+  })).filter(p => Object.values(p).every(Number.isFinite));
+}
+function cal2RawPose(samples, u, v) {
+  return {
+    x:evalTps(samples, fitTps(samples, "x"), u, v),
+    y:evalTps(samples, fitTps(samples, "y"), u, v),
+  };
+}
+function cal2PoseEvaluator(samples) {
+  const xCoeff=fitTps(samples,"x"), yCoeff=fitTps(samples,"y");
+  return (u,v) => ({
+    x:evalTps(samples,xCoeff,u,v),
+    y:evalTps(samples,yCoeff,u,v),
+  });
+}
+function cal2CameraForRobotPose(samples,pose){
+  const reverse=samples.map(p=>({
+    u:p.x/500,v:p.y/500,cameraU:p.u,cameraV:p.v,
+  }));
+  return {
+    u:evalTps(reverse,fitTps(reverse,"cameraU"),pose.x/500,pose.y/500),
+    v:evalTps(reverse,fitTps(reverse,"cameraV"),pose.x/500,pose.y/500),
+  };
+}
+function clearArmTrail(){
+  armTrailPoints=[];
+  if(armTrailAnimation)cancelAnimationFrame(armTrailAnimation);
+  armTrailAnimation=0;
+  const trail=gid("armTrail");
+  if(trail){trail.hidden=true;trail.replaceChildren();}
+}
+function drawArmTrail(){
+  armTrailAnimation=0;
+  const trail=gid("armTrail"),now=performance.now();
+  armTrailPoints=armTrailPoints.filter(point=>now-point.time<ARM_TRAIL_LIFETIME_MS);
+  if(!trail||!AUTO_PPX||selectedAutoPpxCalibration()!=="cal2"||armTrailPoints.length<2){
+    if(trail){trail.hidden=true;trail.replaceChildren();}
+  }else{
+    const segments=[];
+    for(let i=1;i<armTrailPoints.length;i+=1){
+      const from=armTrailPoints[i-1],to=armTrailPoints[i];
+      const opacity=Math.max(0,Math.min(1,(ARM_TRAIL_LIFETIME_MS-(now-to.time))/ARM_TRAIL_LIFETIME_MS));
+      const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+      line.setAttribute("x1",from.x);line.setAttribute("y1",from.y);
+      line.setAttribute("x2",to.x);line.setAttribute("y2",to.y);
+      line.setAttribute("opacity",opacity.toFixed(3));
+      segments.push(line);
+    }
+    trail.replaceChildren(...segments);trail.hidden=false;
+  }
+  if(armTrailPoints.length)armTrailAnimation=requestAnimationFrame(drawArmTrail);
+}
+function addArmTrailPoint(point,pose){
+  const last=armTrailPoints[armTrailPoints.length-1];
+  if(last&&Math.hypot(pose.x-last.robotX,pose.y-last.robotY)<ARM_TRAIL_MIN_MOVE_MM)return;
+  armTrailPoints.push({x:point.x,y:point.y,robotX:pose.x,robotY:pose.y,time:performance.now()});
+  if(!armTrailAnimation)armTrailAnimation=requestAnimationFrame(drawArmTrail);
+}
+function renderCurrentArmPose(){
+  const marker=gid("armPoseMarker");
+  if(!marker||!AUTO_PPX||selectedAutoPpxCalibration()!=="cal2"||!currentArmPose){
+    if(marker)marker.hidden=true;
+    return;
+  }
+  const samples=cal2CalibrationSamples();
+  if(samples.length<6){marker.hidden=true;return;}
+  try{
+    const camera=cal2CameraForRobotPose(samples,currentArmPose),point=visibleFeedPointFromCamera(camera.u,camera.v);
+    addArmTrailPoint(point,currentArmPose);
+    const radius=Math.hypot(currentArmPose.x,currentArmPose.y),radiusMin=autoPpxPlanningRadiusMin();
+    const outside=radius<radiusMin||radius>gameRadiusMax;
+    marker.hidden=false;
+    marker.classList.toggle("out",outside);
+    marker.style.left=`${point.x}%`;marker.style.top=`${point.y}%`;
+    marker.textContent=outside?`ARM OUT OF BOUNDS · ${radius.toFixed(1)} mm`:`ARM · ${radius.toFixed(1)} mm`;
+  }catch(_){marker.hidden=true;}
+}
+function cal2ReachBoundary(samples) {
+  if (samples.length < 6) return [];
+  const poseAt=cal2PoseEvaluator(samples);
+  const hull=calibrationConvexHull(samples);
+  const center={
+    u:hull.reduce((sum,p)=>sum+p.u,0)/hull.length,
+    v:hull.reduce((sum,p)=>sum+p.v,0)/hull.length,
+  };
+  const points=[];
+  for(let ray=0;ray<72;ray+=1){
+    const angle=ray*Math.PI*2/72, du=Math.cos(angle), dv=Math.sin(angle);
+    const limits=[];
+    if(du>0)limits.push((1-center.u)/du); else if(du<0)limits.push((0-center.u)/du);
+    if(dv>0)limits.push((1-center.v)/dv); else if(dv<0)limits.push((0-center.v)/dv);
+    const maxDistance=Math.max(0,Math.min(...limits.filter(value=>value>=0)));
+    let last=0, firstUnsafe=maxDistance;
+    for(let step=1;step<=32;step+=1){
+      const distance=maxDistance*step/32;
+      if(robotPointReachable(poseAt(center.u+du*distance,center.v+dv*distance))) last=distance;
+      else if(distance>last){firstUnsafe=distance;break;}
+    }
+    let lo=last, hi=firstUnsafe;
+    for(let i=0;i<10&&hi>lo;i+=1){
+      const mid=(lo+hi)/2;
+      if(robotPointReachable(poseAt(center.u+du*mid,center.v+dv*mid)))lo=mid;else hi=mid;
+    }
+    points.push({u:center.u+du*lo,v:center.v+dv*lo});
+  }
+  return calibrationConvexHull(points);
+}
+function cal2BoundarySvg(hull) {
+  const points = hull.map(p => {
+    const point = feedPointFromCamera(p.u, p.v);
+    return `${point.x.toFixed(3)},${point.y.toFixed(3)}`;
+  }).join(" ");
+  return `<svg class="moveZoneShape" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polygon points="${points}" /></svg>`;
+}
+function cal2ArmLimitSvg(boundary) {
+  if(boundary.length<3)return "";
+  const points=boundary.map(p=>{
+    const point=feedPointFromCamera(p.u,p.v);
+    return `${point.x.toFixed(3)},${point.y.toFixed(3)}`;
+  }).join(" ");
+  return `<svg class="armLimitShape" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Arm reach limit"><polygon points="${points}" /></svg>`;
+}
+function cal2BaseNoGoSvg(samples,outerBoundary) {
+  if(samples.length<6||outerBoundary.length<3)return "";
+  const poseAt=cal2PoseEvaluator(samples), radiusMin=autoPpxPlanningRadiusMin();
+  const us=outerBoundary.map(p=>p.u), vs=outerBoundary.map(p=>p.v);
+  const minU=Math.max(0,Math.min(...us)), maxU=Math.min(1,Math.max(...us));
+  const minV=Math.max(0,Math.min(...vs)), maxV=Math.min(1,Math.max(...vs));
+  const cols=44, rows=32, cells=[];
+  for(let row=0;row<rows;row+=1){
+    for(let col=0;col<cols;col+=1){
+      const u0=minU+(maxU-minU)*col/cols, u1=minU+(maxU-minU)*(col+1)/cols;
+      const v0=minV+(maxV-minV)*row/rows, v1=minV+(maxV-minV)*(row+1)/rows;
+      const u=(u0+u1)/2,v=(v0+v1)/2;
+      if(!pointInsideConvexCalibration(outerBoundary,u,v,0.001))continue;
+      const pose=poseAt(u,v);
+      if(Math.hypot(pose.x,pose.y)>=radiusMin)continue;
+      const points=[[u0,v0],[u1,v0],[u1,v1],[u0,v1]].map(([cu,cv])=>{
+        const point=feedPointFromCamera(cu,cv);
+        return `${point.x.toFixed(3)},${point.y.toFixed(3)}`;
+      }).join(" ");
+      cells.push(`<polygon points="${points}" />`);
+    }
+  }
+  return cells.length?`<svg class="baseNoGoShape" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Robot base exclusion area">${cells.join("")}</svg>`:"";
+}
+function pointInsideConvexCalibration(hull, u, v, tolerance=0.002) {
+  if (hull.length < 3) return false;
+  let sign = 0;
+  for (let i=0; i<hull.length; i+=1) {
+    const a=hull[i], b=hull[(i+1)%hull.length];
+    const cross=(b.u-a.u)*(v-a.v)-(b.v-a.v)*(u-a.u);
+    if (Math.abs(cross) <= tolerance) continue;
+    const next=Math.sign(cross);
+    if (sign && next !== sign) return false;
+    sign=next;
+  }
+  return true;
+}
+function distanceToCalibrationEdge(a, b, u, v) {
+  const du=b.u-a.u, dv=b.v-a.v, length2=du*du+dv*dv;
+  const amount=length2 ? Math.max(0, Math.min(1, ((u-a.u)*du+(v-a.v)*dv)/length2)) : 0;
+  return Math.hypot(u-(a.u+amount*du), v-(a.v+amount*dv));
+}
+function calibrationBoundaryMargin(samples) {
+  // Cal 2 targets sit just inside the usable field. Permit a small, bounded
+  // amount of TPS interpolation beyond their centre-to-centre convex hull.
+  const nearest=samples.map((p,i) => Math.min(...samples.filter((_,j)=>j!==i)
+    .map(q=>Math.hypot(p.u-q.u,p.v-q.v)))).filter(Number.isFinite).sort((a,b)=>a-b);
+  const median=nearest.length ? nearest[Math.floor(nearest.length/2)] : 0.1;
+  return Math.max(0.025, Math.min(0.07, median*0.4));
+}
+function pointInsideCalibratedBoundary(hull, samples, u, v) {
+  // The red dashed Cal 2 arm-limit outline is the outward motion boundary.
+  return pointInsideConvexCalibration(hull, u, v, 0.002);
+}
+function compensateCal2Parallax(u, v, tagId) {
+  if (Number(tagId) < 100) return {u, v};
+  const arm=gameArmCal2(), points=Object.values(arm.parallax_points||{})
+    .filter(p=>p&&p.ground&&p.raised).map(p=>({
+      u:Number(p.raised.u),v:Number(p.raised.v),
+      groundU:Number(p.ground.u),groundV:Number(p.ground.v),
+    })).filter(p=>Object.values(p).every(Number.isFinite));
+  if(points.length<4) return {u,v};
+  try {
+    return {
+      u:evalTps(points,fitTps(points,"groundU"),u,v),
+      v:evalTps(points,fitTps(points,"groundV"),u,v),
+    };
+  } catch (_) {
+    return {u,v};
+  }
+}
+function cal2ClickToPose(u, v) {
+  const samples = cal2CalibrationSamples();
+  if (samples.length < 6) throw new Error("Auto PP Cal 2 needs all 6 captured outer-edge points");
+  const boundary = cal2ReachBoundary(samples);
+  if (!pointInsideCalibratedBoundary(boundary, samples, u, v)) {
+    throw new Error("target is outside the Auto PP Cal 2 arm limit");
+  }
+  const shared = gameCalibration2.shared_z || {};
+  const z = Number(sliderEls.z && sliderEls.z.value) || Number(shared.transport_height) || 0;
+  const pose = { ...cal2RawPose(samples, u, v), z };
+  assertAutoPpxPoseSafe(pose, "Auto PP Cal 2 target");
+  return pose;
+}
+function clickToPose(u, v, tagId=null) {
+  if (AUTO_PPX && selectedAutoPpxCalibration() === "cal2") {
+    const corrected=compensateCal2Parallax(u,v,tagId);
+    return cal2ClickToPose(corrected.u,corrected.v);
+  }
   const cal = gameArmCal();
   const pts = cal.points || {};
   const tl = pts.top_left && pts.top_left.pose;
@@ -1496,7 +1955,25 @@ function gameInit() {
     if (panel) panel.hidden = false;
     const heading = document.querySelector("header h1");
     if (heading) heading.textContent = "Auto PP X — XYZ controls";
+    const calibrationSelect = gid("autoPpxCalibration");
+    calibrationSelect.value = "cal2";
+    localStorage.setItem(AUTO_PPX_CAL_KEY, "cal2");
+    calibrationSelect.onchange = async () => {
+      localStorage.setItem(AUTO_PPX_CAL_KEY, selectedAutoPpxCalibration());
+      autoPpxFineTuneAnchor = null;
+      clearArmTrail();
+      autoPpxRememberedTags.clear();
+      latestVisibleArucoTags = [];
+      autoPpxOptionsSignature = "";
+      loadAutoPpxFineCal();
+      if (selectedAutoPpxCalibration() === "cal2") await loadGameCalibration2();
+      else await loadGameCalibration({ syncCameraView:false });
+      await refreshGameField();
+      await refreshAutoPpxTags();
+      setAutoPpxStatus(`Using ${calibrationSelect.options[calibrationSelect.selectedIndex].text}.`);
+    };
     loadAutoPpxFineCal();
+    loadGameCalibration2().catch(() => null);
   }
   gid('teamName').textContent = TEAM.toUpperCase();
   gid('teamName').className = 'teamName ' + TEAM;
@@ -1530,7 +2007,7 @@ function gameInit() {
   refreshPlayerScores();
   if (AUTO_PPX) {
     refreshAutoPpxTags();
-    setInterval(refreshAutoPpxTags, 1500);
+    setInterval(refreshAutoPpxTags, 750);
   }
   setInterval(refreshGameField, 1500);
   setInterval(refreshPlayerScores, 5000);
@@ -1570,6 +2047,7 @@ const numEls = {};
 let lastServoError = null, pumpMode = "off";
 let draggingId = null;
 let armPollBusy = false;
+let armConnectBusy = false;
 window.addEventListener("pointerup", () => draggingId = null);
 window.addEventListener("keyup", () => draggingId = null);
 
@@ -1581,15 +2059,18 @@ function log(msg, cls="log-info") {
   el.appendChild(line); el.scrollTop = el.scrollHeight;
 }
 
-async function api(path, body, method) {
+async function api(path, body, method, timeoutMs = 12000) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 12000);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   const opts = { method: method || (body ? "POST" : "GET"), signal:ctrl.signal };
   if (body) { opts.headers = {"Content-Type":"application/json"}; opts.body = JSON.stringify(body); }
   try { return await (await fetch(BASE + path.replace(/^\//, ""), opts)).json(); }
   catch (e) {
     const msg = e.name === "AbortError" ? "request timed out" : String(e);
-    log(`Network error on ${path}: ${msg}`, "log-err");
+    // A status request already in flight when Connect starts may finish after
+    // the backend has begun replacing its relay client. Connect owns the UI in
+    // that interval, so do not report the stale poll as a second failure.
+    if (!(path === "/api/status" && armConnectBusy)) log(`Network error on ${path}: ${msg}`, "log-err");
     return { ok:false, error:msg };
   } finally {
     clearTimeout(timer);
@@ -1723,17 +2204,241 @@ function clampedPose(pose) {
     z:Math.max(ws.z[0], Math.min(ws.z[1], Number(pose.z))),
   };
 }
+function segmentDistanceFromBase(start,target){
+  const dx=target.x-start.x,dy=target.y-start.y,length2=dx*dx+dy*dy;
+  const amount=length2?Math.max(0,Math.min(1,-(start.x*dx+start.y*dy)/length2)):0;
+  return Math.hypot(start.x+amount*dx,start.y+amount*dy);
+}
+function autoPpxPlanningRadiusMin(){
+  return Math.max(gameRadiusMin,AUTO_PP_BASE_SAFE_RADIUS)+10;
+}
+function cal2PathSegmentSafe(start,target){
+  const radiusMin=autoPpxPlanningRadiusMin();
+  const endpoints=[start,target];
+  if(endpoints.some(point=>!Object.values(point).every(Number.isFinite)))return false;
+  if(endpoints.some(point=>Math.hypot(point.x,point.y)<radiusMin||Math.hypot(point.x,point.y)>gameRadiusMax))return false;
+  if(gameReachWorkspace.x&&endpoints.some(point=>point.x<gameReachWorkspace.x[0]||point.x>gameReachWorkspace.x[1]))return false;
+  if(gameReachWorkspace.y&&endpoints.some(point=>point.y<gameReachWorkspace.y[0]||point.y>gameReachWorkspace.y[1]))return false;
+  return segmentDistanceFromBase(start,target)>=radiusMin;
+}
+function cal2DirectPathHasClearance(start,target){
+  return cal2PathSegmentSafe(start,target);
+}
+function cal2ArcCandidate(start,target,routeRadius,delta){
+  const startAngle=Math.atan2(start.y,start.x);
+  const steps=Math.max(1,Math.ceil(Math.abs(delta)/(Math.PI/36)));
+  const points=[];
+  for(let index=0;index<=steps;index+=1){
+    const angle=startAngle+delta*index/steps;
+    const point={x:routeRadius*Math.cos(angle),y:routeRadius*Math.sin(angle),z:target.z};
+    points.push(point);
+    if(cal2DirectPathHasClearance(point,target))break;
+  }
+  points.push({...target});
+  let previous=start;
+  for(const point of points){
+    if(!cal2PathSegmentSafe(previous,point))return null;
+    previous=point;
+  }
+  return points;
+}
+function densifyCal2Path(start,points,label){
+  const dense=[];
+  let previous={...start};
+  for(const destination of points){
+    const dx=destination.x-previous.x,dy=destination.y-previous.y,dz=destination.z-previous.z;
+    if(Math.max(Math.abs(dx),Math.abs(dy),Math.abs(dz))<0.01){previous={...destination};continue;}
+    const steps=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy),Math.abs(dz))/AUTO_PP_PATH_STEP_MM));
+    for(let step=1;step<=steps;step+=1){
+      const amount=step/steps;
+      const waypoint={
+        x:previous.x+dx*amount,
+        y:previous.y+dy*amount,
+        z:previous.z+dz*amount,
+      };
+      const segmentStart=dense.length?dense[dense.length-1]:start;
+      if(!cal2PathSegmentSafe(segmentStart,waypoint))throw new Error(`${label} generated an unsafe executed segment`);
+      dense.push(waypoint);
+    }
+    previous={...destination};
+  }
+  return dense;
+}
+function planCal2Movement(start,target,label){
+  assertAutoPpxPoseSafe(start,`${label} start`);
+  assertAutoPpxPoseSafe(target,`${label} target`);
+  if(cal2DirectPathHasClearance(start,target))return [{...target}];
+  const radiusMin=autoPpxPlanningRadiusMin();
+  const routeRadius=Math.min(gameRadiusMax-AUTO_PP_OUTER_GUARD_MM,Math.max(gameRadiusMin,AUTO_PP_BASE_SAFE_RADIUS)+AUTO_PP_ROUTE_CLEARANCE_MM);
+  if(routeRadius<=radiusMin)throw new Error(`${label} has no safe clearance between the inner and outer arm limits`);
+  const startAngle=Math.atan2(start.y,start.x),targetAngle=Math.atan2(target.y,target.x);
+  let shortest=targetAngle-startAngle;
+  while(shortest>Math.PI)shortest-=Math.PI*2;
+  while(shortest<Math.PI*-1)shortest+=Math.PI*2;
+  const candidates=[shortest,shortest>0?shortest-Math.PI*2:shortest+Math.PI*2]
+    .map(delta=>cal2ArcCandidate(start,target,routeRadius,delta))
+    .filter(Boolean)
+    .sort((a,b)=>a.length-b.length);
+  if(!candidates.length)throw new Error(`${label} could not be planned without crossing an arm boundary`);
+  const chosen=candidates[0];
+  const constrained=chosen.slice(0,-1);
+  const dense=constrained.length?densifyCal2Path(start,constrained,label):[];
+  const release=dense.length?dense[dense.length-1]:start;
+  if(!cal2DirectPathHasClearance(release,target))throw new Error(`${label} did not find a safe compensation release point`);
+  return dense.concat({...target});
+}
+async function executeCal2Plan(plan,label){
+  if(plan.length>1)log(`${label}: executing ${plan.length} checked waypoints at no more than ${AUTO_PP_PATH_STEP_MM} mm per axis`,"log-info");
+  for(let index=0;index<plan.length;index+=1){
+    if(autoPpxAbort)throw new Error("stopped");
+    const waypoint=plan[index];
+    assertAutoPpxPoseSafe(waypoint,`${label} route waypoint`);
+    syncTargetSliders(waypoint,["x","y","z"]);
+    const res=await api("/api/move",waypoint);
+    if(!res.ok)throw new Error(res.error||`${label} route failed`);
+    showZFloor(res.z_floor);
+    const arrived=await waitForPose(waypoint,30000,3);
+    if(!arrived.ok)throw new Error(`${label} route waypoint ${index+1} did not settle`);
+  }
+  return plan[plan.length-1];
+}
+async function routeCal2TransportAroundBase(start,target,label){
+  const plan=planCal2Movement(start,target,label);
+  if(plan.length===1)return null;
+  return executeCal2Plan(plan,label);
+}
+async function recoverArmFromInnerBoundary(start,target,status){
+  const radiusMin=autoPpxPlanningRadiusMin();
+  const radius=Math.hypot(start.x,start.y);
+  if(radius>=radiusMin)return start;
+  if(status.error||Number(status.robot_mode)===9||!status.enabled){
+    throw new Error(`arm is inside the base limit at ${radius.toFixed(1)} mm and the robot is in error or disabled mode`);
+  }
+  let angle=Math.atan2(start.y,start.x);
+  if(radius<1&&target)angle=Math.atan2(Number(target.y),Number(target.x));
+  const recoveryRadius=Math.min(gameRadiusMax-AUTO_PP_OUTER_GUARD_MM,Math.max(gameRadiusMin,AUTO_PP_BASE_SAFE_RADIUS)+AUTO_PP_ROUTE_CLEARANCE_MM);
+  const recovery={
+    x:recoveryRadius*Math.cos(angle),
+    y:recoveryRadius*Math.sin(angle),
+    z:start.z,
+  };
+  assertAutoPpxPoseSafe(recovery,"base recovery target");
+  log(`base guard: nudging radially outward from ${radius.toFixed(1)} mm to ${recoveryRadius.toFixed(1)} mm`,"log-info");
+  setAutoPpxStatus(`Base guard recovery: moving outward to ${recoveryRadius.toFixed(1)} mm before continuing.`,"err");
+  syncTargetSliders(recovery,["x","y","z"]);
+  const response=await api("/api/move",recovery);
+  if(!response.ok)throw new Error(response.error||"base recovery nudge was rejected");
+  showZFloor(response.z_floor);
+  const arrived=await waitForPose(recovery,20000,4);
+  if(!arrived.ok)throw new Error("base recovery nudge did not reach the valid area");
+  const recovered=Array.isArray(arrived.pose)&&arrived.pose.length>=3
+    ? {x:Number(arrived.pose[0]),y:Number(arrived.pose[1]),z:Number(arrived.pose[2])}
+    : recovery;
+  assertAutoPpxPoseSafe(recovered,"recovered arm position");
+  log(`base guard: arm recovered to ${Math.hypot(recovered.x,recovered.y).toFixed(1)} mm; replanning original destination`,"log-ok");
+  return recovered;
+}
+async function ensureSafePlanningStart(start,target,status){
+  const radiusMin=autoPpxPlanningRadiusMin();
+  const radius=Math.hypot(start.x,start.y);
+  if(radius>=radiusMin)return start;
+  if(cal2RecoveryBusy)throw new Error("base recovery is already in progress");
+  cal2RecoveryBusy=true;
+  try{return await recoverArmFromInnerBoundary(start,target,status);}
+  finally{cal2RecoveryBusy=false;}
+}
+async function guardCal2BaseApproach(status){
+  if(!AUTO_PPX||cal2BaseGuardBusy||cal2RecoveryBusy)return;
+  if(!status.enabled)return;
+  if(!Array.isArray(status.pose)||status.pose.length<3||!Array.isArray(status.target)||status.target.length<3)return;
+  const start={x:Number(status.pose[0]),y:Number(status.pose[1]),z:Number(status.pose[2])};
+  const target={x:Number(status.target[0]),y:Number(status.target[1]),z:Number(status.target[2])};
+  if(![...Object.values(start),...Object.values(target)].every(Number.isFinite))return;
+  const radiusMin=autoPpxPlanningRadiusMin(),radius=Math.hypot(start.x,start.y),targetRadius=Math.hypot(target.x,target.y);
+  if(radius>gameRadiusMax||targetRadius>gameRadiusMax){
+    cal2BaseGuardBusy=true;
+    try{
+      const reason=radius>gameRadiusMax?`arm reached ${radius.toFixed(1)} mm`:`target requested ${targetRadius.toFixed(1)} mm`;
+      log(`boundary guard: ${reason}; maximum is ${gameRadiusMax} mm`,"log-err");
+      setAutoPpxStatus(`Boundary guard stopped an outer-limit violation (${reason}).`,"err");
+      await api("/api/stop",{});
+      autoPpxAbort=true;
+    }finally{cal2BaseGuardBusy=false;}
+    return;
+  }
+  const pathDistance=segmentDistanceFromBase(start,target);
+  const approaching=radius<radiusMin||(pathDistance<radiusMin&&targetRadius>=radiusMin);
+  if(!approaching)return;
+  const angle=Math.atan2(start.y,start.x);
+  const recoveryRadius=Math.min(gameRadiusMax-AUTO_PP_OUTER_GUARD_MM,Math.max(gameRadiusMin,AUTO_PP_BASE_SAFE_RADIUS)+AUTO_PP_ROUTE_CLEARANCE_MM);
+  const destination=targetRadius>=radiusMin?target:{x:recoveryRadius*Math.cos(angle),y:recoveryRadius*Math.sin(angle),z:start.z};
+  cal2BaseGuardBusy=true;
+  const guardGeneration=cal2MotionGeneration;
+  try{
+    log(`base guard: path reached ${radius.toFixed(1)} mm; changing direction before ${radiusMin} mm limit`,"log-info");
+    setAutoPpxStatus(`Base guard active: routing around the ${radiusMin} mm restricted area.`,"err");
+    const recoveredStart=await recoverArmFromInnerBoundary(start,destination,status);
+    await routeCal2TransportAroundBase(recoveredStart,destination,"base guard");
+    if(guardGeneration!==cal2MotionGeneration){
+      log("base guard: stale destination discarded because the workflow advanced","log-info");
+      return;
+    }
+    assertAutoPpxPoseSafe(destination,"base guard destination");
+    syncTargetSliders(destination,["x","y","z"]);
+    const res=await api("/api/move",destination);
+    if(!res.ok)throw new Error(res.error||"base guard could not resume the destination");
+    showZFloor(res.z_floor);
+    log(`base guard: safe route complete${targetRadius>=radiusMin?"; destination resumed":"; unsafe destination cancelled"}`,"log-ok");
+    setAutoPpxStatus(targetRadius>=radiusMin?"Base guard routed the arm around the restricted area.":"Base guard moved the arm out and cancelled the unsafe destination.","ok");
+  }catch(e){
+    log(`base guard ✗ ${e.message}`,"log-err");
+    setAutoPpxStatus(`Base guard stopped the move: ${e.message}`,"err");
+    try{await api("/api/stop",{});}catch(_){}
+    autoPpxAbort=true;
+  }finally{
+    cal2BaseGuardBusy=false;
+  }
+}
+async function waitForCal2BaseGuard(label,timeoutMs=45000){
+  if(!AUTO_PPX)return;
+  const started=Date.now();
+  while(cal2BaseGuardBusy||cal2RecoveryBusy){
+    if(autoPpxAbort)throw new Error("stopped");
+    if(Date.now()-started>=timeoutMs)throw new Error(`${label} blocked because base rerouting did not finish`);
+    await delay(100);
+  }
+}
 
 async function moveToPose(pose, label, wait = true) {
   assertReadyForAutoAction();
   if (autoPpxAbort) throw new Error("stopped");
+  await waitForCal2BaseGuard(label);
+  cal2MotionGeneration+=1;
   pauseUserMoves();
+  if (AUTO_PPX) assertAutoPpxPoseSafe(pose, label);
   const target = clampedPose(pose);
   if (!Object.values(target).every(Number.isFinite)) throw new Error(`${label} target is invalid`);
-  syncTargetSliders(target, ["x", "y", "z"]);
-  const res = await api("/api/move", target);
-  if (!res.ok) throw new Error(res.error || `${label} move failed`);
-  showZFloor(res.z_floor);
+  let cal2Plan=null;
+  let res=null;
+  if(AUTO_PPX){
+    const status=await api("/api/status",null,"GET");
+    if(!Array.isArray(status.pose)||status.pose.length<3)throw new Error(`${label} cannot be planned because live arm position is unavailable`);
+    let start={x:Number(status.pose[0]),y:Number(status.pose[1]),z:Number(status.pose[2])};
+    if(!Object.values(start).every(Number.isFinite))throw new Error(`${label} cannot be planned because live arm position is invalid`);
+    start=await ensureSafePlanningStart(start,target,status);
+    cal2Plan=planCal2Movement(start,target,label);
+    log(`${label}: collision check passed${cal2Plan.length>1?` with ${cal2Plan.length} constrained execution waypoints`:" for the next short step"}`,"log-info");
+    if(cal2Plan.length>1){
+      await executeCal2Plan(cal2Plan,label);
+      res={ok:true};
+    }
+  }
+  if(!res){
+    syncTargetSliders(target, ["x", "y", "z"]);
+    res=await api("/api/move", target);
+    if (!res.ok) throw new Error(res.error || `${label} move failed`);
+    showZFloor(res.z_floor);
+  }
   let accepted = target;
   const st = await api("/api/status", null, "GET");
   if (Array.isArray(st.target) && st.target.length >= 3) {
@@ -1742,14 +2447,91 @@ async function moveToPose(pose, label, wait = true) {
   }
   log(`${label} -> X ${fmtNum(accepted.x)} Y ${fmtNum(accepted.y)} Z ${fmtNum(accepted.z)}`, "log-ok");
   if (wait) {
-    const arrived = await waitForPose(accepted);
+    const requiresTransportArrival=["source hover","lift to moving height","target hover","return to moving height"].includes(label);
+    const requiresExactArrival=requiresTransportArrival||label==="source pickup"||label==="target drop";
+    const settleTolerance=label==="target drop"?AUTO_PP_DROP_TOLERANCE_MM:(requiresExactArrival?3:10);
+    const arrived = await waitForPose(accepted,requiresExactArrival?30000:18000,settleTolerance);
+    if(!arrived.ok&&requiresTransportArrival){
+      const firstDetail=poseErrorText(arrived.error);
+      log(`${label}: first settle check missed${firstDetail?` (${firstDetail})`:""}; retrying with a longer transport tolerance`,"log-info");
+      setAutoPpxStatus(`${label} is still settling; retrying the transport waypoint...`);
+      await waitForCal2BaseGuard(`${label} retry`);
+      cal2MotionGeneration+=1;
+      const retryStatus=await api("/api/status",null,"GET");
+      let livePose=Array.isArray(retryStatus.pose)&&retryStatus.pose.length>=3
+        ? {x:Number(retryStatus.pose[0]),y:Number(retryStatus.pose[1]),z:Number(retryStatus.pose[2])}
+        : null;
+      if(!livePose||!Object.values(livePose).every(Number.isFinite))throw new Error(`${label} retry has no valid live arm position`);
+      livePose=await ensureSafePlanningStart(livePose,accepted,retryStatus);
+      const retryPlan=planCal2Movement(livePose,accepted,`${label} retry`);
+      if(retryPlan.length>1)await executeCal2Plan(retryPlan,`${label} retry`);
+      else{
+        const retry=await api("/api/move",accepted);
+        if(!retry.ok)throw new Error(retry.error||`${label} retry failed`);
+        showZFloor(retry.z_floor);
+      }
+      const retryArrival=await waitForPose(accepted,AUTO_PP_TRANSPORT_TIMEOUT_MS,AUTO_PP_TRANSPORT_TOLERANCE_MM);
+      if(retryArrival.ok){
+        arrived.ok=true;
+        arrived.pose=retryArrival.pose;
+        arrived.error=retryArrival.error;
+        log(`${label}: accepted within ${AUTO_PP_TRANSPORT_TOLERANCE_MM} mm transport tolerance after retry`,"log-ok");
+      }else{
+        arrived.pose=retryArrival.pose;
+        arrived.error=retryArrival.error;
+      }
+    }
     if (!arrived.ok) {
       const detail = poseErrorText(arrived.error);
+      if(label==="target drop"&&arrived.error&&arrived.error.deltas.x<=3&&arrived.error.deltas.y<=3){
+        await waitForCal2BaseGuard("target drop retry");
+        cal2MotionGeneration+=1;
+        log("target drop: XY is correct; retrying the vertical descent before release","log-info");
+        const retryStatus=await api("/api/status",null,"GET");
+        if(!Array.isArray(retryStatus.pose)||retryStatus.pose.length<3)throw new Error("target drop retry has no live arm position");
+        let retryStart={x:Number(retryStatus.pose[0]),y:Number(retryStatus.pose[1]),z:Number(retryStatus.pose[2])};
+        retryStart=await ensureSafePlanningStart(retryStart,accepted,retryStatus);
+        const dropRetryPlan=planCal2Movement(retryStart,accepted,"target drop retry");
+        if(dropRetryPlan.length>1)await executeCal2Plan(dropRetryPlan,"target drop retry");
+        else{
+          const retry=await api("/api/move",accepted);
+          if(!retry.ok)throw new Error(retry.error||"target drop descent retry failed");
+          showZFloor(retry.z_floor);
+        }
+        const retryArrival=await waitForPose(accepted,20000,AUTO_PP_DROP_TOLERANCE_MM);
+        if(retryArrival.ok){
+          log("target drop: vertical descent confirmed on retry","log-ok");
+          return accepted;
+        }
+      }
+      if(requiresExactArrival)throw new Error(`${label} did not settle at ${requiresTransportArrival?"transport":"working"} height${detail?` (${detail})`:""}`);
       log(`${label} wait timed out${detail ? ` (${detail})` : ""}; continuing`, "log-info");
       setAutoPpxStatus(`${label} still settling; continuing.`);
     }
   }
   return accepted;
+}
+
+async function ensureAutoPpxPickupReady(pose,marker,label){
+  const verify=async()=>{
+    const status=await api("/api/status",null,"GET");
+    if(!Array.isArray(status.pose)||status.pose.length<3)return null;
+    return poseError(status.pose,pose,["x","y","z"]);
+  };
+  let error=await verify();
+  if(!error||error.max>3){
+    setAutoPpxStatus(`${label}: lowering onto ArUco ${marker} before suction...`);
+    log(`ArUco ${marker}: enforcing pickup descent before vacuum`,"log-info");
+    await moveToPose(pose,"source pickup");
+    error=await verify();
+  }
+  if(!error||error.max>3){
+    const detail=poseErrorText(error);
+    throw new Error(`vacuum blocked: arm did not reach ArUco ${marker} pickup pose${detail?` (${detail})`:""}`);
+  }
+  const transportZ=autoPpxTransportZ();
+  if(Math.abs(Number(pose.z)-transportZ)<15)throw new Error(`vacuum blocked: ArUco ${marker} pickup height is too close to transport height`);
+  log(`ArUco ${marker}: pickup pose confirmed before vacuum`,"log-ok");
 }
 
 async function setPumpMode(mode, label) {
@@ -1809,15 +2591,30 @@ function autoPpxTune(id, lo, hi) {
 
 function autoPpxOffsetPose(pose) {
   const correction = autoPpxFineCalCorrection(pose);
-  return baseSafePose({
+  const tuned = {
     ...pose,
     x:Number(pose.x) + correction.dx + autoPpxTune("autoPpxTuneX", -80, 80),
     y:Number(pose.y) + correction.dy + autoPpxTune("autoPpxTuneY", -80, 80),
-  });
+  };
+  if (selectedAutoPpxCalibration() === "cal2") return assertAutoPpxPoseSafe(tuned, "fine-tuned Auto PP Cal 2 target");
+  return baseSafePose(tuned);
 }
 
 function autoPpxBasePickupZ() {
+  if (selectedAutoPpxCalibration() === "cal2") {
+    const z = Number((gameCalibration2.shared_z || {}).pickup_height);
+    if (!Number.isFinite(z)) throw new Error("Auto PP Cal 2 shared pickup Z is not calibrated");
+    return z;
+  }
   return calibratedZ("pickup_height");
+}
+function autoPpxTransportZ() {
+  if (selectedAutoPpxCalibration() === "cal2") {
+    const z = Number((gameCalibration2.shared_z || {}).transport_height);
+    if (!Number.isFinite(z)) throw new Error("Auto PP Cal 2 shared transport Z is not calibrated");
+    return z;
+  }
+  return calibratedZ("transport_height");
 }
 
 function autoPpxPickupZForPose(pose, includeLiveTune = true) {
@@ -1826,8 +2623,14 @@ function autoPpxPickupZForPose(pose, includeLiveTune = true) {
   return autoPpxBasePickupZ() + (Number(correction.dz) || 0) + liveTune;
 }
 
+function autoPpxDropZForPose(pose, includeLiveTune = true) {
+  const pickupZ = autoPpxPickupZForPose(pose, includeLiveTune);
+  return pickupZ + (selectedAutoPpxCalibration() === "cal2" ? 1 : 0);
+}
+
 async function captureAutoPpxPoses() {
-  await loadGameCalibration();
+  if (selectedAutoPpxCalibration() === "cal2") await loadGameCalibration2();
+  else await loadGameCalibration();
   await refreshGameField();
   const tags = await refreshAutoPpxTags();
   const ids = selectedAutoPpxIds();
@@ -1836,8 +2639,8 @@ async function captureAutoPpxPoses() {
   const sourceTag = tags.find(tag => String(tag.id) === ids.source);
   const targetTag = tags.find(tag => String(tag.id) === ids.target);
   if (!sourceTag || !targetTag) throw new Error("selected ArUco tag has no known position");
-  const sourceBase = clickToPose(sourceTag.nx, sourceTag.ny);
-  const targetBase = clickToPose(targetTag.nx, targetTag.ny);
+  const sourceBase = clickToPose(sourceTag.nx, sourceTag.ny, sourceTag.id);
+  const targetBase = clickToPose(targetTag.nx, targetTag.ny, targetTag.id);
   const source = autoPpxOffsetPose(sourceBase);
   const target = autoPpxOffsetPose(targetBase);
   log(`saved source ArUco ${sourceTag.id} -> X ${fmtNum(source.x)} Y ${fmtNum(source.y)}`, "log-info");
@@ -1846,7 +2649,8 @@ async function captureAutoPpxPoses() {
 }
 
 async function captureAutoPpxQueuePoses() {
-  await loadGameCalibration();
+  if (selectedAutoPpxCalibration() === "cal2") await loadGameCalibration2();
+  else await loadGameCalibration();
   await refreshGameField();
   const tags = await refreshAutoPpxTags();
   return autoPpxQueueIds().map((ids, index) => {
@@ -1854,10 +2658,12 @@ async function captureAutoPpxQueuePoses() {
     if (ids.source === ids.target) throw new Error(`source and target must differ on queue line ${index + 1}`);
     const sourceTag = tags.find(tag => String(tag.id) === ids.source);
     const targetTag = tags.find(tag => String(tag.id) === ids.target);
-    if (!sourceTag || !targetTag) throw new Error(`queue line ${index + 1} has no known tag position`);
-    const sourceBase = clickToPose(sourceTag.nx, sourceTag.ny);
-    const targetBase = clickToPose(targetTag.nx, targetTag.ny);
-    return { sourceTag, targetTag, sourceBase, targetBase, source:autoPpxOffsetPose(sourceBase), target:autoPpxOffsetPose(targetBase) };
+    if (!sourceTag && Number(ids.source) < 100) throw new Error(`queue line ${index + 1} has no known source tag position`);
+    if (!targetTag) throw new Error(`queue line ${index + 1} has no known target tag position`);
+    const resolvedSourceTag = sourceTag || { id:Number(ids.source), obscured:true };
+    const sourceBase = sourceTag ? clickToPose(sourceTag.nx, sourceTag.ny, sourceTag.id) : null;
+    const targetBase = clickToPose(targetTag.nx, targetTag.ny, targetTag.id);
+    return { sourceTag:resolvedSourceTag, targetTag, sourceBase, targetBase, source:sourceBase ? autoPpxOffsetPose(sourceBase) : null, target:autoPpxOffsetPose(targetBase) };
   });
 }
 
@@ -1865,30 +2671,130 @@ function autoPpxIsPhysicalTag(tag) {
   return Number(tag && tag.id) >= 100;
 }
 
-async function refreshAutoPpxPhysicalEndpoint(saved, endpoint, queueIndex) {
+async function refreshAutoPpxPhysicalEndpoint(saved, endpoint, queueIndex, trustedPlacement = null) {
   const tagKey = endpoint === "source" ? "sourceTag" : "targetTag";
   const baseKey = endpoint === "source" ? "sourceBase" : "targetBase";
   const tag = saved[tagKey];
   if (!autoPpxIsPhysicalTag(tag)) return;
   await refreshGameField();
-  const visible = await readVisibleArucoTags();
-  const liveTag = visible.find(item => Number(item.id) === Number(tag.id));
-  if (!liveTag || !autoPpxTagInsideActiveArea(liveTag)) {
-    throw new Error(`physical ArUco ${tag.id} on queue line ${queueIndex + 1} is not currently visible in the active area`);
+  // Physical pieces move during the game.  Never plan a robot move from the
+  // remembered dropdown position: the webcam tracker intentionally keeps a
+  // disappeared tag around briefly, which is useful for display but unsafe as
+  // a motion target.  Poll across several 10 Hz detection frames so a request
+  // that lands between frames does not incorrectly fall back to stale data.
+  let liveTag = null;
+  const freshUntil = Date.now() + 1800;
+  do {
+    const visible = await readVisibleArucoTags();
+    const observedAt = Date.now();
+    for (const item of visible) {
+      const missingMs = Math.max(0, Number(item.missing || 0) * 1000);
+      if (missingMs <= 350 && autoPpxTagInsideActiveArea(item, true)) {
+        autoPpxRememberedTags.set(Number(item.id), {
+          ...item, obscured:false, lastSeenAt:observedAt - missingMs,
+        });
+      }
+    }
+    liveTag = visible.find(item =>
+      Number(item.id) === Number(tag.id)
+      && Number(item.missing || 0) <= 0.35
+      && autoPpxTagInsideActiveArea(item, true)
+    );
+    if (liveTag || Date.now() >= freshUntil) break;
+    await delay(100);
+  } while (!autoPpxAbort);
+  if (autoPpxAbort) throw new Error("stopped");
+  if (!liveTag || !autoPpxTagInsideActiveArea(liveTag, true)) {
+    // A repeated queue source is commonly hidden by the arm that has just
+    // returned to hover above its preceding drop.  In that one case the
+    // robot-confirmed release pose is newer and safer than any camera cache.
+    // Keep the handoff short-lived so a tag moved by a person can never reuse
+    // an old operation's coordinates later in the run.
+    const placementAge = Date.now() - Number(trustedPlacement && trustedPlacement.at);
+    const placementMaxAge = trustedPlacement && trustedPlacement.recovered ? 10 * 60 * 1000 : 15000;
+    if (endpoint === "source"
+        && trustedPlacement
+        && Number(trustedPlacement.physicalTag) === Number(tag.id)
+        && placementAge >= 0 && placementAge <= placementMaxAge
+        && trustedPlacement.pose && trustedPlacement.base) {
+      saved[tagKey] = { ...tag, obscured:true, trustedPlacement:true };
+      saved[baseKey] = { ...trustedPlacement.base };
+      saved[endpoint] = { ...trustedPlacement.pose };
+      log(`source ArUco ${tag.id} is hidden by the returning arm; using the robot-confirmed drop at target ${trustedPlacement.targetMarker} from ${(placementAge / 1000).toFixed(1)}s ago -> X ${fmtNum(saved[endpoint].x)} Y ${fmtNum(saved[endpoint].y)}`, "log-ok");
+      return;
+    }
+    const remembered = autoPpxRememberedTags.get(Number(tag.id));
+    const rememberedAge = Date.now() - Number(remembered && remembered.lastSeenAt);
+    if (endpoint === "source"
+        && remembered
+        && rememberedAge >= 0 && rememberedAge <= AUTO_PPX_SOURCE_GRACE_MS
+        && Number.isFinite(Number(remembered.nx))
+        && Number.isFinite(Number(remembered.ny))
+        && autoPpxTagInsideActiveArea(remembered, true)) {
+      const base = clickToPose(remembered.nx, remembered.ny, remembered.id);
+      saved[tagKey] = { ...remembered, obscured:true, gracePosition:true };
+      saved[baseKey] = base;
+      saved[endpoint] = autoPpxOffsetPose(base);
+      log(`source ArUco ${tag.id} is hidden by the arm; using its fresh webcam position from ${(rememberedAge / 1000).toFixed(1)}s ago (10s grace) -> X ${fmtNum(saved[endpoint].x)} Y ${fmtNum(saved[endpoint].y)}`, "log-ok");
+      return;
+    }
+    throw new Error(`physical ArUco ${tag.id} on queue line ${queueIndex + 1} has no fresh webcam detection; refusing to use its previous position`);
   }
-  autoPpxRememberedTags.set(Number(liveTag.id), { ...liveTag, obscured:false, lastSeenAt:Date.now() });
-  const base = clickToPose(liveTag.nx, liveTag.ny);
+  autoPpxRememberedTags.set(Number(liveTag.id), {
+    ...liveTag,
+    obscured:false,
+    lastSeenAt:Date.now() - Math.max(0, Number(liveTag.missing || 0) * 1000),
+  });
+  const base = clickToPose(liveTag.nx, liveTag.ny, liveTag.id);
   saved[tagKey] = liveTag;
   saved[baseKey] = base;
   saved[endpoint] = autoPpxOffsetPose(base);
-  log(`updated ${endpoint} ArUco ${liveTag.id} -> X ${fmtNum(saved[endpoint].x)} Y ${fmtNum(saved[endpoint].y)}`, "log-info");
+  log(`updated ${endpoint} ArUco ${liveTag.id} from fresh webcam detection (${Number(liveTag.missing || 0).toFixed(2)}s old) -> X ${fmtNum(saved[endpoint].x)} Y ${fmtNum(saved[endpoint].y)}`, "log-info");
 }
 
 async function autoPpxPhysicalTagIsVisible(tag) {
   if (!autoPpxIsPhysicalTag(tag)) return false;
   await refreshGameField();
   const visible = await readVisibleArucoTags();
-  return visible.some(item => Number(item.id) === Number(tag.id) && autoPpxTagInsideActiveArea(item));
+  return visible.some(item => Number(item.id) === Number(tag.id) && autoPpxTagInsideActiveArea(item, true));
+}
+
+async function recoverTrustedPhysicalPlacements(queue, placements) {
+  if (!AUTO_PPX || TEAM !== "green") return;
+  try {
+    const response = await fetch(LASER_RUN);
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!(data.run && data.run.active) || !Array.isArray(data.events)) return;
+    const events = data.events;
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      const event = events[index];
+      if (event.producer !== "green_auto_pp_x" || event.event !== "release_completed") continue;
+      const physicalTag = Number(event.physical_tag), targetMarker = Number(event.target_marker);
+      if (!autoPpxIsPhysicalTag({ id:physicalTag }) || placements.has(physicalTag)) continue;
+      const releasedAt = Number(event.server_epoch) * 1000;
+      if (!Number.isFinite(releasedAt) || Date.now() - releasedAt > 10 * 60 * 1000) continue;
+      const pickedAgain = events.slice(index + 1).some(next =>
+        Number(next.physical_tag) === physicalTag
+        && next.producer === "green_auto_pp_x"
+        && ["source_pickup", "suction_start"].includes(next.event)
+      );
+      if (pickedAgain) continue;
+      const target = queue.find(item => Number(item.targetTag && item.targetTag.id) === targetMarker);
+      if (!target) continue;
+      placements.set(physicalTag, {
+        physicalTag, targetMarker,
+        pose:{ ...target.target }, base:{ ...target.targetBase },
+        operationId:event.operation_id, at:releasedAt, recovered:true,
+      });
+      for (const item of queue) {
+        if (Number(item.sourceTag && item.sourceTag.id) !== physicalTag) continue;
+        item.source = { ...target.target };
+        item.sourceBase = { ...target.targetBase };
+      }
+      log(`recovered robot-confirmed position for hidden ArUco ${physicalTag} at target ${targetMarker} from the active Laser Tag run`, "log-ok");
+    }
+  } catch (_) {}
 }
 
 function addAutoPpxQueueRow(afterRow) {
@@ -1928,7 +2834,7 @@ async function captureAutoPpxSourcePose() {
   if (!ids.source) throw new Error("choose a source ArUco code");
   const sourceTag = tags.find(tag => String(tag.id) === ids.source);
   if (!sourceTag) throw new Error("selected source ArUco tag has no known position");
-  const sourceBase = clickToPose(sourceTag.nx, sourceTag.ny);
+  const sourceBase = clickToPose(sourceTag.nx, sourceTag.ny, sourceTag.id);
   const source = autoPpxOffsetPose(sourceBase);
   log(`saved fine-tune source ArUco ${sourceTag.id} -> X ${fmtNum(source.x)} Y ${fmtNum(source.y)}`, "log-info");
   return { sourceTag, source, sourceBase };
@@ -1998,7 +2904,7 @@ function addAutoPpxFineCalPoint() {
 
 function clearAutoPpxFineCalPoints() {
   autoPpxFineCalPoints = [];
-  localStorage.removeItem(FINE_CAL_KEY);
+  localStorage.removeItem(autoPpxFineCalKey());
   renderAutoPpxFineCalList();
   autoPpxFineTuneAnchor = null;
   setAutoPpxStatus("Fine calibration points cleared.");
@@ -2053,6 +2959,33 @@ async function moveAutoPpxFineTuneNudge() {
   }
 }
 
+async function preflightAutoPpxQueue(queue,movingZ){
+  await waitForCal2BaseGuard("queue preflight");
+  const status=await api("/api/status",null,"GET");
+  if(!Array.isArray(status.pose)||status.pose.length<3)throw new Error("queue cannot be planned because live arm position is unavailable");
+  let cursor={x:Number(status.pose[0]),y:Number(status.pose[1]),z:Number(status.pose[2])};
+  if(!Object.values(cursor).every(Number.isFinite))throw new Error("queue cannot be planned because live arm position is invalid");
+  const firstTarget=queue.length?{...queue[0].source,z:movingZ}:cursor;
+  cursor=await ensureSafePlanningStart(cursor,firstTarget,status);
+  let segmentCount=0,adjustedCount=0;
+  for(let index=0;index<queue.length;index+=1){
+    const saved=queue[index];
+    const sourceHover={...saved.source,z:movingZ};
+    const sourcePickup={...saved.source,z:autoPpxPickupZForPose(saved.sourceBase,true)};
+    const targetHover={...saved.target,z:movingZ};
+    const targetDrop={...saved.target,z:autoPpxDropZForPose(saved.targetBase,true)};
+    const poses=[sourceHover,sourcePickup,sourceHover,targetHover,targetDrop,targetHover];
+    for(const target of poses){
+      const plan=planCal2Movement(cursor,target,`queue ${index+1} preflight`);
+      segmentCount+=1;
+      adjustedCount+=Math.max(0,plan.length-1);
+      cursor={...target};
+    }
+  }
+  log(`queue preflight passed: ${segmentCount} movements checked${adjustedCount?`, ${adjustedCount} constrained execution waypoints planned`:""}`,"log-ok");
+  return {segmentCount,adjustedCount};
+}
+
 async function runAutoPpx() {
   if (autoPpxRunning) return;
   autoPpxRunning = true;
@@ -2065,12 +2998,24 @@ async function runAutoPpx() {
   gid("autoPpxClearFineCal").disabled = true;
   gid("autoPpxQueue").querySelectorAll("select,button").forEach(el => { el.disabled = true; });
   gid("autoPpxLoop").disabled = true;
+  let activeOperation = null;
+  // Most recent robot-confirmed release for each physical tag.  This exists
+  // only for the current Go run and is used solely for an immediate repeated
+  // pickup while the returning arm obscures the tag from the camera.
+  const trustedPhysicalPlacements = new Map();
   try {
+    await laserIntent("script_started", {queue:autoPpxQueueIds()}, "lifecycle");
     assertReadyForAutoAction();
     setAutoPpxStatus("Saving queue positions from visible ArUco tags...");
     const queue = await captureAutoPpxQueuePoses();
-    const movingZ = calibratedZ("transport_height");
+    await recoverTrustedPhysicalPlacements(queue, trustedPhysicalPlacements);
+    const unresolved = queue.findIndex(item => !item.source || !item.sourceBase);
+    if (unresolved >= 0) throw new Error(`physical ArUco ${queue[unresolved].sourceTag.id} on queue line ${unresolved + 1} has neither a fresh detection nor a robot-confirmed active-run placement`);
+    const movingZ = autoPpxTransportZ();
     const loop = gid("autoPpxLoop").checked;
+    setAutoPpxStatus("Checking the complete movement plan for boundary collisions...");
+    await preflightAutoPpxQueue(queue,movingZ);
+    setAutoPpxStatus("Movement plan is safe. Starting Auto PP X...","ok");
     let pass = 0;
     do {
       pass += 1;
@@ -2078,21 +3023,30 @@ async function runAutoPpx() {
         if (autoPpxAbort) throw new Error("stopped");
         const saved = queue[index];
         const progress = `Queue ${index + 1}/${queue.length}${loop ? ` · loop ${pass}` : ""}`;
+        let eventBase = null;
         let pickupAttempt = 0;
         let sourceHover;
         do {
           pickupAttempt += 1;
+          const operationId = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+          eventBase = activeOperation = {operation_id:operationId, queue_index:index + 1, queue_length:queue.length, loop:pass, attempt:pickupAttempt, physical_tag:Number(saved.sourceTag.id), target_marker:Number(saved.targetTag.id)};
+          await laserIntent("operation_started", eventBase, "lifecycle");
           if (autoPpxAbort) throw new Error("stopped");
-          await refreshAutoPpxPhysicalEndpoint(saved, "source", index);
+          await refreshAutoPpxPhysicalEndpoint(saved, "source", index, trustedPhysicalPlacements.get(Number(saved.sourceTag.id)));
           sourceHover = { ...saved.source, z:movingZ };
           const sourcePickup = { ...saved.source, z:autoPpxPickupZForPose(saved.sourceBase, true) };
           const attemptText = pickupAttempt > 1 ? ` (attempt ${pickupAttempt})` : "";
           setAutoPpxStatus(`${progress}: moving over ArUco ${saved.sourceTag.id}${attemptText}...`);
+          await laserIntent("source_hover", eventBase);
           await moveToPose(sourceHover, "source hover");
           setAutoPpxStatus(`${progress}: picking up ArUco ${saved.sourceTag.id}${attemptText}...`);
+          await laserIntent("source_pickup", eventBase);
           await moveToPose(sourcePickup, "source pickup");
+          await ensureAutoPpxPickupReady(sourcePickup,saved.sourceTag.id,progress);
+          await laserIntent("suction_start", eventBase);
           await setPumpMode("suck", "vacuum on");
           await delay(250);
+          await laserIntent("lift", eventBase);
           await moveToPose(sourceHover, "lift to moving height");
           if (!autoPpxIsPhysicalTag(saved.sourceTag)) break;
           setAutoPpxStatus(`${progress}: checking pickup of ArUco ${saved.sourceTag.id}...`);
@@ -2101,24 +3055,48 @@ async function runAutoPpx() {
           setAutoPpxStatus(`${progress}: pickup failed — remapping ArUco ${saved.sourceTag.id} and retrying.`, "err");
           log(`pickup ArUco ${saved.sourceTag.id} still visible; remapping and retrying`, "log-info");
           await setPumpMode("off", "vacuum off after failed pickup");
+          await laserIntent("operation_failed", {...eventBase, reason:"pickup remained visible"}, "lifecycle");
           await delay(250);
         } while (true);
         await refreshAutoPpxPhysicalEndpoint(saved, "target", index);
         const targetHover = { ...saved.target, z:movingZ };
-        const targetDrop = { ...saved.target, z:autoPpxPickupZForPose(saved.targetBase, true) };
+        const targetDrop = { ...saved.target, z:autoPpxDropZForPose(saved.targetBase, true) };
         setAutoPpxStatus(`${progress}: moving to ArUco ${saved.targetTag.id}...`);
+        await laserIntent("target_hover", eventBase);
         await moveToPose(targetHover, "target hover");
         setAutoPpxStatus(`${progress}: dropping at ArUco ${saved.targetTag.id}...`);
+        await laserIntent("target_descent_started", eventBase);
         await moveToPose(targetDrop, "target drop");
+        await laserIntent("target_pose_reached", eventBase, "command");
+        await laserIntent("release_started", eventBase, "command");
         await setPumpMode("off", "vacuum off");
+        await laserIntent("release_completed", eventBase, "command");
+        await laserIntent("blow_started", eventBase, "command");
         await setPumpMode("blow", "brief blow");
+        await laserIntent("blow_completed", eventBase, "command");
         await delay(450);
         await setPumpMode("off", "pump off");
+        await laserIntent("return_hover", eventBase);
         await moveToPose(targetHover, "return to moving height");
+        if (autoPpxIsPhysicalTag(saved.sourceTag)) {
+          trustedPhysicalPlacements.set(Number(saved.sourceTag.id), {
+            physicalTag:Number(saved.sourceTag.id),
+            targetMarker:Number(saved.targetTag.id),
+            pose:{ ...saved.target },
+            base:{ ...saved.targetBase },
+            operationId:eventBase.operation_id,
+            at:Date.now(),
+          });
+        }
+        await laserIntent("operation_completed", eventBase, "lifecycle");
+        activeOperation = null;
       }
     } while (loop && !autoPpxAbort);
     setAutoPpxStatus(`Auto PP X queue complete (${queue.length} move${queue.length === 1 ? "" : "s"}).`, "ok");
+    await laserIntent("script_completed", {queue_length:queue.length, loops:pass}, "lifecycle");
   } catch (e) {
+    if(activeOperation)await laserIntent("operation_failed", {...activeOperation, reason:e.message}, "lifecycle");
+    await laserIntent(e.message === "stopped" ? "script_stopped" : "script_failed", {error:e.message}, "lifecycle");
     setAutoPpxStatus(e.message === "stopped" ? "Stopped." : e.message, e.message === "stopped" ? "" : "err");
     log(`Auto PP X ✗ ${e.message}`, e.message === "stopped" ? "log-info" : "log-err");
   } finally {
@@ -2212,6 +3190,10 @@ async function flushMove() {
   if (timer) { clearTimeout(timer); timer = null; }
   if (!pending || !connected) return;
   const target = pending; pending = null; lastSent = Date.now();
+  if(AUTO_PPX&&selectedAutoPpxCalibration()==="cal2"){
+    try{assertAutoPpxPoseSafe(target,"manual Cal 2 target");}
+    catch(e){log(`move blocked ✗ ${e.message}`,"log-err");return;}
+  }
   const res = await api("/api/move", target);
   if (!res.ok) log(`move ✗ ${res.error || ("ErrorID " + res.errid)}`, "log-err");
   else showZFloor(res.z_floor);
@@ -2265,9 +3247,14 @@ function applyRelayStatus(s) {
 }
 
 async function poll() {
+  if (armConnectBusy) return;
   if (armPollBusy) return;
   armPollBusy = true;
-  try { applyStatus(await api("/api/status")); }
+  try {
+    const status=await api("/api/status");
+    applyStatus(status);
+    await guardCal2BaseApproach(status);
+  }
   finally { armPollBusy = false; }
 }
 function applyStatus(s) {
@@ -2302,6 +3289,8 @@ function applyStatus(s) {
   document.getElementById("pumpText").textContent = pumpMode;
 
   if (Array.isArray(s.pose)) {
+    currentArmPose={x:Number(s.pose[0]),y:Number(s.pose[1]),z:Number(s.pose[2])};
+    renderCurrentArmPose();
     AXIS_DEFS.forEach((def, i) => {
       const act = document.getElementById(def.id + "Act");
       if (act) act.textContent = "actual " + s.pose[i].toFixed(0) + " " + def.unit;
@@ -2381,18 +3370,26 @@ function applyIdentity(ident) {
 function wire() {
   document.querySelectorAll("#linkSeg button").forEach(b => b.onclick = () => setLinkMode(b.dataset.link));
   document.getElementById("btnConnect").onclick = async () => {
+    if (armConnectBusy) return;
+    armConnectBusy = true;
+    document.getElementById("btnConnect").disabled = true;
     let res;
-    if (linkMode === "relay") {
-      const host = document.getElementById("relayHost").value.trim();
-      const side = document.getElementById("relaySide").value;
-      log(`Connecting to relay ${host} as ${side} ...`);
-      res = report("connect (relay)", await api("/api/connect", { mode:"relay", host, side }));
-    } else {
-      const ip = document.getElementById("ip").value.trim();
-      log(`Connecting to ${ip} …`);
-      res = report("connect", await api("/api/connect", { mode:"direct", ip }));
+    try {
+      if (linkMode === "relay") {
+        const host = document.getElementById("relayHost").value.trim();
+        const side = document.getElementById("relaySide").value;
+        log(`Connecting to relay ${host} as ${side} ...`);
+        res = report("connect (relay)", await api("/api/connect", { mode:"relay", host, side }, undefined, 45000));
+      } else {
+        const ip = document.getElementById("ip").value.trim();
+        log(`Connecting to ${ip} …`);
+        res = report("connect", await api("/api/connect", { mode:"direct", ip }, undefined, 45000));
+      }
+    } finally {
+      armConnectBusy = false;
+      document.getElementById("btnConnect").disabled = false;
     }
-    if (res.ok) {
+    if (res && res.ok) {
       setTimeout(poll, 100);
       if (res.enabled) setTimeout(syncSliders, 300);
     }

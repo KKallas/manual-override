@@ -98,6 +98,7 @@
             <option value="rot180">Rotate video 180°</option>
           </select>
           <button id="btnSyncPlayfield" type="button">Show calibration tags</button>
+          <button id="btnSaveArea" class="ok" type="button">Save active field</button>
           <button id="btnResetArea" type="button">Reset active field</button>
           <span id="calStatus" class="status">Drag the active field handles to set the playable area.</span>
         </div>
@@ -153,8 +154,8 @@ const TEAM_LABEL = TEAM.charAt(0).toUpperCase() + TEAM.slice(1);
 const GM = `${location.origin}/s/gamemaster/p/auto-pickup-game`;
 const PLAYFIELD = `${location.origin}/s/gamemaster/p/playfield-areas`;
 const CART = `${location.origin}/s/${TEAM}/p/cartesian-xyz-test`;
-const WEBCAM = `${location.origin}/s/gamemaster/p/webcam/api/stream`;
-const WEBCAM_TAGS = `${location.origin}/s/gamemaster/p/webcam/api/tags`;
+const WEBCAM = `${location.origin}/s/gamemaster/p/camera-calibration/api/corrected-stream`;
+const WEBCAM_TAGS = `${location.origin}/s/gamemaster/p/webcam/api/tags?space=corrected`;
 const CAMERA_KEY = `auto-pp-calibrate-camera-${TEAM}`;
 const CORNER_MAP_KEY = `auto-pp-calibrate-corner-map-${TEAM}`;
 const CAL_POINTS = [["top_left","Top left"],["top_right","Top right"],["bottom_right","Bottom right"],["bottom_left","Bottom left"]];
@@ -190,10 +191,12 @@ let numEls = {};
 let draggingId = null;
 let latestTags = null;
 let cachedTagSet = null;
+let liveMarkerSetSeen = false;
 let zoneDrag = null;
 let movementZone = { sMin:0, sMax:1, tMin:0, tMax:1 };
 let movementZoneDirty = false;
 let movementZoneSaveTimer = null;
+let overlayRefreshBusy = false;
 let calibrationAccess = { active_side:"", teams:{ green:{enabled:false}, purple:{enabled:false} } };
 
 async function gmApi(path, body, method, keepalive = false) {
@@ -250,7 +253,7 @@ function renderAccessGate() {
   gate.textContent = allowed
     ? `${TEAM_LABEL} calibration is enabled by the gamemaster.`
     : "Waiting for gamemaster to enable calibration.";
-  for (const id of ["btnSyncPlayfield", "btnResetArea", "btnDownloadCal", "btnUploadCal"]) {
+  for (const id of ["btnSyncPlayfield", "btnSaveArea", "btnResetArea", "btnDownloadCal", "btnUploadCal"]) {
     const node = el(id);
     if (node) node.disabled = !allowed;
   }
@@ -813,11 +816,25 @@ async function visibleCalibrationTags() {
 }
 async function activeCalibrationTags() {
   try {
-    const tags = await visibleCalibrationTags();
-    if (completeTagSet(tags)) {
-      cachedTagSet = { tags, capturedAt:Date.now(), cameraView:el("cameraView").value };
+    const liveTags = await visibleCalibrationTags();
+    if (Object.keys(liveTags).length) {
+      // The first live read starts a fresh set in the corrected coordinate
+      // space. Later reads merge independently so one flickering marker does
+      // not freeze all of the other marker positions.
+      const previous = liveMarkerSetSeen && cachedTagSet ? cachedTagSet.tags : {};
+      const merged = { ...previous, ...liveTags };
+      liveMarkerSetSeen = true;
+      cachedTagSet = {
+        tags:merged,
+        capturedAt:Date.now(),
+        cameraView:el("cameraView").value,
+      };
     }
-  } catch (_) {}
+  } catch (error) {
+    // Keep a saved marker set visible during a transient camera/API failure,
+    // but surface the failure instead of silently making monitoring look idle.
+    if (!cachedTagSet) setStatus(`Marker monitoring unavailable: ${error.message}`);
+  }
   if (!cachedTagSet) cachedTagSet = markerCacheFromCalibration();
   return cachedTagSet;
 }
@@ -882,11 +899,19 @@ function updateZoneFromPointer(ev) {
   scheduleMovementZoneSave();
 }
 async function saveMovementZone(keepalive = false) {
-  if (!calibrationAllowed()) return;
+  if (!calibrationAllowed()) {
+    throw new Error("Gamemaster must enable this player's calibration before the active field can be saved");
+  }
   const snapshot = { ...movementZone };
   const data = await gmApi("/api/calibration/active-area", { active_area:snapshot }, undefined, keepalive);
   calibration = data.calibration || calibration;
+  const saved = cleanActiveArea(
+    data.active_area || (data.calibration && data.calibration.playfield && data.calibration.playfield.active_area)
+  );
+  const matches = Object.keys(snapshot).every(key => Math.abs(Number(snapshot[key]) - Number(saved[key])) < 0.0002);
+  if (!matches) throw new Error("server did not confirm the requested active field");
   if (Object.keys(snapshot).every(key => snapshot[key] === movementZone[key])) movementZoneDirty = false;
+  return saved;
 }
 function scheduleMovementZoneSave() {
   clearTimeout(movementZoneSaveTimer);
@@ -913,10 +938,15 @@ function stopZoneDrag() {
   saveMovementZone().then(() => setStatus("Active playing field saved.")).catch(e => setStatus(e.message));
 }
 async function refreshOverlay() {
-  if (zoneDrag) return;
-  const cached = await activeCalibrationTags();
-  renderOverlay(cached ? cached.tags : {});
-  setMarkerStamp(cached);
+  if (zoneDrag || overlayRefreshBusy) return;
+  overlayRefreshBusy = true;
+  try {
+    const cached = await activeCalibrationTags();
+    renderOverlay(cached ? cached.tags : {});
+    setMarkerStamp(cached);
+  } finally {
+    overlayRefreshBusy = false;
+  }
 }
 function buildAxes() {
   const wrap = el("axes");
@@ -1032,6 +1062,12 @@ function wire() {
   el("cameraView").onchange = applyCameraView;
   applyCameraView();
   el("btnSyncPlayfield").onclick = () => syncPlayfieldTags().catch(e => setStatus(e.message));
+  el("btnSaveArea").onclick = () => {
+    setStatus("Saving active playing field...");
+    saveMovementZone()
+      .then(() => setStatus("Active playing field saved and available in Auto PP X."))
+      .catch(e => setStatus(`Active field was not saved: ${e.message}`));
+  };
   el("btnResetArea").onclick = () => {
     if (!requireCalibrationAccess()) return;
     movementZone = { sMin:0, sMax:1, tMin:0, tMax:1 };
@@ -1085,7 +1121,7 @@ async function init() {
   renderAccessGate();
   refreshOverlay();
   setInterval(loadAccess, 1000);
-  setInterval(refreshOverlay, 1500);
+  setInterval(refreshOverlay, 500);
   cartApi("/api/status").then(applyStatus).catch(() => null);
   const es = new EventSource(`${CART}/api/events`);
   es.onmessage = e => { try { applyStatus(JSON.parse(e.data)); } catch (_) {} };
