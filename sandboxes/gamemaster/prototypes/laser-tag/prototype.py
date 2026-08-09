@@ -113,6 +113,11 @@ def _fresh_state():
         "started_at": None,
         "finished_at": None,
         "tag_ids": {"green": [100, 101], "blue": [102, 103]},
+        "final_stage": "outer_ring",
+        "first_center_tag": None,
+        "first_center_team": None,
+        "first_center_position": None,
+        "first_center_confirmed_at": None,
         "message": "Configure four physical tags, then start.",
         "updated_at": time.time(),
     }
@@ -184,7 +189,11 @@ def operator():
             _state = _fresh_state()
             _state["tag_ids"] = ids
         else:
-            for key in ("phase", "started_at", "finished_at", "message"):
+            for key in (
+                "phase", "started_at", "finished_at", "message", "final_stage",
+                "first_center_tag", "first_center_team", "first_center_position",
+                "first_center_confirmed_at",
+            ):
                 if key in data:
                     _state[key] = data[key]
             incoming = data.get("tag_ids")

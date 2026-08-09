@@ -299,17 +299,20 @@ class RelayClient:
             self._post("/api/hold", {"side": self.side, "token": token})
 
     # -- pump -----------------------------------------------------------------
-    def set_pump(self, mode, suck_do=None, blow_do=None):
+    def set_pump(self, mode, suck_do=None, blow_do=None, operation_id=None):
         """Forward the pump command. Accepts the suck/blow DO indices the direct
-        driver takes (ignored — the relay owns the I/O mapping). Returns (errid,
-        resp) like the direct driver so _command() reports it the same way."""
+        driver takes (ignored — the relay owns the I/O mapping).  Operation-scoped
+        callers receive the relay's structured command receipt unchanged so the
+        browser can prove which physical pump command completed."""
         token = self._token
         if token is None:
             return -1, "not connected"
-        status, body = self._post("/api/pump",
-                                  {"side": self.side, "token": token, "mode": mode})
+        payload = {"side": self.side, "token": token, "mode": mode}
+        if operation_id:
+            payload["operation_id"] = str(operation_id)[:80]
+        status, body = self._post("/api/pump", payload)
         ok = bool(body and body.get("ok"))
-        return (0 if ok else -1), json.dumps(body) if body else ""
+        return (0 if ok else -1), body if body else ""
 
     # -- dashboard-style commands (mapped to relay endpoints) -----------------
     def enable(self):

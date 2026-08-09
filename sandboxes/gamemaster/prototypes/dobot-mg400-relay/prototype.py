@@ -215,6 +215,7 @@ def _log_command(direction, side, command, payload=None, ok=None, error=None):
                 print(f"dobot relay: cannot write {COMMAND_LOG_FILE}: {exc}", file=sys.stderr)
                 _command_log_file_error_reported = True
     _live.bump()
+    return entry["id"]
 
 
 def _command_log_snapshot():
@@ -973,9 +974,20 @@ def pump():
     except DobotError as e:
         _log_command("robot", side, "set_pump", {"mode": mode}, ok=False, error=str(e))
         return _fail(str(e), errid=e.errid)
-    _log_command("robot", side, "set_pump", {"mode": mode, "errid": errid, "resp": resp}, ok=(errid == 0))
+    state = robot.get_state()
+    pose = list(state.get("pose") or [])
+    operation_id = str(data.get("operation_id") or "")[:80] or None
+    command_seq = _log_command(
+        "robot", side, "set_pump",
+        {"mode": mode, "errid": errid, "resp": resp,
+         "operation_id": operation_id, "pose": pose},
+        ok=(errid == 0),
+    )
     _live.bump()
-    return jsonify({"ok": errid == 0, "errid": errid, "resp": resp, "side": side})
+    return jsonify({
+        "ok": errid == 0, "errid": errid, "resp": resp, "side": side,
+        "operation_id": operation_id, "command_seq": command_seq, "pose": pose,
+    })
 
 
 @bp.route("/api/hold", methods=["POST"])

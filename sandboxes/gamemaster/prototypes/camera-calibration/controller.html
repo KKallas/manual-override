@@ -50,6 +50,7 @@
 <script>
 const BASE=location.pathname.replace(/\/?$/,'/'),U=p=>BASE+p.replace(/^\//,'/'),$=id=>document.getElementById(id);
 const TARGET_BRIGHTNESS_KEY='hhh-calibration-target-brightness';
+const PLAYFIELD_BRIGHTNESS_KEY='hhh-calibration-playfield-brightness';
 const BRIGHTNESS_LINK_KEY='hhh-brightness-sliders-linked';
 const PLAYFIELD_SETTINGS='/s/gamemaster/p/playfield-areas/api/settings';
 $('feed').src=U('api/stream')+'?t='+Date.now();
@@ -83,7 +84,12 @@ function renderBrightness(){
 }
 function savePlayfieldBrightness(){
   clearTimeout(brightnessSaveTimer);
-  brightnessSaveTimer=setTimeout(()=>fetch(PLAYFIELD_SETTINGS,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({global_brightness:brightnessValues.global/100,atom_brightness:brightnessValues.atom/100})}).catch(()=>focusMessage('Could not save playfield brightness')),60);
+  brightnessSaveTimer=setTimeout(async()=>{
+    try{
+      const r=await fetch(PLAYFIELD_SETTINGS,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({global_brightness:brightnessValues.global/100,atom_brightness:brightnessValues.atom/100}),keepalive:true});
+      if(!r.ok)throw Error('request failed');
+    }catch(e){focusMessage('Could not save playfield brightness')}
+  },60);
 }
 function changeBrightness(kind,value){
   const next=clampBrightness(value),old=brightnessValues[kind];
@@ -92,10 +98,24 @@ function changeBrightness(kind,value){
     for(const key of Object.keys(brightnessValues))brightnessValues[key]=clampBrightness(brightnessValues[key]*ratio);
   }
   brightnessValues[kind]=next;
+  // Store this synchronously as well as sending it to Playfield Areas. A hub
+  // restart can interrupt the debounced request, but localStorage survives it
+  // and is reconciled with the playfield as soon as this page loads again.
+  localStorage.setItem(PLAYFIELD_BRIGHTNESS_KEY,String(brightnessValues.global));
   renderBrightness();savePlayfieldBrightness();
 }
 async function loadPlayfieldBrightness(){
-  try{const r=await fetch(PLAYFIELD_SETTINGS),d=await r.json(),s=d.settings||{};brightnessValues.global=clampBrightness(Number(s.global_brightness??1)*100);brightnessValues.atom=clampBrightness(Number(s.atom_brightness??1)*100);renderBrightness()}catch(e){focusMessage('Could not load playfield brightness')}
+  try{
+    const r=await fetch(PLAYFIELD_SETTINGS),d=await r.json();
+    if(!r.ok)throw Error(d.error||'request failed');
+    const s=d.settings||{},serverGlobal=clampBrightness(Number(s.global_brightness??1)*100);
+    const remembered=localStorage.getItem(PLAYFIELD_BRIGHTNESS_KEY);
+    brightnessValues.global=remembered===null?serverGlobal:clampBrightness(remembered);
+    brightnessValues.atom=clampBrightness(Number(s.atom_brightness??1)*100);
+    localStorage.setItem(PLAYFIELD_BRIGHTNESS_KEY,String(brightnessValues.global));
+    renderBrightness();
+    if(brightnessValues.global!==serverGlobal)savePlayfieldBrightness();
+  }catch(e){focusMessage('Could not load playfield brightness')}
 }
 async function post(path,body={}){const r=await fetch(U(path),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||'Request failed');return d}
 async function del(path){const r=await fetch(U(path),{method:'DELETE'});const d=await r.json();if(!r.ok)throw Error(d.error||'Request failed');return d}
@@ -160,6 +180,8 @@ $('resetTargetBrightness').onclick=()=>changeBrightness('target',100);
 $('linkBrightness').checked=localStorage.getItem(BRIGHTNESS_LINK_KEY)!=='false';
 $('linkBrightness').onchange=()=>localStorage.setItem(BRIGHTNESS_LINK_KEY,String($('linkBrightness').checked));
 brightnessValues.target=clampBrightness(localStorage.getItem(TARGET_BRIGHTNESS_KEY)||100);
+const rememberedPlayfieldBrightness=localStorage.getItem(PLAYFIELD_BRIGHTNESS_KEY);
+if(rememberedPlayfieldBrightness!==null)brightnessValues.global=clampBrightness(rememberedPlayfieldBrightness);
 renderBrightness();loadPlayfieldBrightness();
 poll();pollFocus();loadCameras();setInterval(poll,750);setInterval(pollFocus,2000);
 </script></body></html>

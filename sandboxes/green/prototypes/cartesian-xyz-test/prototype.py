@@ -573,10 +573,43 @@ def stop():
 
 @bp.route("/api/pump", methods=["POST"])
 def pump():
-    mode = (request.json or {}).get("mode", "off")
+    data = request.json or {}
+    mode = data.get("mode", "off")
     if mode not in ("suck", "blow", "off"):
         return _fail("mode must be 'suck', 'blow' or 'off'")
-    return _command(lambda r: r.set_pump(mode, SUCK_DO_INDEX, BLOW_DO_INDEX))
+    operation_id = str(data.get("operation_id") or "")[:80] or None
+    robot = _current()
+    if robot is None or not robot.is_connected():
+        return _fail("Not connected")
+    if operation_id and _link != "relay":
+        return _fail("operation-scoped pump receipts require relay mode")
+    try:
+        if _link == "relay":
+            errid, receipt = robot.set_pump(
+                mode, SUCK_DO_INDEX, BLOW_DO_INDEX,
+                operation_id=operation_id,
+            )
+        else:
+            errid, receipt = robot.set_pump(mode, SUCK_DO_INDEX, BLOW_DO_INDEX)
+        if not isinstance(receipt, dict):
+            return jsonify({"ok": errid == 0, "errid": errid, "resp": receipt})
+        # Preserve the relay-issued identity and pose at the HTTP boundary.  Do
+        # not manufacture a sequence locally: only the relay can attest that the
+        # physical command was accepted and ordered.
+        return jsonify({
+            "ok": errid == 0 and bool(receipt.get("ok")),
+            "errid": receipt.get("errid", errid),
+            "resp": receipt.get("resp"),
+            "side": receipt.get("side"),
+            "operation_id": receipt.get("operation_id"),
+            "command_seq": receipt.get("command_seq"),
+            "pose": receipt.get("pose"),
+            **({"error": receipt.get("error")} if receipt.get("error") else {}),
+        })
+    except DobotError as e:
+        return _fail(str(e), errid=e.errid)
+    except Exception as e:  # pragma: no cover
+        return _fail(str(e))
 
 
 @bp.route("/api/move", methods=["POST"])

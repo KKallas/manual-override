@@ -780,28 +780,32 @@ class CameraManager:
                 else ("DirectShow" if sys.platform.startswith("win") else "default"),
             }
 
-    def detections(self, now):
-        """Immediate reads from the same detections used to draw the MJPEG overlay."""
+    def detection_snapshot(self, now):
+        """Held positions plus IDs present in the latest processed frame."""
         with self._lock:
             missing = now - self._last_detections_at
             if missing > DETECTION_HOLD_SECS:
-                return []
-            out = []
-            for rec in self._last_detections.values():
-                out.append({
-                    "id": rec["id"],
-                    "x": round(rec["x"], 1), "y": round(rec["y"], 1),
-                    "nx": round(rec["nx"], 4), "ny": round(rec["ny"], 4),
-                    "rotation": round(rec["rot"], 1),
-                    "missing": round(missing, 2),
-                    "tracked": any(t["id"] == rec["id"] for t in _tracker.tags(now)),
-                    "corners": [
-                        [round(float(x), 1), round(float(y), 1)]
-                        for x, y in rec.get("corners", [])
-                    ],
-                })
+                out = []
+            else:
+                tracked_ids = {item["id"] for item in _tracker.tags(now)}
+                out = [{
+                        "id": rec["id"],
+                        "x": round(rec["x"], 1), "y": round(rec["y"], 1),
+                        "nx": round(rec["nx"], 4), "ny": round(rec["ny"], 4),
+                        "rotation": round(rec["rot"], 1),
+                        "missing": round(missing, 2),
+                        "tracked": rec["id"] in tracked_ids,
+                        "corners": [
+                            [round(float(x), 1), round(float(y), 1)]
+                            for x, y in rec.get("corners", [])
+                        ],
+                    } for rec in self._last_detections.values()]
             out.sort(key=lambda t: t["id"])
-            return out
+            return out, sorted(self._overlay_detections)
+
+    def detections(self, now):
+        """Immediate reads from the same detections used to draw the MJPEG overlay."""
+        return self.detection_snapshot(now)[0]
 
     def active_index(self):
         with self._lock:
@@ -1014,7 +1018,7 @@ def api_tags():
     (normalised 0..1), rotation (degrees), and how long it's been `missing`."""
     now = time.monotonic()
     tags = _tracker.tags(now)
-    detections = _mgr.detections(now)
+    detections, visible_ids = _mgr.detection_snapshot(now)
     corrected = False
     if request.args.get("space") == "corrected" and _tag_transformer is not None:
         try:
@@ -1025,6 +1029,7 @@ def api_tags():
     return jsonify({
         "tags": tags,
         "detections": detections,
+        "visible_ids": visible_ids,
         "corrected": corrected,
         "width": _mgr.status()["width"],
         "height": _mgr.status()["height"],
