@@ -44,6 +44,12 @@
   .pill.error { color:var(--err); } .pill.error .dot { background:var(--err); }
   .pill.warn { color:var(--warn); } .pill.warn .dot { background:var(--warn); }
   .hint { color:var(--muted); font-size:12px; margin-top:8px; }
+  .motionGrid { display:grid; grid-template-columns:1fr 1fr; gap:14px 22px; }
+  .motionControl { display:block; min-width:0; }
+  .motionLabel { display:flex; justify-content:space-between; gap:12px;
+    margin-bottom:7px; font-size:13px; }
+  .motionValue { color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .motionControl input[type=range] { display:block; width:100%; accent-color:var(--accent); }
   .arms { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   .armcard { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 18px; }
   .armcard.purple { border-color:#3a2a5a; }
@@ -83,6 +89,7 @@
   code { color:var(--accent); }
   @media (max-width:760px){
     .arms { grid-template-columns:1fr; }
+    .motionGrid { grid-template-columns:1fr; }
   }
 </style>
   <link rel="stylesheet" href="/theme.css" />
@@ -110,6 +117,30 @@
     <div class="hint" style="margin-top:6px">The arm won't move its tool below this height.
       Cartesian/XYZ targets are clamped directly. Joint targets use each arm's learned
       height model — jog J2/J3 around once and the clamp becomes smooth.</div>
+  </section>
+
+  <section class="panel motion">
+    <h2>Following speed</h2>
+    <div class="motionGrid">
+      <label class="motionControl" for="motionTcpXyz">
+        <span class="motionLabel"><span>TCP XYZ path</span><span class="motionValue" id="motionTcpXyzValue">20 mm/s</span></span>
+        <input type="range" id="motionTcpXyz" min="1" max="200" step="1" value="20" />
+      </label>
+      <label class="motionControl" for="motionTcpRotation">
+        <span class="motionLabel"><span>TCP rotation</span><span class="motionValue" id="motionTcpRotationValue">9 deg/s</span></span>
+        <input type="range" id="motionTcpRotation" min="1" max="90" step="1" value="9" />
+      </label>
+      <label class="motionControl" for="motionJoint">
+        <span class="motionLabel"><span>Joint-space path</span><span class="motionValue" id="motionJointValue">12 deg/s</span></span>
+        <input type="range" id="motionJoint" min="1" max="120" step="1" value="12" />
+      </label>
+      <label class="motionControl" for="motionRamp">
+        <span class="motionLabel"><span>Ramp/braking time</span><span class="motionValue" id="motionRampValue">0.50 s</span></span>
+        <input type="range" id="motionRamp" min="0.05" max="0.80" step="0.05" value="0.50" />
+      </label>
+    </div>
+    <div class="hint">These live limits are shared by both arms. Lower path values move more slowly;
+      a longer ramp gives gentler acceleration and braking. <span id="motionStatus"></span></div>
   </section>
 
   <section class="panel monitor">
@@ -282,6 +313,69 @@ function applyZFloor(s) {
     + parts.join("   ·   ");
 }
 
+const MOTION_CONTROLS = [
+  { key:"tcp_xyz", id:"motionTcpXyz", valueId:"motionTcpXyzValue", unit:"mm/s", digits:0 },
+  { key:"tcp_rotation", id:"motionTcpRotation", valueId:"motionTcpRotationValue", unit:"deg/s", digits:0 },
+  { key:"joint", id:"motionJoint", valueId:"motionJointValue", unit:"deg/s", digits:0 },
+  { key:"ramp_secs", id:"motionRamp", valueId:"motionRampValue", unit:"s", digits:2 },
+];
+let motionEditVersion = 0;
+let motionAppliedVersion = 0;
+let motionSaveTimer = null;
+
+function showMotionValue(def, value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return;
+  document.getElementById(def.valueId).textContent = `${number.toFixed(def.digits)} ${def.unit}`;
+}
+
+function renderMotionSettings(settings) {
+  MOTION_CONTROLS.forEach(def => {
+    const value = Number((settings || {})[def.key]);
+    const input = document.getElementById(def.id);
+    if (!input || !Number.isFinite(value)) return;
+    input.value = value;
+    showMotionValue(def, value);
+  });
+}
+
+function applyMotionSettings(s) {
+  if (motionEditVersion !== motionAppliedVersion) return;
+  renderMotionSettings(s.motion_settings || {});
+}
+
+function currentMotionSettings() {
+  return Object.fromEntries(MOTION_CONTROLS.map(def => [
+    def.key, Number(document.getElementById(def.id).value)
+  ]));
+}
+
+async function saveMotionSettings(version) {
+  motionSaveTimer = null;
+  const res = await api("/api/motion-settings", currentMotionSettings());
+  if (version !== motionEditVersion) return;
+  motionAppliedVersion = version;
+  const status = document.getElementById("motionStatus");
+  if (res.ok) {
+    renderMotionSettings(res.settings || {});
+    status.textContent = "Applied to both arms ✓";
+    status.style.color = "var(--ok)";
+  } else {
+    status.textContent = "Error: " + (res.error || "could not apply settings");
+    status.style.color = "var(--err)";
+  }
+}
+
+function queueMotionSettings(def) {
+  showMotionValue(def, document.getElementById(def.id).value);
+  const version = ++motionEditVersion;
+  clearTimeout(motionSaveTimer);
+  motionSaveTimer = setTimeout(() => saveMotionSettings(version), 150);
+  const status = document.getElementById("motionStatus");
+  status.textContent = "Applying…";
+  status.style.color = "var(--muted)";
+}
+
 function applyState(s) {
   if (!s) return;
   const arms = s.arms || {};
@@ -289,6 +383,7 @@ function applyState(s) {
   SIDES.forEach(side => applyArm(side, arms[side], sides[side]));
   applyCommandLog(s.command_log || []);
   applyZFloor(s);
+  applyMotionSettings(s);
 }
 
 function payloadText(payload) {
@@ -369,6 +464,15 @@ document.addEventListener("selectionchange", () => {
 async function init() {
   const cfg = await api("/api/config");
   buildCards(cfg.default_links || {});
+  MOTION_CONTROLS.forEach(def => {
+    const input = document.getElementById(def.id);
+    const limits = (cfg.motion_setting_limits || {})[def.key];
+    if (Array.isArray(limits) && limits.length === 2) {
+      input.min = limits[0];
+      input.max = limits[1];
+    }
+    input.addEventListener("input", () => queueMotionSettings(def));
+  });
   document.getElementById("zSave").onclick = async () => {
     const value = parseFloat(document.getElementById("zValue").value);
     if (Number.isNaN(value)) { document.getElementById("zStatus").textContent = "enter a number"; return; }

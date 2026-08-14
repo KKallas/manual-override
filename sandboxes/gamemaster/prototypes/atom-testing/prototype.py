@@ -184,7 +184,10 @@ def _pose(config, key, level):
     else:
         arm = auto._calibration2["arms"][side]
         base = ((arm.get("points") or {}).get(key) or {}).get("pose") or {}
-        z = auto._calibration2.get("shared_z", {}).get(level)
+        if level == "pickup_height":
+            z = arm.get("pickup_height")
+        else:
+            z = auto._calibration2.get("shared_z", {}).get(level)
         if z is None:
             z = base.get("z")
     if not base.get("set") or any(base.get(k) is None for k in ("x", "y")) or z is None:

@@ -1,0 +1,6 @@
+{
+  "tcp_xyz": 20.0,
+  "tcp_rotation": 9.0,
+  "joint": 4.0,
+  "ramp_secs": 0.5
+}

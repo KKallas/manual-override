@@ -1,10 +1,10 @@
 {
   "playfield": {
     "active_area": {
-      "sMin": 0.0,
-      "sMax": 1.0,
-      "tMin": 0.0,
-      "tMax": 1.0
+      "sMin": -0.551,
+      "sMax": 1.563,
+      "tMin": -0.711,
+      "tMax": 1.723
     },
     "marker_cache": null,
     "areas": {
@@ -14,7 +14,7 @@
         "u": 0.25,
         "v": 0.25,
         "marker": 20,
-        "area_id": "a5200"
+        "area_id": "a5770"
       },
       "top_right": {
         "key": "top_right",
@@ -22,7 +22,7 @@
         "u": 0.75,
         "v": 0.25,
         "marker": 21,
-        "area_id": "a5201"
+        "area_id": "a5771"
       },
       "bottom_right": {
         "key": "bottom_right",
@@ -30,7 +30,7 @@
         "u": 0.75,
         "v": 0.75,
         "marker": 22,
-        "area_id": "a5202"
+        "area_id": "a5772"
       },
       "bottom_left": {
         "key": "bottom_left",
@@ -38,7 +38,7 @@
         "u": 0.25,
         "v": 0.75,
         "marker": 23,
-        "area_id": "a5203"
+        "area_id": "a5773"
       },
       "center": {
         "key": "center",
@@ -46,7 +46,7 @@
         "u": 0.5,
         "v": 0.5,
         "marker": 24,
-        "area_id": "a5204"
+        "area_id": "a5774"
       }
     },
     "corner_map": {
@@ -55,7 +55,7 @@
       "bottom_right": 22,
       "bottom_left": 23
     },
-    "updated_at": 1786189334.9520562
+    "updated_at": 1786634664.508628
   },
   "arms": {
     "green": {
@@ -252,37 +252,37 @@
         "tags": {
           "top_left": {
             "id": 22,
-            "nx": 0.3669,
-            "ny": 0.5009,
+            "nx": 0.6203,
+            "ny": 0.616,
             "missing": 0.0
           },
           "top_right": {
             "id": 23,
-            "nx": 0.593,
-            "ny": 0.5023,
+            "nx": 0.3863,
+            "ny": 0.6148,
             "missing": 0.0
           },
           "bottom_right": {
             "id": 20,
-            "nx": 0.5917,
-            "ny": 0.7213,
+            "nx": 0.3854,
+            "ny": 0.3919,
             "missing": 0.0
           },
           "bottom_left": {
             "id": 21,
-            "nx": 0.3656,
-            "ny": 0.7125,
+            "nx": 0.622,
+            "ny": 0.3935,
             "missing": 0.0
           },
           "center": {
             "id": 24,
-            "nx": 0.4773,
-            "ny": 0.6102,
+            "nx": 0.5034,
+            "ny": 0.5056,
             "missing": 0.0
           }
         },
-        "capturedAt": 1781776350800,
-        "cameraView": "normal"
+        "capturedAt": 1786469697098,
+        "cameraView": "rot180"
       },
       "pickup_height": {
         "set": true,
@@ -292,7 +292,7 @@
         "set": true,
         "z": -29.038
       },
-      "updated_at": 1781776350.779357
+      "updated_at": 1786469697.100466
     }
   }
 }

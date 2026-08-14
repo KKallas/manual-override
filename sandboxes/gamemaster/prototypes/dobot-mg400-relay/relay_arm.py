@@ -433,6 +433,22 @@ class DobotMG400:
         vals = self._extract_floats(resp)
         return vals[:4]
 
+    def positive_solution(self, j1, j2, j3, j4, user=0, tool=0):
+        """Return the TCP pose predicted by the controller for a joint target.
+
+        The LTX joint controls use this before motion so the target can be
+        checked against the Auto PP Cal 2 Cartesian boundary.
+        """
+        _, resp = self._dash(
+            f"PositiveSolution({float(j1):.6f},{float(j2):.6f},"
+            f"{float(j3):.6f},{float(j4):.6f},{int(user)},{int(tool)})"
+        )
+        vals = self._extract_floats(resp)
+        if len(vals) < 4:
+            raise DobotError(-1, f"invalid PositiveSolution response: {resp}",
+                             "PositiveSolution")
+        return vals[:4]
+
     # -- motion ---------------------------------------------------------------
     def joint_move(self, j1, j2, j3, j4):
         """Absolute joint-space move (queued). Returns (errid, resp); does not
@@ -635,36 +651,35 @@ class DobotMG400:
                 continue
             no_servo_count = 0
             dt = interval
-            # Cartesian XYZ must share one path-progress value. Slewing each axis
-            # independently makes an apparently safe straight XY command bow away
-            # from its line whenever the axis distances differ, which can cut across
-            # circular keep-out zones. Use one acceleration-limited scalar speed for
-            # XYZ so every streamed ServoP point remains on the segment from the
-            # current setpoint to the requested target. Tool rotation remains an
-            # independent scalar axis.
-            first_scalar_axis = 0
-            if cartesian:
-                delta = [target[i] - setpoint[i] for i in range(3)]
+            # Cartesian XYZ and joint J1-J4 each share one path-progress value.
+            # Independent per-axis slewing bows away from the validated segment
+            # whenever distances differ. A shared scalar keeps every streamed
+            # setpoint on the path checked by the Auto PP Cal 2 joint guard.
+            # Cartesian tool rotation remains an independent scalar axis.
+            scalar_axes = 3 if cartesian else 4
+            first_scalar_axis = scalar_axes
+            if scalar_axes:
+                delta = [target[i] - setpoint[i] for i in range(scalar_axes)]
                 distance = sum(value * value for value in delta) ** 0.5
-                current_speed = sum(vel[i] * vel[i] for i in range(3)) ** 0.5
-                acceleration = self._max_lin_acc
-                desired_speed = min(self._max_lin, (2.0 * acceleration * distance) ** 0.5)
+                current_speed = sum(vel[i] * vel[i] for i in range(scalar_axes)) ** 0.5
+                velocity_cap = self._max_lin if cartesian else caps[0][0]
+                acceleration = self._max_lin_acc if cartesian else caps[0][1]
+                desired_speed = min(velocity_cap, (2.0 * acceleration * distance) ** 0.5)
                 speed_delta = max(-acceleration * dt,
                                   min(acceleration * dt, desired_speed - current_speed))
                 next_speed = max(0.0, current_speed + speed_delta)
                 travel = min(distance, next_speed * dt)
                 if distance <= 1e-9 or travel >= distance:
-                    for i in range(3):
+                    for i in range(scalar_axes):
                         setpoint[i] = target[i]
                         vel[i] = 0.0
                 else:
                     direction = [value / distance for value in delta]
-                    for i in range(3):
+                    for i in range(scalar_axes):
                         setpoint[i] += direction[i] * travel
                         vel[i] = direction[i] * next_speed
-                first_scalar_axis = 3
 
-            # Joint axes, and Cartesian tool rotation, retain their scalar slew.
+            # Cartesian tool rotation retains its independent scalar slew.
             for i in range(first_scalar_axis, 4):
                 v_max, a = caps[i]
                 remaining = target[i] - setpoint[i]

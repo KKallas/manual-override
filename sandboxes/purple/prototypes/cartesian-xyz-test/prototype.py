@@ -62,6 +62,12 @@ WORKSPACE = {
 }
 RADIUS_MIN = 150.0   # mm — inside this the arm can't reach (too folded)
 RADIUS_MAX = 450.0   # mm — max horizontal reach
+JOINT_LIMITS = {
+    "j1": [-160.0, 160.0],
+    "j2": [-25.0, 85.0],
+    "j3": [-25.0, 105.0],
+    "j4": [-160.0, 160.0],
+}
 
 # Following speed at 100% on the speed slider.
 MAX_LIN_VEL = 200.0  # mm/s
@@ -312,6 +318,7 @@ def config():
             "workspace": WORKSPACE,
             "radius_min": RADIUS_MIN,
             "radius_max": RADIUS_MAX,
+            "joint_limits": JOINT_LIMITS,
             "default_ip": DEFAULT_IP,
             # relay_host_default: the relay runs on this same hub, so the UI
             # pre-fills its host field with this server. identity tells the UI
@@ -573,10 +580,43 @@ def stop():
 
 @bp.route("/api/pump", methods=["POST"])
 def pump():
-    mode = (request.json or {}).get("mode", "off")
+    data = request.json or {}
+    mode = data.get("mode", "off")
     if mode not in ("suck", "blow", "off"):
         return _fail("mode must be 'suck', 'blow' or 'off'")
-    return _command(lambda r: r.set_pump(mode, SUCK_DO_INDEX, BLOW_DO_INDEX))
+    operation_id = str(data.get("operation_id") or "")[:80] or None
+    robot = _current()
+    if robot is None or not robot.is_connected():
+        return _fail("Not connected")
+    if operation_id and _link != "relay":
+        return _fail("operation-scoped pump receipts require relay mode")
+    try:
+        if _link == "relay":
+            errid, receipt = robot.set_pump(
+                mode, SUCK_DO_INDEX, BLOW_DO_INDEX,
+                operation_id=operation_id,
+            )
+        else:
+            errid, receipt = robot.set_pump(mode, SUCK_DO_INDEX, BLOW_DO_INDEX)
+        if not isinstance(receipt, dict):
+            return jsonify({"ok": errid == 0, "errid": errid, "resp": receipt})
+        # Preserve the relay-issued identity and pose at the HTTP boundary.  Do
+        # not manufacture a sequence locally: only the relay can attest that the
+        # physical command was accepted and ordered.
+        return jsonify({
+            "ok": errid == 0 and bool(receipt.get("ok")),
+            "errid": receipt.get("errid", errid),
+            "resp": receipt.get("resp"),
+            "side": receipt.get("side"),
+            "operation_id": receipt.get("operation_id"),
+            "command_seq": receipt.get("command_seq"),
+            "pose": receipt.get("pose"),
+            **({"error": receipt.get("error")} if receipt.get("error") else {}),
+        })
+    except DobotError as e:
+        return _fail(str(e), errid=e.errid)
+    except Exception as e:  # pragma: no cover
+        return _fail(str(e))
 
 
 @bp.route("/api/move", methods=["POST"])
@@ -601,6 +641,37 @@ def move():
     _live.bump()
     return _ok(clamped={"x": round(x, 2), "y": round(y, 2),
                         "z": round(z, 2), "r": round(r, 2)})
+
+
+@bp.route("/api/joint-move", methods=["POST"])
+def joint_move():
+    """Move J1-J4 through the player lease with a mandatory Cal 2 guard."""
+    robot = _current()
+    if robot is None or not robot.is_connected():
+        return _fail("Not connected")
+    if _link != "relay" or not hasattr(robot, "set_target_joints_guarded"):
+        return _fail("LTX joint control requires the player relay connection")
+    data = request.json or {}
+    try:
+        joints = [float(data[f"j{index}"]) for index in range(1, 5)]
+    except (KeyError, TypeError, ValueError):
+        return _fail("Expected numeric j1, j2, j3, j4")
+    joints = [
+        _clamp(value, *JOINT_LIMITS[f"j{index + 1}"])
+        for index, value in enumerate(joints)
+    ]
+    guard = data.get("cal2_guard")
+    if not isinstance(guard, dict):
+        return _fail("Auto PP Cal 2 safety limits are required")
+    ok, response = robot.set_target_joints_guarded(joints, guard)
+    if not ok:
+        error = response.get("error") if isinstance(response, dict) else None
+        return _fail(error or "guarded joint move failed")
+    _live.bump()
+    return _ok(
+        clamped=(response or {}).get("clamped"),
+        side=(response or {}).get("side"),
+    )
 
 
 # ---- saved locations: NUM_SLOTS fixed slots (edit / set / recall) ----------

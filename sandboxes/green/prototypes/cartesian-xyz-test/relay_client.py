@@ -249,6 +249,7 @@ class RelayClient:
             "feedback_ok": arm_connected,
             "servo_active": bool(arm.get("servo_active")),
             "servo_error": arm.get("servo_error"),
+            "control_mode": arm.get("control_mode"),
             # relay-only extras the UI surfaces for the relay link
             "holder": holder,
             "lease_secs": lease.get("lease_secs"),
@@ -291,7 +292,40 @@ class RelayClient:
                 arms = rs.setdefault("arms", {})
                 arm = arms.setdefault(self.side, {})
                 arm["target"] = target
+                arm["control_mode"] = "cartesian"
         return True, None
+
+    def set_target_joints_guarded(self, joints, cal2_guard):
+        """Send a joint target through the current lease with a Cal 2 guard.
+
+        The relay performs controller-side forward kinematics and rejects the
+        target before motion when its TCP would leave the supplied LTX boundary.
+        """
+        if not isinstance(joints, (list, tuple)) or len(joints) != 4:
+            return False, {"error": "expected four joint angles"}
+        token = self._token
+        if token is None:
+            return False, {"error": "not connected"}
+        status, body = self._post("/api/move", {
+            "side": self.side,
+            "token": token,
+            "mode": "joint",
+            "joints": [float(value) for value in joints],
+            "cal2_guard": cal2_guard,
+        })
+        if not body or not body.get("ok"):
+            return False, body or {"error": "relay joint move failed"}
+        clamped = body.get("clamped") or {}
+        target = [float(clamped.get(f"j{index + 1}", joints[index]))
+                  for index in range(4)]
+        with self._lock:
+            rs = self._relay_state
+            if isinstance(rs, dict):
+                arms = rs.setdefault("arms", {})
+                arm = arms.setdefault(self.side, {})
+                arm["target"] = target
+                arm["control_mode"] = "joint"
+        return True, body
 
     def hold(self):
         token = self._token

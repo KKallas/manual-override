@@ -37,6 +37,8 @@ E-stop within reach and start at a low speed.
 - Start the hub (`python hub.py` in the repo root) and open the
   **Game Master** sandbox → **Dobot MG400 Relay**.
 - Press **Connect** for each side, then **Enable**.
+- Use **Following speed** below the Z soft limit to set the shared TCP path,
+  TCP rotation, joint path, and ramp/braking limits for both arms.
 - Players: open the controller in your own sandbox and press **Connect** —
   it links through the relay to your own color automatically.
 
@@ -100,6 +102,10 @@ dongle IP each side's sockets are pinned to; interface name auto-detected):
   "sides": {
     "purple": {"present": bool, "lease_secs": float},
     "green":  { ...same... }
+  },
+  "motion_settings": {
+    "tcp_xyz": 20.0, "tcp_rotation": 9.0,
+    "joint": 12.0, "ramp_secs": 0.5
   }
 }
 ```
@@ -119,6 +125,7 @@ fault. A regular software hold remains enabled/idle and has no `fault_kind`.
 | POST | `/api/disconnect` | `{side}` | Disconnect that side's arm. |
 | POST | `/api/enable` | `{side}` | Enable that side's arm + start its follower in its current mode (else `joint`). Idempotent. Clears the arm's error first. (Also callable by clients.) |
 | POST | `/api/kick` | `{side}` | Force-release that side's controller; smooth-stop that side's arm. |
+| GET/POST | `/api/motion-settings` | `{tcp_xyz?, tcp_rotation?, joint?, ramp_secs?}` | Read or update the persistent follower settings shared by both arms. Updates apply immediately to connected arms and to later connects/mode switches. |
 
 ### Client / side endpoints (operate on the side's OWN arm)
 
@@ -166,3 +173,6 @@ invalidates that side's old token; any token mismatch on
     (J1 ±160, J2 −25…85, J3 −25…105, J4 ±160 deg);
   - cartesian: Z clamped to −150…230 mm, R to ±160°, and X/Y to the reachable
     annulus (radius 150…440 mm) then the ±450 mm box.
+- **Shared following limits.** The operator controls both arms together. Defaults
+  are 20 mm/s TCP XYZ, 9 deg/s TCP rotation, 12 deg/s joint-space path, and a
+  0.50 s acceleration/braking ramp. Settings persist in `motion-settings.json`.

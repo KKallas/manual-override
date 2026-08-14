@@ -62,6 +62,12 @@ WORKSPACE = {
 }
 RADIUS_MIN = 150.0   # mm — inside this the arm can't reach (too folded)
 RADIUS_MAX = 450.0   # mm — max horizontal reach
+JOINT_LIMITS = {
+    "j1": [-160.0, 160.0],
+    "j2": [-25.0, 85.0],
+    "j3": [-25.0, 105.0],
+    "j4": [-160.0, 160.0],
+}
 
 # Following speed at 100% on the speed slider.
 MAX_LIN_VEL = 200.0  # mm/s
@@ -312,6 +318,7 @@ def config():
             "workspace": WORKSPACE,
             "radius_min": RADIUS_MIN,
             "radius_max": RADIUS_MAX,
+            "joint_limits": JOINT_LIMITS,
             "default_ip": DEFAULT_IP,
             # relay_host_default: the relay runs on this same hub, so the UI
             # pre-fills its host field with this server. identity tells the UI
@@ -634,6 +641,42 @@ def move():
     _live.bump()
     return _ok(clamped={"x": round(x, 2), "y": round(y, 2),
                         "z": round(z, 2), "r": round(r, 2)})
+
+
+@bp.route("/api/joint-move", methods=["POST"])
+def joint_move():
+    """Move J1-J4 through the existing player lease with a mandatory Cal 2 guard.
+
+    LTX must keep one arm connection: opening the sibling joint prototype would
+    replace the active lease. Relay mode can safely switch its follower between
+    Cartesian and joint targets while preserving that connection.
+    """
+    robot = _current()
+    if robot is None or not robot.is_connected():
+        return _fail("Not connected")
+    if _link != "relay" or not hasattr(robot, "set_target_joints_guarded"):
+        return _fail("LTX joint control requires the player relay connection")
+    data = request.json or {}
+    try:
+        joints = [float(data[f"j{index}"]) for index in range(1, 5)]
+    except (KeyError, TypeError, ValueError):
+        return _fail("Expected numeric j1, j2, j3, j4")
+    joints = [
+        _clamp(value, *JOINT_LIMITS[f"j{index + 1}"])
+        for index, value in enumerate(joints)
+    ]
+    guard = data.get("cal2_guard")
+    if not isinstance(guard, dict):
+        return _fail("Auto PP Cal 2 safety limits are required")
+    ok, response = robot.set_target_joints_guarded(joints, guard)
+    if not ok:
+        error = response.get("error") if isinstance(response, dict) else None
+        return _fail(error or "guarded joint move failed")
+    _live.bump()
+    return _ok(
+        clamped=(response or {}).get("clamped"),
+        side=(response or {}).get("side"),
+    )
 
 
 # ---- saved locations: NUM_SLOTS fixed slots (edit / set / recall) ----------

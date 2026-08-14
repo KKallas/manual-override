@@ -130,6 +130,28 @@
   .gamebar .teamName.green { color:#36e07c; } .gamebar .teamName.purple { color:#b86bff; }
   .gamebar .clk { font-size:24px; font-weight:900; font-variant-numeric:tabular-nums; }
   .gamebar .gstatus { color:var(--muted); font-size:12px; }
+  .gamebarIdentity, .gamebarTimer { display:contents; }
+  .gamebarSpacer { flex:1; }
+  .gamebarLiveStatus[hidden] { display:none; }
+  .gamebar.ltx { display:grid; grid-template-columns:minmax(180px,1fr) minmax(280px,420px) minmax(190px,1fr);
+    gap:14px; align-items:center; flex-wrap:nowrap; }
+  .gamebar.ltx .gamebarIdentity, .gamebar.ltx .gamebarTimer { display:flex; align-items:center; gap:14px; min-width:0; }
+  .gamebar.ltx .gamebarSpacer { display:none; }
+  .gamebar.ltx .gamebarTimer { justify-content:flex-end; }
+  .gamebar.ltx #playerName, .gamebar.ltx #runStatus { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .gamebarLiveStatus { width:100%; display:grid; grid-template-columns:.9fr 1.5fr .8fr .8fr; align-items:center;
+    color:var(--txt); font-variant-numeric:tabular-nums; }
+  .gamebarLiveStat { min-width:0; padding:1px 8px; text-align:center; line-height:1.15; }
+  .gamebarLiveStat + .gamebarLiveStat { border-left:1px solid var(--line); }
+  .gamebarLiveLabel { display:block; color:var(--muted); font-size:9px; font-weight:750; letter-spacing:.05em; text-transform:uppercase; }
+  .gamebarLiveValue { display:block; margin-top:2px; overflow:hidden; color:var(--muted); font-size:11px; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
+  @media (max-width:960px) {
+    .gamebar.ltx { grid-template-columns:auto minmax(240px,1fr) auto; gap:8px; padding-left:12px; padding-right:12px; }
+    .gamebar.ltx .gamebarIdentity, .gamebar.ltx .gamebarTimer { gap:8px; }
+    .gamebar.ltx #playerName { max-width:80px; }
+    .gamebar.ltx #runStatus { display:none; }
+    .gamebarLiveStat { padding-left:4px; padding-right:4px; }
+  }
 
   .playArea { flex:1 1 auto; display:flex; min-height:0; }
   .videoPane { position:relative; background:#030405; min-height:0; min-width:0; }
@@ -186,9 +208,26 @@
   .armPoseMarker[hidden] { display:none; }
   .markerStamp { position:absolute; left:10px; bottom:10px; z-index:6; padding:5px 8px; border:1px solid var(--line); border-radius:6px; background:rgba(12,14,18,.86); color:var(--txt); font-size:12px; font-variant-numeric:tabular-nums; }
   .markerStamp[hidden] { display:none; }
-  .feedBanner { position:absolute; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.55);
+  .feedBanner { position:absolute; inset:0; z-index:8; display:grid; place-items:center; background:rgba(0,0,0,.55);
     color:var(--ok); font-size:clamp(28px,7vw,72px); font-weight:950; text-align:center; white-space:pre-line; }
+  .feedBanner.win { color:#ff2438; font-size:clamp(56px,12vw,150px); letter-spacing:.02em;
+    text-shadow:0 3px 0 #71000d,0 0 22px rgba(255,36,56,.75); }
   .feedBanner[hidden] { display:none; }
+  .centerOverlay { position:absolute; left:0; right:0; bottom:0; z-index:7; min-height:20%;
+    display:flex; align-items:center; justify-content:center; padding:10px 18px;
+    background:linear-gradient(transparent,rgba(0,0,0,.82)); color:#36e07c;
+    font-size:clamp(22px,4vw,48px); font-weight:950; line-height:1.1; text-align:center;
+    text-shadow:0 2px 3px #000,0 0 16px rgba(54,224,124,.7); pointer-events:none; }
+  .centerOverlay[hidden] { display:none; }
+  .ltxInstructions { position:absolute; left:12px; right:12px; bottom:12px; z-index:7;
+    display:grid; gap:3px; padding:9px 12px; border:1px solid rgba(255,255,255,.2);
+    border-radius:8px; background:rgba(3,4,5,.86); color:var(--txt); font-size:clamp(11px,1.35vw,14px);
+    font-weight:700; line-height:1.3; text-align:center; text-shadow:0 1px 2px #000;
+    pointer-events:none; }
+  .ltxInstructions[hidden] { display:none; }
+  .ltxInstructionTeam { font-weight:950; text-transform:uppercase; }
+  .ltxInstructionTeam.green { color:#36e07c; }
+  .ltxInstructionTeam.purple { color:#b86bff; }
   .feedTools { position:absolute; top:10px; right:10px; z-index:7; display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
   .feedTools button, .flipBtn { display:inline-flex; align-items:center;
     gap:7px; padding:7px 11px; border:1px solid var(--line); border-radius:7px; cursor:pointer;
@@ -227,14 +266,24 @@
 
 <!-- ===================== app ===================== -->
 <div id="app">
-<div class="gamebar">
-  <span class="teamName" id="teamName">—</span>
-  <span class="gstatus" id="playerName">—</span>
-  <button id="btnChangeName" type="button">Name</button>
-  <span style="flex:1"></span>
-  <span class="clk" id="clock">--</span>
-  <button id="btnNew" hidden>New attempt</button>
-  <span class="gstatus" id="runStatus">Connect the arm to start the timer.</span>
+<div class="gamebar" id="gamebar">
+  <div class="gamebarIdentity">
+    <span class="teamName" id="teamName">—</span>
+    <span class="gstatus" id="playerName">—</span>
+    <button id="btnChangeName" type="button">Name</button>
+  </div>
+  <div class="gamebarLiveStatus" id="gamebarLiveStatus" aria-label="Live robot status" hidden>
+    <span class="gamebarLiveStat"><span class="gamebarLiveLabel">Feedback</span><span class="gamebarLiveValue" id="gamebarFeed">—</span></span>
+    <span class="gamebarLiveStat"><span class="gamebarLiveLabel">Robot mode</span><span class="gamebarLiveValue" id="gamebarMode">—</span></span>
+    <span class="gamebarLiveStat"><span class="gamebarLiveLabel">Servos</span><span class="gamebarLiveValue" id="gamebarEnabled">—</span></span>
+    <span class="gamebarLiveStat"><span class="gamebarLiveLabel">Errors</span><span class="gamebarLiveValue" id="gamebarError">—</span></span>
+  </div>
+  <span class="gamebarSpacer"></span>
+  <div class="gamebarTimer">
+    <span class="clk" id="clock">--</span>
+    <button id="btnNew" hidden>New attempt</button>
+    <span class="gstatus" id="runStatus">Connect the arm to start the timer.</span>
+  </div>
 </div>
 
 <div class="playArea">
@@ -248,6 +297,11 @@
       <div id="armPoseMarker" class="armPoseMarker" hidden></div>
       <div id="markerStamp" class="markerStamp" hidden></div>
       <div id="feedBanner" class="feedBanner" hidden></div>
+      <div id="ltxInstructions" class="ltxInstructions" hidden>
+        <span>Move the physical tags over the 4 <span id="ltxInstructionTeam" class="ltxInstructionTeam"></span> markers on the outer ring to activate the center marker.</span>
+        <span>After each move, clear the arm for visual camera confirmation and activation.</span>
+      </div>
+      <div id="centerOverlay" class="centerOverlay" hidden></div>
       <div class="feedTools">
         <button id="btnLoadPlayfield" type="button">Load playfield</button>
         <label class="flipBtn" title="Show calibration tag number labels on the video">
@@ -299,7 +353,7 @@
     <div class="hint" id="connHint">Robot must be in API mode. Connect opens control 29999 · motion 30003 · feedback 30004.</div>
   </section>
 
-  <section class="panel">
+  <section class="panel" id="stopPanel">
     <h2>Stop</h2>
     <div class="estop-bar">
       <button id="btnStop" class="stop" disabled>Stop motion</button>
@@ -307,7 +361,7 @@
     </div>
   </section>
 
-  <section class="panel">
+  <section class="panel" id="liveStatusPanel">
     <h2>Live status</h2>
     <div class="grid">
       <div class="stat"><div class="k">Feedback</div><div class="v" id="sFeed">—</div></div>
@@ -355,6 +409,7 @@
       <button id="autoPpxAddFinePoint" type="button" disabled>Add fine point</button>
       <button id="autoPpxClearFineCal" type="button" disabled>Clear fine calibration</button>
       <button id="autoPpxGo" type="button" class="ok" disabled>Go</button>
+      <button id="autoPpxPause" type="button" aria-pressed="false" aria-label="Pause cue" hidden disabled>Pause</button>
       <button id="autoPpxStop" type="button" class="stop" disabled>Stop</button>
     </div>
     <div class="autoPpxStatus" id="autoPpxStatus">Waiting for visible ArUco tags.</div>
@@ -363,7 +418,7 @@
     </div>
   </section>
 
-  <section class="panel">
+  <section class="panel" id="followingSpeedPanel">
     <h2>Following speed</h2>
     <div class="axis">
       <div class="label"><span class="name">Speed</span><span class="val" id="speedVal">10%</span></div>
@@ -377,7 +432,17 @@
     </div>
   </section>
 
-  <section class="panel">
+  <section class="panel" id="jointAnglesPanel" hidden>
+    <h2>Joint angles — J1 / J2 / J3 (deg)</h2>
+    <div id="jointAxes"></div>
+    <div class="row" style="margin-top:10px">
+      <button id="btnJointSync" disabled>Sync joint sliders to robot</button>
+      <span class="hint" id="jointLimHint"></span>
+    </div>
+    <div class="hint">Joint targets use the current arm connection and are checked with controller forward kinematics before motion. Targets outside the Auto PP Cal 2 arm boundary, safe reach ring, or Z range are rejected.</div>
+  </section>
+
+  <section class="panel" id="tcpPosePanel">
     <h2>TCP pose — X / Y / Z (mm)
       <span id="zFloorWarn" style="display:none; margin-left:10px; color:var(--warn); font-weight:700; text-transform:none; letter-spacing:0"></span>
     </h2>
@@ -386,7 +451,7 @@
       <button id="btnSync" disabled>Sync sliders to robot</button>
       <span class="hint" id="wsHint"></span>
     </div>
-    <div class="hint">Targets are clamped to the reachable workspace. Click inside the active video field to send X/Y, then use Z for height.</div>
+    <div class="hint" id="videoClickHint">Targets are clamped to the reachable workspace. Click inside the active video field to send X/Y, then use Z for height.</div>
   </section>
 
   <section class="panel">
@@ -399,7 +464,7 @@
     </div>
   </section>
 
-  <section class="panel">
+  <section class="panel" id="autoPickPlacePanel">
     <h2>Auto Pick and Place</h2>
     <div class="autoActions">
       <button id="btnPickupTag" class="ok" disabled>Pickup Tag</button>
@@ -436,16 +501,18 @@ const TEAM = (location.pathname.match(/\/s\/([^/]+)/) || [])[1] === 'green' ? 'g
 const GM = `${location.origin}/s/gamemaster/p/auto-pickup-game`;
 const WEBCAM = `${location.origin}/s/gamemaster/p/camera-calibration/api/corrected-stream`;
 const WEBCAM_TAGS = `${location.origin}/s/gamemaster/p/webcam/api/tags?space=corrected`;
-const LASER_RUN = `${location.origin}/s/gamemaster/p/laser-tag/api/run`;
+const LTX = /\/p\/ltx(?:\/|$)/.test(location.pathname);
+const LASER_RUN = `${location.origin}/s/gamemaster/p/${LTX ? "laser-tag-x" : "laser-tag"}/api/run`;
 const CART = `${location.origin}/s/${TEAM}/p/cartesian-xyz-test`;
-const AUTO_PPX = /\/p\/auto-pp-x(?:\/|$)/.test(location.pathname);
+const AUTO_PPX = LTX || /\/p\/auto-pp-x(?:\/|$)/.test(location.pathname);
+const AUTO_PPX_STORAGE_PREFIX = LTX ? "ltx" : "auto-pp-x";
 const FLIP_KEY = `auto-pickup-game-flip-${TEAM}`;
 const TAG_OVERLAY_KEY = `auto-pickup-game-tags-${TEAM}`;
 const PLAYER_NAME_KEY = `auto-pickup-game-player-name-${TEAM}`;
 const NAME_HISTORY_KEY = "auto-pickup-game-player-names";
-const FINE_CAL_KEY = `auto-pp-x-fine-cal-${TEAM}`;
-const QUEUE_KEY = `auto-pp-x-queue-${TEAM}`;
-const AUTO_PPX_TAG_LABELS_KEY = `auto-pp-x-tag-labels-${TEAM}`;
+const FINE_CAL_KEY = `${AUTO_PPX_STORAGE_PREFIX}-fine-cal-${TEAM}`;
+const QUEUE_KEY = `${AUTO_PPX_STORAGE_PREFIX}-queue-${TEAM}`;
+const AUTO_PPX_TAG_LABELS_KEY = `${AUTO_PPX_STORAGE_PREFIX}-tag-labels-${TEAM}`;
 const CORNER_MARKERS = [20, 21, 22, 23];
 const CORNER_KEYS = ["top_left", "top_right", "bottom_right", "bottom_left"];
 const MARKER_REF_POINTS = {
@@ -458,6 +525,10 @@ const gid = id => document.getElementById(id);
 const HAS_STORED_FLIP = localStorage.getItem(FLIP_KEY) === "0" || localStorage.getItem(FLIP_KEY) === "1";
 
 let gstate = null;
+let ltxGameState = null;
+let ltxGameStatePollBusy = false;
+let ltxCenterUnlockedAt = 0;
+let ltxCenterOverlayHandle = 0;
 let playerName = "";
 let playerNameConfirmed = false;
 let clockHandle = 0;
@@ -467,6 +538,7 @@ let autoStartDone = false; // guard so connect only auto-starts the timer once
 let autoRegistering = false;
 let gameCalibration = {};
 let gameCalibration2 = {};
+let cal2JointGuardCache = null;
 let latestGameTags = null;
 let cachedGameTagSet = null;
 let gameActiveArea = { sMin:0, sMax:1, tMin:0, tMax:1 };
@@ -495,6 +567,7 @@ let armTrailAnimation = 0;
 let cal2BaseGuardBusy = false;
 let cal2RecoveryBusy = false;
 let cal2MotionGeneration = 0;
+let manualCal2MoveBusy = false;
 let gamePollBusy = false;
 let scoreRefreshBusy = false;
 let userFlipOverride = HAS_STORED_FLIP;
@@ -504,6 +577,9 @@ let autoPpxTagRefreshBusy = false;
 let autoPpxOptionsSignature = "";
 let autoPpxRunning = false;
 let autoPpxAbort = false;
+let autoPpxCueRunning = false;
+let autoPpxPaused = false;
+let autoPpxPauseWaiting = false;
 let autoPpxFineTuneAnchor = null;
 let autoPpxFineTuneTimer = null;
 let autoPpxFineTuneMoveBusy = false;
@@ -535,25 +611,77 @@ async function gmFetch(path, opts = {}) {
 }
 
 function laserIntent(kind, detail = {}, category = "intent") {
-  if (!AUTO_PPX || TEAM !== "green") return false;
-  const body = JSON.stringify({kind, category, detail:{player:playerName, client_monotonic_ms:performance.now(), ...detail}});
+  if (!AUTO_PPX || (!LTX && TEAM !== "green")) return false;
+  const body = JSON.stringify({team:TEAM, kind, category, detail:{player:playerName, client_monotonic_ms:performance.now(), ...detail, team:TEAM}});
   laserIntentQueue = laserIntentQueue.then(async () => {
-    const res = await fetch(`${GM}/api/laser-intent`, {
+    const endpoint = LTX ? "/api/laser-tag-x-intent" : "/api/laser-intent";
+    const res = await fetch(`${GM}${endpoint}`, {
       method:"POST", headers:{"Content-Type":"application/json"},
       body,
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   }).catch(e => {
-    log(`Laser Tag intention log ✗ ${kind}: ${e.message}`, "log-err");
+    log(`${LTX ? "Laser Tag X" : "Laser Tag"} intention log ✗ ${kind}: ${e.message}`, "log-err");
   });
   return true;
+}
+
+let ltxConfigPollBusy = false;
+let ltxVideoClickEnabled = !LTX;
+function applyLtxConfig(config = {}) {
+  if (!LTX) return;
+  const visibility = config.visibility || {};
+  const videoClickEnabled = config.video_click_move === true;
+  if (ltxVideoClickEnabled && !videoClickEnabled) invalidateVideoClicks();
+  ltxVideoClickEnabled = videoClickEnabled;
+  const cuePanel = gid("autoPpxPanel");
+  const jointAnglesPanel = gid("jointAnglesPanel");
+  const tcpPanel = gid("tcpPosePanel");
+  const autoPickPlacePanel = gid("autoPickPlacePanel");
+  if (cuePanel) cuePanel.hidden = visibility.auto_pp_x !== true;
+  if (jointAnglesPanel) jointAnglesPanel.hidden = visibility.joint_angles !== true;
+  if (tcpPanel) tcpPanel.hidden = visibility.tcp_pose !== true;
+  if (autoPickPlacePanel) autoPickPlacePanel.hidden = visibility.auto_pick_place !== true;
+  const labels = {
+    game_1:"Joint Angles",
+    game_2:"X/Y/Z Controls",
+    game_3:"Auto Pick and Place",
+    game_4:"Cue Builder",
+  };
+  if (labels[config.game_mode]) {
+    document.title = `LTX — ${labels[config.game_mode]}`;
+    const heading = document.querySelector("header h1");
+    if (heading) heading.textContent = `LTX — ${labels[config.game_mode]}`;
+  }
+  const hint = gid("videoClickHint");
+  if (hint) hint.textContent = videoClickEnabled
+    ? "Targets are clamped to the reachable workspace. Click inside the active video field to send X/Y, then use Z for height."
+    : "Targets are clamped to the reachable workspace. Video click-to-move is disabled for this game; use the controls here.";
+  const feed = gid("webcamFeed")?.parentElement;
+  if (feed) feed.title = videoClickEnabled
+    ? "Click the video to move the arm to that X/Y position."
+    : "Video click-to-move is disabled for this game.";
+}
+async function pollLtxConfig() {
+  if (!LTX || ltxConfigPollBusy) return;
+  ltxConfigPollBusy = true;
+  try {
+    const data = await gmFetch("/api/ltx-config");
+    applyLtxConfig(data);
+  } catch (_) {
+    // Keep the last received mode. Before the first response, player-specific
+    // controls and video-click movement stay disabled.
+  } finally {
+    ltxConfigPollBusy = false;
+  }
 }
 
 function startWebcam() { gid('webcamFeed').src = `${WEBCAM}?t=${Date.now()}`; }
 async function loadPlayfield() {
   startWebcam();
-  await loadGameCalibration();
+  if (AUTO_PPX) await loadGameCalibration2();
+  else await loadGameCalibration();
   await refreshGameField();
   log("playfield loaded", "log-info");
 }
@@ -567,7 +695,8 @@ function applyFlip(userInitiated = true) {
   latestVisibleArucoTags = [];
   clearArmTrail();
   setMarkerStamp(null);
-  loadGameCalibration({ syncCameraView:false }).then(refreshGameField).catch(() => refreshGameField());
+  (AUTO_PPX ? loadGameCalibration2({ syncCameraView:false }) : loadGameCalibration({ syncCameraView:false }))
+    .then(refreshGameField).catch(() => refreshGameField());
 }
 function tagOverlayVisible() {
   const toggle = gid("tagOverlayToggle");
@@ -746,9 +875,13 @@ function applyStoredGameCameraView() {
   cachedGameTagSet = null;
   latestGameTags = null;
 }
+function gameDisplayPoint(u, v) {
+  const point = { u:Number(u), v:Number(v) };
+  return gid('flipToggle').checked ? { u:1 - point.u, v:1 - point.v } : point;
+}
 function gameDisplayTag(tag) {
-  const nx = Number(tag.nx), ny = Number(tag.ny);
-  return gid('flipToggle').checked ? { ...tag, nx:1 - nx, ny:1 - ny } : { ...tag, nx, ny };
+  const point = gameDisplayPoint(tag.nx, tag.ny);
+  return { ...tag, nx:point.u, ny:point.v };
 }
 async function loadGameCalibration({ syncCameraView = true } = {}) {
   const data = await gmFetch('/api/calibration');
@@ -758,9 +891,24 @@ async function loadGameCalibration({ syncCameraView = true } = {}) {
   cachedGameTagSet = markerCacheFromGameCalibration();
   updateAutoZReadout();
 }
-async function loadGameCalibration2() {
+function applyStoredCal2CameraView() {
+  if (userFlipOverride) return;
+  const view = gameArmCal2().camera_view;
+  if (view !== "normal" && view !== "rot180") return;
+  const rotated = view === "rot180";
+  if (gid("flipToggle").checked === rotated) return;
+  gid("flipToggle").checked = rotated;
+  localStorage.setItem(FLIP_KEY, rotated ? "1" : "0");
+  autoPpxRememberedTags.clear();
+  latestVisibleArucoTags = [];
+}
+async function loadGameCalibration2({ syncCameraView = true } = {}) {
   const data = await gmFetch('/api/calibration2');
   gameCalibration2 = data.calibration || {};
+  gameActiveArea = cleanActiveArea((gameCalibration2.playfield || {}).active_area);
+  if (syncCameraView) applyStoredCal2CameraView();
+  cal2JointGuardCache = null;
+  updateAutoZReadout();
   return gameCalibration2;
 }
 function escapeHtml(s) {
@@ -1148,6 +1296,45 @@ function setAutoPpxStatus(text, cls = "") {
   el.textContent = text;
   el.style.color = cls === "err" ? "var(--err)" : (cls === "ok" ? "var(--ok)" : "var(--muted)");
 }
+function updateAutoPpxPauseControl() {
+  const button = gid("autoPpxPause");
+  if (!button) return;
+  button.hidden = !LTX;
+  button.disabled = !autoPpxCueRunning || autoPpxAbort;
+  button.textContent = autoPpxPaused ? "Resume" : "Pause";
+  button.setAttribute("aria-pressed", String(autoPpxPaused));
+  button.setAttribute("aria-label", autoPpxPaused ? "Resume cue" : "Pause cue");
+  button.classList.toggle("ok", autoPpxPaused);
+}
+function toggleAutoPpxPause() {
+  if (!LTX || !autoPpxCueRunning || autoPpxAbort) return;
+  autoPpxPaused = !autoPpxPaused;
+  if (autoPpxPaused) {
+    autoPpxPauseWaiting = false;
+    setAutoPpxStatus("Pause requested. Finishing the current safe action...");
+    log("Cue pause requested; the current safe action will finish before the queue pauses.", "log-info");
+  } else {
+    setAutoPpxStatus("Resuming cue...");
+    log("Cue resumed.", "log-ok");
+  }
+  updateAutoPpxPauseControl();
+}
+async function waitForAutoPpxResume(nextAction = "next action") {
+  if (autoPpxAbort) throw new Error("stopped");
+  if (!autoPpxCueRunning || !autoPpxPaused) return;
+  while (autoPpxPaused) {
+    if (autoPpxAbort) throw new Error("stopped");
+    if (!autoPpxPauseWaiting) {
+      autoPpxPauseWaiting = true;
+      setAutoPpxStatus("Cue paused safely. Press Resume to continue.", "ok");
+      log(`Cue paused before ${nextAction}.`, "log-info");
+    }
+    await delay(100);
+  }
+  autoPpxPauseWaiting = false;
+  if (autoPpxAbort) throw new Error("stopped");
+  setAutoPpxStatus(`Resuming cue: ${nextAction}...`);
+}
 function cleanAutoPpxFinePoint(point) {
   const dz = Number(point && point.dz);
   const out = {
@@ -1235,6 +1422,7 @@ function updateAutoPpxControls(tags = latestVisibleArucoTags) {
   gid("autoPpxTuneZ").disabled = autoPpxRunning;
   gid("autoPpxRefresh").disabled = autoPpxRunning;
   gid("autoPpxStop").disabled = !autoPpxRunning;
+  updateAutoPpxPauseControl();
   gid("autoPpxFineTune").disabled = autoPpxRunning || !connected || count < 1 || !ids.source;
   gid("autoPpxAddFinePoint").disabled = autoPpxRunning || !connected || !autoPpxFineTuneAnchor;
   gid("autoPpxClearFineCal").disabled = autoPpxRunning || !autoPpxFineCalPoints.length;
@@ -1397,6 +1585,12 @@ function renderGameField(tags) {
 }
 async function refreshGameField() {
   try {
+    if (AUTO_PPX) {
+      if (!gameCalibration2.playfield) await loadGameCalibration2();
+      renderGameField({});
+      setMarkerStamp(null);
+      return;
+    }
     if (!gameCalibration.playfield) await loadGameCalibration();
     const cached = await activeGameTags();
     renderGameField(cached ? cached.tags : {});
@@ -1429,7 +1623,7 @@ function baseSafePose(pose) {
   if (radius > 400) { const scale = 400 / radius; out.x *= scale; out.y *= scale; }
   return out;
 }
-function assertAutoPpxPoseSafe(pose, label="target") {
+function assertAutoPpxPoseSafe(pose, label="target", {allowCal2ExcludedStart=false}={}) {
   const x=Number(pose.x), y=Number(pose.y), z=Number(pose.z);
   if (![x,y,z].every(Number.isFinite)) throw new Error(`${label} is invalid`);
   if (gameReachWorkspace.x && (x < gameReachWorkspace.x[0] || x > gameReachWorkspace.x[1])) throw new Error(`${label} is outside the X workspace`);
@@ -1437,6 +1631,8 @@ function assertAutoPpxPoseSafe(pose, label="target") {
   const radius=Math.hypot(x,y), radiusMin=Math.max(gameRadiusMin,AUTO_PP_BASE_SAFE_RADIUS), radiusMax=gameRadiusMax;
   if (radius < radiusMin) throw new Error(`${label} is too close to the robot base (${radius.toFixed(1)} mm; minimum ${radiusMin} mm)`);
   if (radius > radiusMax) throw new Error(`${label} is outside the safe reach (${radius.toFixed(1)} mm; maximum ${radiusMax} mm)`);
+  const boundary=cal2RobotPlanningBoundary();
+  if(boundary.length>=3&&!pointInsideRobotPolygon(x,y,boundary)&&!allowCal2ExcludedStart)throw new Error(`${label} is inside the red Cal 2 exclusion area`);
   return pose;
 }
 function solveLinearSystem(matrix, values) {
@@ -1506,10 +1702,16 @@ function calibrationConvexHull(points) {
 }
 function cal2CalibrationSamples() {
   return Object.values(gameArmCal2().points || {}).filter(p =>
-    p.camera && p.pose && p.pose.set).map(p => ({
-      u:Number(p.camera.u), v:Number(p.camera.v),
-      x:Number(p.pose.x), y:Number(p.pose.y),
-  })).filter(p => Object.values(p).every(Number.isFinite));
+    p.camera && p.pose && p.pose.set).map(p => {
+      // Cal 2 captures raw camera coordinates. Work in displayed coordinates
+      // so its boundary, base restriction, tag targets, and video clicks all
+      // follow the same 180-degree transform as the player feed.
+      const camera = gameDisplayPoint(p.camera.u, p.camera.v);
+      return {
+        u:camera.u, v:camera.v,
+        x:Number(p.pose.x), y:Number(p.pose.y),
+      };
+    }).filter(p => Object.values(p).every(Number.isFinite));
 }
 function cal2RawPose(samples, u, v) {
   return {
@@ -1692,10 +1894,14 @@ function compensateCal2Parallax(u, v, tagId) {
   // their ground-level camera locations directly.
   if (Number(tagId) < 100) return {u, v};
   const arm=gameArmCal2(), points=Object.values(arm.parallax_points||{})
-    .filter(p=>p&&p.ground&&p.raised).map(p=>({
-      u:Number(p.raised.u),v:Number(p.raised.v),
-      groundU:Number(p.ground.u),groundV:Number(p.ground.v),
-    })).filter(p=>Object.values(p).every(Number.isFinite));
+    .filter(p=>p&&p.ground&&p.raised).map(p=>{
+      const raised=gameDisplayPoint(p.raised.u,p.raised.v);
+      const ground=gameDisplayPoint(p.ground.u,p.ground.v);
+      return {
+        u:raised.u,v:raised.v,
+        groundU:ground.u,groundV:ground.v,
+      };
+    }).filter(p=>Object.values(p).every(Number.isFinite));
   if(points.length<4) return {u,v};
   try {
     return {
@@ -1756,6 +1962,7 @@ function syncTargetSliders(pose, axes = ["x", "y"]) {
   }
 }
 async function handleVideoClick(ev) {
+  if (LTX && !ltxVideoClickEnabled) return;
   if (ev.defaultPrevented) return;
   if (ev.button !== undefined && ev.button !== 0) return;
   if (ev.target && ev.target.closest && ev.target.closest(".feedTools, button, label, input, select, a")) return;
@@ -1779,9 +1986,12 @@ async function handleVideoClick(ev) {
     log(`video target set -> X ${fmtNum(pose.x)} Y ${fmtNum(pose.y)}`, "log-info");
     if (!connected) return;
     if (seq !== videoClickSeq) return;
-    const res = await api("/api/move", pose);
-    if (!res.ok) throw new Error(res.error || "move failed");
-    log(`video target sent -> X ${fmtNum(pose.x)} Y ${fmtNum(pose.y)} Z ${fmtNum(pose.z)}`, "log-ok");
+    if(AUTO_PPX)await moveToPose(pose,"video target",false);
+    else{
+      const res = await api("/api/move", pose);
+      if (!res.ok) throw new Error(res.error || "move failed");
+      log(`video target sent -> X ${fmtNum(pose.x)} Y ${fmtNum(pose.y)} Z ${fmtNum(pose.z)}`, "log-ok");
+    }
   } catch (e) {
     log(`video target ✗ ${e.message}`, "log-err");
   }
@@ -1844,7 +2054,12 @@ function showApp() {
   if (login) login.hidden = true;
   gid('app').hidden = false;
 }
-function setBanner(text, show) { gid('feedBanner').hidden = !show; if (show) gid('feedBanner').textContent = text; }
+function setBanner(text, show, variant = "") {
+  const banner = gid('feedBanner');
+  banner.hidden = !show;
+  banner.classList.toggle('win', show && variant === 'win');
+  if (show) banner.textContent = text;
+}
 
 function shouldAutoRegister(s) {
   if (!playerName || !playerNameConfirmed) return false;
@@ -1882,9 +2097,21 @@ async function registerAutoPlayer() {
 
 function myTeam(s) { return (s && s.teams && s.teams[TEAM]) || {}; }
 function stopClock() { clearInterval(clockHandle); clockHandle = 0; }
+function ltxElapsed(s = ltxGameState) {
+  if (!s || s.started_at == null || !Number.isFinite(Number(s.started_at))) return 0;
+  const end = s.phase === 'won' && s.finished_at != null && Number.isFinite(Number(s.finished_at))
+    ? Number(s.finished_at)
+    : Date.now() / 1000;
+  return Math.max(0, end - Number(s.started_at));
+}
 function startClock() {
   stopClock();
   const tick = () => {
+    if (LTX) {
+      if (!ltxGameState || ltxGameState.phase !== 'running') return;
+      gid('clock').textContent = ltxElapsed().toFixed(1);
+      return;
+    }
     const ts = myTeam(gstate);
     if (ts.phase !== 'running' || !ts.started_at) return;
     gid('clock').textContent = `${Math.max(0, (Date.now() / 1000) - Number(ts.started_at)).toFixed(1)}s`;
@@ -1912,7 +2139,7 @@ async function startTimer() {
 function onArmStatus(s) {
   armLinked = !!(s && s.connected);
   const ts = myTeam(gstate);
-  if (armLinked && ts.phase === 'ready' && !autoStartDone) {
+  if (!LTX && armLinked && ts.phase === 'ready' && !autoStartDone) {
     autoStartDone = true;
     startTimer();
   }
@@ -1947,6 +2174,14 @@ function gameApplyState(s) {
   if (phase === 'idle' && gPrevPhase && gPrevPhase !== 'idle') onGameReset();
   gPrevPhase = phase;
 
+  // The LTX tab is part of the cooperative Laser Tag X game. Its HUD is
+  // rendered exclusively from the gamemaster's Laser Tag X state below, not
+  // from this controller's legacy per-player Auto Pickup stopwatch.
+  if (LTX) {
+    renderLtxGameState();
+    return;
+  }
+
   if (phase === 'running') {
     gid('btnNew').hidden = true;
     gid('runStatus').textContent = 'Timer running — gamemaster will mark you finished.';
@@ -1971,17 +2206,139 @@ function gameApplyState(s) {
   }
 }
 
+function renderLtxGameState() {
+  gid('btnNew').hidden = true;
+  const s = ltxGameState;
+  if (!s) {
+    renderLtxCenterOverlay(null);
+    stopClock();
+    gid('clock').textContent = '--';
+    gid('runStatus').textContent = 'Waiting for the Laser Tag X gamemaster…';
+    setBanner('', false);
+    return;
+  }
+  renderLtxCenterOverlay(s);
+  if (s.phase === 'running') {
+    gid('clock').textContent = ltxElapsed(s).toFixed(1);
+    gid('runStatus').textContent = 'Laser Tag X timer running.';
+    setBanner('', false);
+    if (!clockHandle) startClock();
+  } else if (s.phase === 'won') {
+    stopClock();
+    gid('clock').textContent = ltxElapsed(s).toFixed(1);
+    gid('runStatus').textContent = `Laser Tag X complete in ${ltxElapsed(s).toFixed(1)}s.`;
+    setBanner('You Win', true, 'win');
+  } else {
+    stopClock();
+    gid('clock').textContent = '0.0';
+    gid('runStatus').textContent = 'Waiting for the gamemaster to start Laser Tag X.';
+    setBanner('', false);
+  }
+}
+
+function applyLtxGameState(s) {
+  if (!s || typeof s.phase !== 'string') return;
+  const previous = ltxGameState;
+  const centerActive = s.phase === 'running'
+    && ['centre_ready', 'centre_first_covered'].includes(s.final_stage);
+  if (!centerActive) {
+    ltxCenterUnlockedAt = 0;
+  } else if (!ltxCenterUnlockedAt) {
+    if (previous && previous.final_stage === 'outer_ring') {
+      ltxCenterUnlockedAt = Date.now();
+    } else if (s.final_stage === 'centre_ready') {
+      const serverNow = Number(s.server_time), updatedAt = Number(s.updated_at);
+      const ageMs = Number.isFinite(serverNow) && Number.isFinite(updatedAt)
+        ? Math.max(0, (serverNow - updatedAt) * 1000)
+        : 0;
+      ltxCenterUnlockedAt = Date.now() - ageMs;
+    } else {
+      // A first center tag is already down, so skip a stale unlock intro when
+      // a player opens or reloads the tab during the second placement.
+      ltxCenterUnlockedAt = Date.now() - 5000;
+    }
+  }
+  ltxGameState = s;
+  renderLtxGameState();
+}
+
+function renderLtxCenterOverlay(s = ltxGameState) {
+  clearTimeout(ltxCenterOverlayHandle);
+  ltxCenterOverlayHandle = 0;
+  const overlay = gid('centerOverlay');
+  const instructions = gid('ltxInstructions');
+  const centerActive = s && s.phase === 'running'
+    && ['centre_ready', 'centre_first_covered'].includes(s.final_stage);
+  if (!centerActive) {
+    instructions.hidden = !LTX;
+    overlay.hidden = true;
+    overlay.textContent = '';
+    return;
+  }
+  instructions.hidden = true;
+  const introRemaining = Math.max(0, 5000 - (Date.now() - ltxCenterUnlockedAt));
+  overlay.hidden = false;
+  if (introRemaining > 0) {
+    overlay.textContent = 'Center Unlocked!';
+    ltxCenterOverlayHandle = setTimeout(renderLtxCenterOverlay, introRemaining + 20);
+  } else {
+    overlay.textContent = 'To win, stack one tag from each team in the center.';
+  }
+}
+
+async function loadLtxGameState() {
+  if (ltxGameStatePollBusy) return;
+  ltxGameStatePollBusy = true;
+  try {
+    const data = await gmFetch('/api/ltx-state');
+    applyLtxGameState(data.state);
+  } finally {
+    ltxGameStatePollBusy = false;
+  }
+}
+
+function watchLtxGameState() {
+  const refresh = () => {
+    loadLtxGameState().catch(() => {
+      if (!ltxGameState) renderLtxGameState();
+    });
+  };
+  refresh();
+  setInterval(refresh, 700);
+}
+
 function gameInit() {
+  gid("gamebar").classList.toggle("ltx", LTX);
+  gid("gamebarLiveStatus").hidden = !LTX;
+  const ltxInstructions = gid("ltxInstructions");
+  ltxInstructions.hidden = !LTX;
+  if (LTX) {
+    const instructionTeam = gid("ltxInstructionTeam");
+    instructionTeam.textContent = TEAM;
+    instructionTeam.classList.add(TEAM);
+  }
+  if (LTX) {
+    const stopButton = gid("btnStop");
+    stopButton.textContent = "Stop";
+    gid("btnDisable").insertAdjacentElement("afterend", stopButton);
+    gid("followingSpeedPanel")?.remove();
+    gid("btnClear").hidden = true;
+    gid("stopPanel").hidden = true;
+    gid("liveStatusPanel").hidden = true;
+    gid("autoPpxPause").hidden = false;
+  }
   if (AUTO_PPX) {
-    document.title = "Auto PP X — Player";
+    document.title = LTX ? "LTX — Player" : "Auto PP X — Player";
     gid("scorePanel")?.remove();
     const panel = gid("autoPpxPanel");
     if (panel) panel.hidden = false;
+    if (LTX && panel) panel.querySelector("h2").textContent = "LTX cue builder";
     const heading = document.querySelector("header h1");
-    if (heading) heading.textContent = "Auto PP X — XYZ controls";
+    if (heading) heading.textContent = LTX ? "LTX — XYZ controls" : "Auto PP X — XYZ controls";
     loadAutoPpxFineCal();
     loadGameCalibration2().catch(() => null);
   }
+  if (LTX) applyLtxConfig({});
   gid('teamName').textContent = TEAM.toUpperCase();
   gid('teamName').className = 'teamName ' + TEAM;
   setPlayerName(storedPlayerName());
@@ -2015,11 +2372,16 @@ function gameInit() {
   loadPlayfield().catch(() => startWebcam());
   gid('webcamFeed').onerror = () => setTimeout(startWebcam, 1000);
   gid('webcamFeed').parentElement.addEventListener('click', handleVideoClick);
-  loadGameCalibration().then(refreshGameField).catch(() => null);
+  (AUTO_PPX ? loadGameCalibration2() : loadGameCalibration()).then(refreshGameField).catch(() => null);
   refreshPlayerScores();
   if (AUTO_PPX) {
     refreshAutoPpxTags();
     setInterval(refreshAutoPpxTags, 750);
+  }
+  if (LTX) {
+    pollLtxConfig();
+    setInterval(pollLtxConfig, 700);
+    watchLtxGameState();
   }
   setInterval(refreshGameField, 1500);
   setInterval(refreshPlayerScores, 5000);
@@ -2051,18 +2413,28 @@ const AXIS_DEFS = [
   { id:"y", name:"Y — left / right", unit:"mm", step:1 },
   { id:"z", name:"Z — up / down", unit:"mm", step:1 },
 ];
+const JOINT_AXIS_DEFS = [
+  { id:"j1", name:"J1 — base rotation", step:0.5 },
+  { id:"j2", name:"J2 — arm joint 1", step:0.5 },
+  { id:"j3", name:"J3 — arm joint 2", step:0.5 },
+];
 let ws = { x:[-450,450], y:[-450,450], z:[-150,230], r:[-160,160] };
+let jointLimits = { j1:[-160,160], j2:[-25,85], j3:[-25,105], j4:[-160,160] };
 let radiusMin = 150, radiusMax = 440;
 let connected = false;
 let sliderEls = {};
 const numEls = {};
+const jointSliderEls = {};
+const jointNumEls = {};
 let lastServoError = null, pumpMode = "off";
 let autoPpxLastPumpCommandSeq = null;
 let draggingId = null;
+let jointDraggingId = null;
+let heldJointJ4 = 0;
 let armPollBusy = false;
 let armConnectBusy = false;
-window.addEventListener("pointerup", () => draggingId = null);
-window.addEventListener("keyup", () => draggingId = null);
+window.addEventListener("pointerup", () => { draggingId = null; jointDraggingId = null; });
+window.addEventListener("keyup", () => { draggingId = null; jointDraggingId = null; });
 
 function log(msg, cls="log-info") {
   const el = document.getElementById("log");
@@ -2111,18 +2483,31 @@ function calibratedZ(target, withFineTune = false) {
   return z + (withFineTune ? fineTuneZ() : 0);
 }
 
+function autoActionZ(target, withFineTune = false) {
+  const z = AUTO_PPX
+    ? (target === "pickup_height" ? autoPpxBasePickupZ() : autoPpxTransportZ())
+    : calibratedZ(target);
+  return z + (withFineTune ? fineTuneZ() : 0);
+}
+
 function updateAutoZReadout() {
   const out = document.getElementById("autoZReadout");
   if (!out) return;
-  const arm = gameArmCal();
-  const pickup = arm.pickup_height && arm.pickup_height.set ? Number(arm.pickup_height.z) : NaN;
-  const transport = arm.transport_height && arm.transport_height.set ? Number(arm.transport_height.z) : NaN;
+  const arm = AUTO_PPX ? gameArmCal2() : gameArmCal();
+  const cal2Pickup = arm.pickup_height;
+  const cal2Transport = (gameCalibration2.shared_z || {}).transport_height;
+  const pickup = AUTO_PPX
+    ? (cal2Pickup == null || cal2Pickup === "" ? NaN : Number(cal2Pickup))
+    : (arm.pickup_height && arm.pickup_height.set ? Number(arm.pickup_height.z) : NaN);
+  const transport = AUTO_PPX
+    ? (cal2Transport == null || cal2Transport === "" ? NaN : Number(cal2Transport))
+    : (arm.transport_height && arm.transport_height.set ? Number(arm.transport_height.z) : NaN);
   const fine = fineTuneZ();
   const pickupText = Number.isFinite(pickup)
     ? `${fmtNum(pickup)} mm${fine ? ` (${fmtNum(pickup + fine)} tuned)` : ""}`
     : "-- mm";
   const transportText = Number.isFinite(transport) ? `${fmtNum(transport)} mm` : "-- mm";
-  out.textContent = `Calibration: pickup ${pickupText} · transport ${transportText}`;
+  out.textContent = `${AUTO_PPX ? "Auto PP Cal 2" : "Calibration"}: pickup/drop-off ${pickupText} · transport ${transportText}`;
 }
 
 function currentSliderPoseWithZ(z) {
@@ -2225,19 +2610,54 @@ function segmentDistanceFromBase(start,target){
 function autoPpxPlanningRadiusMin(){
   return Math.max(gameRadiusMin,AUTO_PP_BASE_SAFE_RADIUS)+10;
 }
-function cal2PathSegmentSafe(start,target){
+function cal2RobotPlanningBoundary(){
+  const samples=cal2CalibrationSamples();
+  if(samples.length<6)return [];
+  try{
+    const poseAt=cal2PoseEvaluator(samples);
+    return cal2ReachBoundary(samples).map(point=>{
+      const pose=poseAt(point.u,point.v);
+      return [Number(pose.x),Number(pose.y)];
+    }).filter(point=>point.every(Number.isFinite));
+  }catch(_){return []}
+}
+function cal2PathPointWithinHardLimits(point){
   const radiusMin=autoPpxPlanningRadiusMin();
-  const endpoints=[start,target];
-  if(endpoints.some(point=>!Object.values(point).every(Number.isFinite)))return false;
-  if(endpoints.some(point=>Math.hypot(point.x,point.y)<radiusMin||Math.hypot(point.x,point.y)>gameRadiusMax))return false;
-  if(gameReachWorkspace.x&&endpoints.some(point=>point.x<gameReachWorkspace.x[0]||point.x>gameReachWorkspace.x[1]))return false;
-  if(gameReachWorkspace.y&&endpoints.some(point=>point.y<gameReachWorkspace.y[0]||point.y>gameReachWorkspace.y[1]))return false;
-  return segmentDistanceFromBase(start,target)>=radiusMin;
+  if(!point||![point.x,point.y,point.z].every(value=>Number.isFinite(Number(value))))return false;
+  const radius=Math.hypot(point.x,point.y);
+  if(radius<radiusMin||radius>gameRadiusMax-AUTO_PP_OUTER_GUARD_MM)return false;
+  if(gameReachWorkspace.x&&(point.x<gameReachWorkspace.x[0]||point.x>gameReachWorkspace.x[1]))return false;
+  if(gameReachWorkspace.y&&(point.y<gameReachWorkspace.y[0]||point.y>gameReachWorkspace.y[1]))return false;
+  return true;
 }
-function cal2DirectPathHasClearance(start,target){
-  return cal2PathSegmentSafe(start,target);
+function cal2PathPointSafe(point,boundary=cal2RobotPlanningBoundary()){
+  if(!cal2PathPointWithinHardLimits(point))return false;
+  return boundary.length<3||pointInsideRobotPolygon(point.x,point.y,boundary);
 }
-function cal2ArcCandidate(start,target,routeRadius,delta){
+function cal2PathSegmentSafe(start,target,boundary=cal2RobotPlanningBoundary(),{allowCal2ExcludedStart=false}={}){
+  if(!cal2PathPointWithinHardLimits(start)||!cal2PathPointSafe(target,boundary))return false;
+  let enteredCal2=cal2PathPointSafe(start,boundary);
+  if(!enteredCal2&&!allowCal2ExcludedStart)return false;
+  const distance=Math.hypot(target.x-start.x,target.y-start.y);
+  const steps=Math.max(1,Math.ceil(distance/8));
+  for(let step=1;step<=steps;step+=1){
+    const amount=step/steps;
+    const point={
+      x:start.x+(target.x-start.x)*amount,
+      y:start.y+(target.y-start.y)*amount,
+      z:start.z+(target.z-start.z)*amount,
+    };
+    if(!cal2PathPointWithinHardLimits(point))return false;
+    const insideCal2=boundary.length<3||pointInsideRobotPolygon(point.x,point.y,boundary);
+    if(insideCal2)enteredCal2=true;
+    else if(enteredCal2)return false;
+  }
+  return enteredCal2;
+}
+function cal2DirectPathHasClearance(start,target,{allowCal2ExcludedStart=false}={}){
+  return cal2PathSegmentSafe(start,target,cal2RobotPlanningBoundary(),{allowCal2ExcludedStart});
+}
+function cal2ArcCandidate(start,target,routeRadius,delta,{allowCal2ExcludedStart=false}={}){
   const startAngle=Math.atan2(start.y,start.x);
   const steps=Math.max(1,Math.ceil(Math.abs(delta)/(Math.PI/36)));
   const points=[];
@@ -2250,14 +2670,17 @@ function cal2ArcCandidate(start,target,routeRadius,delta){
   points.push({...target});
   let previous=start;
   for(const point of points){
-    if(!cal2PathSegmentSafe(previous,point))return null;
+    if(!cal2PathSegmentSafe(previous,point,cal2RobotPlanningBoundary(),{allowCal2ExcludedStart}))return null;
     previous=point;
+    allowCal2ExcludedStart=false;
   }
   return points;
 }
-function densifyCal2Path(start,points,label){
+function densifyCal2Path(start,points,label,{allowCal2ExcludedStart=false}={}){
   const dense=[];
   let previous={...start};
+  const boundary=cal2RobotPlanningBoundary();
+  let enteredCal2=cal2PathPointSafe(start,boundary);
   for(const destination of points){
     const dx=destination.x-previous.x,dy=destination.y-previous.y,dz=destination.z-previous.z;
     if(Math.max(Math.abs(dx),Math.abs(dy),Math.abs(dz))<0.01){previous={...destination};continue;}
@@ -2269,18 +2692,79 @@ function densifyCal2Path(start,points,label){
         y:previous.y+dy*amount,
         z:previous.z+dz*amount,
       };
+      const waypointInsideCal2=cal2PathPointSafe(waypoint,boundary);
+      if(!enteredCal2&&!waypointInsideCal2){
+        if(!allowCal2ExcludedStart)throw new Error(`${label} generated an unsafe executed segment`);
+        continue;
+      }
       const segmentStart=dense.length?dense[dense.length-1]:start;
-      if(!cal2PathSegmentSafe(segmentStart,waypoint))throw new Error(`${label} generated an unsafe executed segment`);
+      if(!cal2PathSegmentSafe(segmentStart,waypoint,boundary,{allowCal2ExcludedStart:allowCal2ExcludedStart&&!enteredCal2}))throw new Error(`${label} generated an unsafe executed segment`);
       dense.push(waypoint);
+      enteredCal2=true;
     }
     previous={...destination};
   }
   return dense;
 }
-function planCal2Movement(start,target,label){
-  assertAutoPpxPoseSafe(start,`${label} start`);
+function cal2GridDetour(start,target,label,{allowCal2ExcludedStart=false}={}){
+  const boundary=cal2RobotPlanningBoundary();
+  if(boundary.length<3)return null;
+  const step=18;
+  const xs=boundary.map(point=>point[0]),ys=boundary.map(point=>point[1]);
+  const minX=Math.max(gameReachWorkspace.x?gameReachWorkspace.x[0]:-450,Math.floor(Math.min(...xs)/step)*step);
+  const maxX=Math.min(gameReachWorkspace.x?gameReachWorkspace.x[1]:450,Math.ceil(Math.max(...xs)/step)*step);
+  const minY=Math.max(gameReachWorkspace.y?gameReachWorkspace.y[0]:-450,Math.floor(Math.min(...ys)/step)*step);
+  const maxY=Math.min(gameReachWorkspace.y?gameReachWorkspace.y[1]:450,Math.ceil(Math.max(...ys)/step)*step);
+  const nodes=new Map();
+  for(let x=minX;x<=maxX+.001;x+=step)for(let y=minY;y<=maxY+.001;y+=step){
+    const point={x,y,z:start.z};
+    if(cal2PathPointSafe(point,boundary))nodes.set(`${Math.round((x-minX)/step)},${Math.round((y-minY)/step)}`,point);
+  }
+  const anchors=[...nodes.entries()].map(([key,point])=>({key,point,distance:Math.hypot(point.x-start.x,point.y-start.y)}))
+    .filter(item=>(allowCal2ExcludedStart||item.distance<=step*2.25)&&cal2PathSegmentSafe(start,item.point,boundary,{allowCal2ExcludedStart})).sort((a,b)=>a.distance-b.distance).slice(0,12);
+  if(!anchors.length)return null;
+  const queue=[],parent=new Map(),visited=new Set();
+  for(const anchor of anchors){queue.push(anchor.key);parent.set(anchor.key,null);visited.add(anchor.key)}
+  const directions=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+  let finish=null;
+  for(let head=0;head<queue.length&&!finish;head+=1){
+    const key=queue[head],point=nodes.get(key);
+    if(cal2PathSegmentSafe(point,target,boundary)){finish=key;break}
+    const [ix,iy]=key.split(",").map(Number);
+    for(const [dx,dy] of directions){
+      const nextKey=`${ix+dx},${iy+dy}`;
+      if(visited.has(nextKey)||!nodes.has(nextKey))continue;
+      const next=nodes.get(nextKey);
+      if(!cal2PathSegmentSafe(point,next,boundary))continue;
+      visited.add(nextKey);parent.set(nextKey,key);queue.push(nextKey);
+    }
+  }
+  if(!finish)return null;
+  const raw=[];
+  for(let key=finish;key!==null;key=parent.get(key))raw.push(nodes.get(key));
+  raw.reverse();raw.push({...target});
+  const smoothed=[];
+  let cursor=start,index=0;
+  while(index<raw.length){
+    let farthest=index;
+    for(let candidate=raw.length-1;candidate>=index;candidate-=1){
+      if(cal2PathSegmentSafe(cursor,raw[candidate],boundary,{allowCal2ExcludedStart})){farthest=candidate;break}
+    }
+    const chosen={...raw[farthest],z:farthest===raw.length-1?target.z:start.z};
+    smoothed.push(chosen);cursor=chosen;index=farthest+1;allowCal2ExcludedStart=false;
+  }
+  if(!smoothed.length||Math.hypot(smoothed.at(-1).x-target.x,smoothed.at(-1).y-target.y)>.01)return null;
+  log(`${label}: grid detour found around the measured red Cal 2 area`,"log-info");
+  return smoothed;
+}
+function planCal2Movement(start,target,label,{allowCal2ExcludedStart=false}={}){
+  const boundary=cal2RobotPlanningBoundary();
+  const startsInsideCal2=boundary.length<3||pointInsideRobotPolygon(start.x,start.y,boundary);
+  const recoveringFromCal2Exclusion=allowCal2ExcludedStart&&!startsInsideCal2;
+  assertAutoPpxPoseSafe(start,`${label} start`,{allowCal2ExcludedStart:recoveringFromCal2Exclusion});
   assertAutoPpxPoseSafe(target,`${label} target`);
-  if(cal2DirectPathHasClearance(start,target))return [{...target}];
+  if(recoveringFromCal2Exclusion)log(`${label}: start is in the red Cal 2 exclusion area; allowing a one-way move into the permitted area`,"log-info");
+  if(cal2DirectPathHasClearance(start,target,{allowCal2ExcludedStart:recoveringFromCal2Exclusion}))return [{...target}];
   const radiusMin=autoPpxPlanningRadiusMin();
   const routeRadius=Math.min(gameRadiusMax-AUTO_PP_OUTER_GUARD_MM,Math.max(gameRadiusMin,AUTO_PP_BASE_SAFE_RADIUS)+AUTO_PP_ROUTE_CLEARANCE_MM);
   if(routeRadius<=radiusMin)throw new Error(`${label} has no safe clearance between the inner and outer arm limits`);
@@ -2289,13 +2773,13 @@ function planCal2Movement(start,target,label){
   while(shortest>Math.PI)shortest-=Math.PI*2;
   while(shortest<Math.PI*-1)shortest+=Math.PI*2;
   const candidates=[shortest,shortest>0?shortest-Math.PI*2:shortest+Math.PI*2]
-    .map(delta=>cal2ArcCandidate(start,target,routeRadius,delta))
+    .map(delta=>cal2ArcCandidate(start,target,routeRadius,delta,{allowCal2ExcludedStart:recoveringFromCal2Exclusion}))
     .filter(Boolean)
     .sort((a,b)=>a.length-b.length);
-  if(!candidates.length)throw new Error(`${label} could not be planned without crossing an arm boundary`);
-  const chosen=candidates[0];
+  const chosen=candidates[0]||cal2GridDetour(start,target,label,{allowCal2ExcludedStart:recoveringFromCal2Exclusion});
+  if(!chosen)throw new Error(`${label} could not be planned without entering the red Cal 2 area`);
   const constrained=chosen.slice(0,-1);
-  const dense=constrained.length?densifyCal2Path(start,constrained,label):[];
+  const dense=constrained.length?densifyCal2Path(start,constrained,label,{allowCal2ExcludedStart:recoveringFromCal2Exclusion}):[];
   const release=dense.length?dense[dense.length-1]:start;
   if(!cal2DirectPathHasClearance(release,target))throw new Error(`${label} did not find a safe compensation release point`);
   return dense.concat({...target});
@@ -2365,6 +2849,17 @@ async function guardCal2BaseApproach(status){
   if(!status.enabled)return;
   if(!Array.isArray(status.pose)||status.pose.length<3||!Array.isArray(status.target)||status.target.length<3)return;
   const start={x:Number(status.pose[0]),y:Number(status.pose[1]),z:Number(status.pose[2])};
+  if(status.control_mode==="joint"){
+    if(jointPoseInsideCal2(start))return;
+    cal2BaseGuardBusy=true;
+    try{
+      log("Auto PP Cal 2 guard stopped joint motion at the calibrated boundary","log-err");
+      setAutoPpxStatus("Joint motion stopped at the Auto PP Cal 2 boundary.","err");
+      cancelQueuedJointMove();
+      await api("/api/stop",{});
+    }finally{cal2BaseGuardBusy=false;}
+    return;
+  }
   const target={x:Number(status.target[0]),y:Number(status.target[1]),z:Number(status.target[2])};
   if(![...Object.values(start),...Object.values(target)].every(Number.isFinite))return;
   const radiusMin=autoPpxPlanningRadiusMin(),radius=Math.hypot(start.x,start.y),targetRadius=Math.hypot(target.x,target.y);
@@ -2425,7 +2920,9 @@ async function waitForCal2BaseGuard(label,timeoutMs=45000){
 async function moveToPose(pose, label, wait = true) {
   assertReadyForAutoAction();
   if (autoPpxAbort) throw new Error("stopped");
+  await waitForAutoPpxResume(label);
   await waitForCal2BaseGuard(label);
+  await waitForAutoPpxResume(label);
   cal2MotionGeneration+=1;
   pauseUserMoves();
   if (AUTO_PPX) assertAutoPpxPoseSafe(pose, label);
@@ -2439,7 +2936,8 @@ async function moveToPose(pose, label, wait = true) {
     let start={x:Number(status.pose[0]),y:Number(status.pose[1]),z:Number(status.pose[2])};
     if(!Object.values(start).every(Number.isFinite))throw new Error(`${label} cannot be planned because live arm position is invalid`);
     start=await ensureSafePlanningStart(start,target,status);
-    cal2Plan=planCal2Movement(start,target,label);
+    const allowCal2ExcludedStart=LTX&&label==="video target";
+    cal2Plan=planCal2Movement(start,target,label,{allowCal2ExcludedStart});
     log(`${label}: collision check passed${cal2Plan.length>1?` with ${cal2Plan.length} constrained execution waypoints`:" for the next short step"}`,"log-info");
     if(cal2Plan.length>1){
       await executeCal2Plan(cal2Plan,label);
@@ -2585,8 +3083,8 @@ async function setPumpMode(mode, label, operationId = null) {
 
 async function pickupTag() {
   try {
-    await loadGameCalibration();
-    const z = calibratedZ("pickup_height", true);
+    if(AUTO_PPX)await loadGameCalibration2();else await loadGameCalibration();
+    const z = autoActionZ("pickup_height", true);
     await moveCurrentXYToZ(z, "pickup tag", true);
     await setPumpMode("suck", "vacuum on");
   } catch (e) {
@@ -2598,8 +3096,8 @@ async function pickupTag() {
 
 async function transportHeight() {
   try {
-    await loadGameCalibration();
-    await moveCurrentXYToZ(calibratedZ("transport_height"), "transport height", false);
+    if(AUTO_PPX)await loadGameCalibration2();else await loadGameCalibration();
+    await moveCurrentXYToZ(autoActionZ("transport_height"), "transport height", false);
   } catch (e) {
     log(`transport height ✗ ${e.message}`, "log-err");
   } finally {
@@ -2609,8 +3107,8 @@ async function transportHeight() {
 
 async function dropOff() {
   try {
-    await loadGameCalibration();
-    const z = calibratedZ("pickup_height", true);
+    if(AUTO_PPX)await loadGameCalibration2();else await loadGameCalibration();
+    const z = autoActionZ("pickup_height", true);
     await moveCurrentXYToZ(z, "drop off", true);
     await setPumpMode("off", "vacuum off");
     await setPumpMode("blow", "brief blow");
@@ -2643,16 +3141,18 @@ function autoPpxOffsetPose(pose) {
 
 function autoPpxBasePickupZ() {
   if (selectedAutoPpxCalibration() === "cal2") {
-    const z = Number((gameCalibration2.shared_z || {}).pickup_height);
-    if (!Number.isFinite(z)) throw new Error("Auto PP Cal 2 shared pickup Z is not calibrated");
+    const pickup = (((gameCalibration2.arms || {})[TEAM] || {}).pickup_height);
+    const z = Number(pickup);
+    if (pickup == null || pickup === "" || !Number.isFinite(z)) throw new Error(`Auto PP Cal 2 ${TEAM} pickup Z is not calibrated`);
     return z;
   }
   return calibratedZ("pickup_height");
 }
 function autoPpxTransportZ() {
   if (selectedAutoPpxCalibration() === "cal2") {
-    const z = Number((gameCalibration2.shared_z || {}).transport_height);
-    if (!Number.isFinite(z)) throw new Error("Auto PP Cal 2 shared transport Z is not calibrated");
+    const transport = (gameCalibration2.shared_z || {}).transport_height;
+    const z = Number(transport);
+    if (transport == null || transport === "" || !Number.isFinite(z)) throw new Error("Auto PP Cal 2 shared transport Z is not calibrated");
     return z;
   }
   return calibratedZ("transport_height");
@@ -2670,9 +3170,9 @@ function autoPpxDropZForPose(pose, includeLiveTune = true) {
 }
 
 function autoPpxDropZForTarget(pose, targetTag, includeLiveTune = true) {
-  // A physical target in the 100s is 30 mm above the flat targets in the 30s.
+  // A physical target in the 100s is 31.5 mm above the flat targets in the 30s.
   return autoPpxDropZForPose(pose, includeLiveTune)
-    + (Number(targetTag && targetTag.id) >= 100 ? 30 : 0);
+    + (Number(targetTag && targetTag.id) >= 100 ? 31.5 : 0);
 }
 
 async function captureAutoPpxPoses() {
@@ -2731,7 +3231,7 @@ async function refreshAutoPpxPhysicalEndpoint(saved, endpoint, queueIndex, trust
   // that lands between frames does not incorrectly fall back to stale data.
   let liveTag = null;
   let visible = [];
-  const freshUntil = Date.now() + 1800;
+  const freshUntil = Date.now() + 6000;
   do {
     visible = await readVisibleArucoTags();
     const observedAt = Date.now();
@@ -2824,7 +3324,7 @@ async function autoPpxPhysicalTagIsVisible(tag) {
 }
 
 async function confirmTrustedPhysicalPlacements(placements) {
-  if (!AUTO_PPX || TEAM !== "green" || !placements.size) return;
+  if (!AUTO_PPX || (!LTX && TEAM !== "green") || !placements.size) return;
   try {
     const response = await fetch(LASER_RUN);
     if (!response.ok) return;
@@ -2848,23 +3348,24 @@ async function confirmTrustedPhysicalPlacements(placements) {
 }
 
 async function recoverTrustedPhysicalPlacements(queue, placements) {
-  if (!AUTO_PPX || TEAM !== "green") return;
+  if (!AUTO_PPX || (!LTX && TEAM !== "green")) return;
   try {
     const response = await fetch(LASER_RUN);
     if (!response.ok) return;
     const data = await response.json();
     if (!(data.run && data.run.active) || !Array.isArray(data.events)) return;
     const events = data.events;
+    const expectedProducer = LTX ? `${TEAM}_ltx` : "green_auto_pp_x";
     for (let index = events.length - 1; index >= 0; index -= 1) {
       const event = events[index];
-      if (event.producer !== "green_auto_pp_x" || event.event !== "release_completed") continue;
+      if (event.producer !== expectedProducer || event.event !== "release_completed") continue;
       const physicalTag = Number(event.physical_tag), targetMarker = Number(event.target_marker);
       if (!autoPpxIsPhysicalTag({ id:physicalTag }) || placements.has(physicalTag)) continue;
       const releasedAt = Number(event.server_epoch) * 1000;
       if (!Number.isFinite(releasedAt)) continue;
       const pickedAgain = events.slice(index + 1).some(next =>
         Number(next.physical_tag) === physicalTag
-        && next.producer === "green_auto_pp_x"
+        && next.producer === expectedProducer
         && ["source_pickup", "suction_start"].includes(next.event)
       );
       if (pickedAgain) continue;
@@ -2927,7 +3428,7 @@ function bindAutoPpxQueueRow(row) {
 }
 
 async function captureAutoPpxSourcePose() {
-  await loadGameCalibration();
+  await loadGameCalibration2();
   await refreshGameField();
   const tags = await refreshAutoPpxTags();
   const ids = selectedAutoPpxIds();
@@ -3090,8 +3591,12 @@ async function runAutoPpx() {
   if (autoPpxRunning) return;
   autoPpxRunning = true;
   autoPpxAbort = false;
+  autoPpxCueRunning = true;
+  autoPpxPaused = false;
+  autoPpxPauseWaiting = false;
   gid("autoPpxGo").disabled = true;
   gid("autoPpxStop").disabled = false;
+  updateAutoPpxPauseControl();
   gid("autoPpxRefresh").disabled = true;
   gid("autoPpxFineTune").disabled = true;
   gid("autoPpxAddFinePoint").disabled = true;
@@ -3105,6 +3610,7 @@ async function runAutoPpx() {
   const trustedPhysicalPlacements = new Map();
   try {
     await laserIntent("script_started", {queue:autoPpxQueueIds()}, "lifecycle");
+    await waitForAutoPpxResume("cue preflight");
     assertReadyForAutoAction();
     // Verify the complete browser -> player proxy -> relay receipt path before
     // moving toward the first tag.  Pump-off is an idempotent physical command,
@@ -3131,10 +3637,12 @@ async function runAutoPpx() {
         if (autoPpxAbort) throw new Error("stopped");
         const saved = queue[index];
         const progress = `Queue ${index + 1}/${queue.length}${loop ? ` · loop ${pass}` : ""}`;
+        await waitForAutoPpxResume(progress);
         let eventBase = null;
         let pickupAttempt = 0;
         let sourceHover;
         do {
+          await waitForAutoPpxResume(`${progress}: pickup attempt ${pickupAttempt + 1}`);
           pickupAttempt += 1;
           const operationId = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
           eventBase = activeOperation = {operation_id:operationId, queue_index:index + 1, queue_length:queue.length, loop:pass, attempt:pickupAttempt, physical_tag:Number(saved.sourceTag.id), target_marker:Number(saved.targetTag.id)};
@@ -3148,16 +3656,21 @@ async function runAutoPpx() {
           setAutoPpxStatus(`${progress}: moving over ArUco ${saved.sourceTag.id}${attemptText}...`);
           await laserIntent("source_hover", eventBase);
           await moveToPose(sourceHover, "source hover");
+          await waitForAutoPpxResume("source pickup");
           setAutoPpxStatus(`${progress}: picking up ArUco ${saved.sourceTag.id}${attemptText}...`);
           await laserIntent("source_pickup", eventBase);
           await moveToPose(sourcePickup, "source pickup");
+          await waitForAutoPpxResume("pickup confirmation");
           await ensureAutoPpxPickupReady(sourcePickup,saved.sourceTag.id,progress);
+          await waitForAutoPpxResume("vacuum start");
           await laserIntent("suction_start", eventBase);
           const suctionResult = await setPumpMode("suck", "vacuum on", eventBase.operation_id);
           await laserIntent("suction_completed", {...eventBase, pump_command_seq:suctionResult.command_seq}, "command");
           await delay(250);
+          await waitForAutoPpxResume("lift to moving height");
           await laserIntent("lift", eventBase);
           await moveToPose(sourceHover, "lift to moving height");
+          await waitForAutoPpxResume("pickup check");
           if (!autoPpxIsPhysicalTag(saved.sourceTag)) break;
           setAutoPpxStatus(`${progress}: checking pickup of ArUco ${saved.sourceTag.id}...`);
           await delay(350);
@@ -3168,15 +3681,18 @@ async function runAutoPpx() {
           await laserIntent("operation_failed", {...eventBase, reason:"pickup remained visible"}, "lifecycle");
           await delay(250);
         } while (true);
+        await waitForAutoPpxResume("target approach");
         await refreshAutoPpxPhysicalEndpoint(saved, "target", index);
         const targetHover = { ...saved.target, z:movingZ };
         const targetDrop = { ...saved.target, z:autoPpxDropZForTarget(saved.targetBase, saved.targetTag, true) };
         setAutoPpxStatus(`${progress}: moving to ArUco ${saved.targetTag.id}...`);
         await laserIntent("target_hover", eventBase);
         await moveToPose(targetHover, "target hover");
+        await waitForAutoPpxResume("target descent");
         setAutoPpxStatus(`${progress}: dropping at ArUco ${saved.targetTag.id}...`);
         await laserIntent("target_descent_started", eventBase);
         const acceptedDrop = await moveToPose(targetDrop, "target drop");
+        await waitForAutoPpxResume("release");
         await laserIntent("target_pose_reached", {...eventBase, release_pose:acceptedDrop}, "command");
         await laserIntent("release_started", {...eventBase, release_pose:acceptedDrop}, "command");
         const releaseResult = await setPumpMode("off", "vacuum off", eventBase.operation_id);
@@ -3189,8 +3705,10 @@ async function runAutoPpx() {
         await laserIntent("blow_completed", {...eventBase, pump_command_seq:blowResult.command_seq}, "command");
         await delay(450);
         await setPumpMode("off", "pump off");
+        await waitForAutoPpxResume("return to moving height");
         await laserIntent("return_hover", eventBase);
         await moveToPose(targetHover, "return to moving height");
+        await waitForAutoPpxResume("operation completion");
         if (autoPpxIsPhysicalTag(saved.sourceTag)) {
           trustedPhysicalPlacements.set(Number(saved.sourceTag.id), {
             physicalTag:Number(saved.sourceTag.id),
@@ -3221,7 +3739,11 @@ async function runAutoPpx() {
   } finally {
     autoPpxRunning = false;
     autoPpxAbort = false;
+    autoPpxCueRunning = false;
+    autoPpxPaused = false;
+    autoPpxPauseWaiting = false;
     gid("autoPpxStop").disabled = true;
+    updateAutoPpxPauseControl();
     await refreshAutoPpxTags();
     updateAutoZReadout();
   }
@@ -3229,6 +3751,10 @@ async function runAutoPpx() {
 
 async function stopAutoPpx() {
   autoPpxAbort = true;
+  autoPpxCueRunning = false;
+  autoPpxPaused = false;
+  autoPpxPauseWaiting = false;
+  updateAutoPpxPauseControl();
   setAutoPpxStatus("Stopping robot...");
   report("stop / hold", await api("/api/stop", {}));
   await api("/api/pump", { mode:"off" });
@@ -3285,6 +3811,157 @@ function buildAxes() {
     `Auto PP safe reach ring ${Math.max(radiusMin, AUTO_PP_BASE_SAFE_RADIUS)}-${radiusMax} mm; Z ${ws.z[0]}-${ws.z[1]} mm.`;
 }
 
+function showJointAxis(def, value) {
+  const num = jointNumEls[def.id];
+  if (num && num !== document.activeElement) num.value = Number(value).toFixed(1);
+}
+
+function buildJointAxes() {
+  const wrap = gid("jointAxes");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  for (const def of JOINT_AXIS_DEFS) {
+    const [lo, hi] = jointLimits[def.id];
+    const div = document.createElement("div");
+    div.className = "axis";
+    div.innerHTML = `
+      <div class="label">
+        <span class="name">${def.name}</span>
+        <span class="readout">
+          <input type="number" class="valnum" id="ltx${def.id.toUpperCase()}Num"
+            step="${def.step}" min="${lo}" max="${hi}" value="0" disabled />
+          <span class="unit">°</span>
+          <span class="actual" id="ltx${def.id.toUpperCase()}Act"></span>
+        </span>
+      </div>
+      <input type="range" id="ltx${def.id.toUpperCase()}" min="${lo}" max="${hi}"
+        step="${def.step}" value="0" disabled />
+      <div class="limits"><span>${lo} °</span><span>${hi} °</span></div>`;
+    wrap.appendChild(div);
+  }
+  for (const def of JOINT_AXIS_DEFS) {
+    const slider = gid(`ltx${def.id.toUpperCase()}`);
+    const num = gid(`ltx${def.id.toUpperCase()}Num`);
+    jointSliderEls[def.id] = slider;
+    jointNumEls[def.id] = num;
+    slider.addEventListener("input", () => { showJointAxis(def, slider.value); queueJointMove(); });
+    slider.addEventListener("pointerdown", () => jointDraggingId = def.id);
+    slider.addEventListener("keydown", () => jointDraggingId = def.id);
+    num.addEventListener("focus", () => jointDraggingId = def.id);
+    num.addEventListener("blur", () => jointDraggingId = null);
+    num.addEventListener("change", () => {
+      const [lo, hi] = jointLimits[def.id];
+      const parsed = Number(num.value);
+      if (!Number.isFinite(parsed)) return;
+      const value = Math.max(lo, Math.min(hi, parsed));
+      num.value = value.toFixed(1);
+      slider.value = value;
+      queueJointMove();
+    });
+  }
+  gid("jointLimHint").textContent = JOINT_AXIS_DEFS.map(def =>
+    `${def.id.toUpperCase()} ${jointLimits[def.id][0]}–${jointLimits[def.id][1]}`
+  ).join(" · ") + " (deg) · Auto PP Cal 2 guarded";
+}
+
+function cal2JointSafetyGuard() {
+  if (!LTX) throw new Error("joint controls are available only in LTX");
+  if (cal2JointGuardCache) return cal2JointGuardCache;
+  const samples = cal2CalibrationSamples();
+  if (samples.length < 6) throw new Error("Auto PP Cal 2 needs all 6 captured outer-edge points");
+  const boundary = cal2ReachBoundary(samples);
+  if (boundary.length < 3) throw new Error("Auto PP Cal 2 arm boundary is unavailable");
+  const poseAt = cal2PoseEvaluator(samples);
+  cal2JointGuardCache = {
+    format:"auto-pp-calibration-2-v1",
+    polygon:boundary.map(point => {
+      const pose = poseAt(point.u, point.v);
+      return [Number(pose.x), Number(pose.y)];
+    }),
+    radius_min:Math.max(gameRadiusMin, AUTO_PP_BASE_SAFE_RADIUS),
+    radius_max:gameRadiusMax,
+    z_min:Number(ws.z[0]),
+    z_max:Number(ws.z[1]),
+  };
+  return cal2JointGuardCache;
+}
+
+function pointInsideRobotPolygon(x, y, polygon, edgeToleranceMm = 1.5) {
+  for (let i=0, j=polygon.length-1; i<polygon.length; j=i++) {
+    const [ax, ay]=polygon[j], [bx, by]=polygon[i];
+    const dx=bx-ax, dy=by-ay, length2=dx*dx+dy*dy;
+    const amount=length2 ? Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/length2)) : 0;
+    if(Math.hypot(x-(ax+amount*dx),y-(ay+amount*dy))<=edgeToleranceMm)return true;
+  }
+  let inside = false;
+  for (let i=0, j=polygon.length-1; i<polygon.length; j=i++) {
+    const [xi, yi] = polygon[i], [xj, yj] = polygon[j];
+    if ((yi > y) !== (yj > y) && x <= (xj-xi)*(y-yi)/(yj-yi)+xi) inside = !inside;
+  }
+  return inside;
+}
+
+function jointPoseInsideCal2(pose) {
+  try {
+    const guard = cal2JointSafetyGuard();
+    const x=Number(pose.x), y=Number(pose.y), z=Number(pose.z), radius=Math.hypot(x,y);
+    return [x,y,z].every(Number.isFinite)
+      && radius >= guard.radius_min && radius <= guard.radius_max
+      && z >= guard.z_min && z <= guard.z_max
+      && pointInsideRobotPolygon(x,y,guard.polygon);
+  } catch (_) {
+    return false;
+  }
+}
+
+let pendingJointMove = null, jointMoveTimer = null, jointMoveBusy = false;
+let lastJointSent = 0;
+const JOINT_MOVE_INTERVAL = 90;
+function cancelQueuedJointMove() {
+  pendingJointMove = null;
+  if (jointMoveTimer) { clearTimeout(jointMoveTimer); jointMoveTimer = null; }
+}
+function queueJointMove() {
+  cancelQueuedMove();
+  pendingJointMove = Object.fromEntries(JOINT_AXIS_DEFS.map(def =>
+    [def.id, Number(jointSliderEls[def.id].value)]
+  ));
+  pendingJointMove.j4 = heldJointJ4;
+  const wait = JOINT_MOVE_INTERVAL - (Date.now() - lastJointSent);
+  if (wait <= 0 && !jointMoveBusy) flushJointMove();
+  else if (!jointMoveTimer) jointMoveTimer = setTimeout(flushJointMove, Math.max(0, wait));
+}
+async function flushJointMove() {
+  if (jointMoveTimer) { clearTimeout(jointMoveTimer); jointMoveTimer = null; }
+  if (jointMoveBusy) {
+    if (!jointMoveTimer) jointMoveTimer = setTimeout(flushJointMove, JOINT_MOVE_INTERVAL);
+    return;
+  }
+  if (!pendingJointMove || !connected) return;
+  const target = pendingJointMove;
+  pendingJointMove = null;
+  let guard;
+  try { guard = cal2JointSafetyGuard(); }
+  catch (e) { log(`joint move blocked ✗ ${e.message}`, "log-err"); syncJointSliders(); return; }
+  jointMoveBusy = true;
+  lastJointSent = Date.now();
+  try {
+    const res = await api("/api/joint-move", {...target, cal2_guard:guard});
+    if (!res.ok) {
+      log(`joint move blocked ✗ ${res.error || "Auto PP Cal 2 rejected target"}`, "log-err");
+      syncJointSliders();
+    } else if (res.clamped && res.clamped.z_floor) {
+      showZFloor(res.clamped.z_floor);
+    }
+  } finally {
+    jointMoveBusy = false;
+    if (pendingJointMove) {
+      const wait = Math.max(0, JOINT_MOVE_INTERVAL - (Date.now() - lastJointSent));
+      jointMoveTimer = setTimeout(flushJointMove, wait);
+    }
+  }
+}
+
 let lastSent = 0, pending = null, timer = null;
 const MOVE_INTERVAL = 60;
 function cancelQueuedMove() {
@@ -3293,10 +3970,13 @@ function cancelQueuedMove() {
 }
 function pauseUserMoves() {
   draggingId = null;
+  jointDraggingId = null;
   invalidateVideoClicks();
   cancelQueuedMove();
+  cancelQueuedJointMove();
 }
 function queueMove() {
+  cancelQueuedJointMove();
   pending = {
     x: parseFloat(sliderEls.x.value), y: parseFloat(sliderEls.y.value),
     z: parseFloat(sliderEls.z.value),
@@ -3310,8 +3990,15 @@ async function flushMove() {
   if (!pending || !connected) return;
   const target = pending; pending = null; lastSent = Date.now();
   if(AUTO_PPX&&selectedAutoPpxCalibration()==="cal2"){
-    try{assertAutoPpxPoseSafe(target,"manual Cal 2 target");}
-    catch(e){log(`move blocked ✗ ${e.message}`,"log-err");return;}
+    if(manualCal2MoveBusy){pending=target;return;}
+    manualCal2MoveBusy=true;
+    try{await moveToPose(target,"manual Cal 2 move",false);}
+    catch(e){log(`move blocked ✗ ${e.message}`,"log-err");}
+    finally{
+      manualCal2MoveBusy=false;
+      if(pending&&!timer)timer=setTimeout(flushMove,MOVE_INTERVAL);
+    }
+    return;
   }
   const res = await api("/api/move", target);
   if (!res.ok) log(`move ✗ ${res.error || ("ErrorID " + res.errid)}`, "log-err");
@@ -3339,10 +4026,12 @@ function setControlsEnabled(on) {
   connected = on;
   ["btnDisconnect","btnEnable","btnDisable","btnClear","btnStop",
    "btnSync","btnSuck","btnBlow","btnPumpOff","btnPickupTag","btnTransportHeight",
-   "btnDropOff","pickupFineTune","speed","smooth"].forEach(id =>
-    document.getElementById(id).disabled = !on);
+   "btnDropOff","pickupFineTune","speed","smooth","btnJointSync"].forEach(id =>
+    { const el = document.getElementById(id); if (el) el.disabled = !on; });
   Object.values(sliderEls).forEach(el => el.disabled = !on);
   Object.values(numEls).forEach(el => el.disabled = !on);
+  Object.values(jointSliderEls).forEach(el => el.disabled = !on);
+  Object.values(jointNumEls).forEach(el => el.disabled = !on);
   document.getElementById("btnConnect").disabled = on;
   updateAutoPpxControls();
   updateAutoZReadout();
@@ -3389,12 +4078,24 @@ function applyStatus(s) {
 
   applyRelayStatus(s);
 
-  document.getElementById("sFeed").textContent = s.feedback_ok ? "OK (8 ms)" : "—";
-  document.getElementById("sMode").textContent = (s.robot_mode ?? "—") + " · " + (s.mode_name || "");
-  document.getElementById("sEnabled").textContent = enabled ? "ON" : "off";
+  const feedbackText = s.feedback_ok ? "OK (8 ms)" : "—";
+  const modeText = (s.robot_mode ?? "—") + " · " + (s.mode_name || "");
+  const enabledText = enabled ? "ON" : "off";
+  const errorText = s.error ? "ERROR" : "none";
+  document.getElementById("sFeed").textContent = feedbackText;
+  document.getElementById("sMode").textContent = modeText;
+  document.getElementById("sEnabled").textContent = enabledText;
   document.getElementById("sEnabled").style.color = enabled ? "var(--ok)" : "var(--muted)";
-  document.getElementById("sError").textContent = s.error ? "ERROR" : "none";
+  document.getElementById("sError").textContent = errorText;
   document.getElementById("sError").style.color = s.error ? "var(--err)" : "var(--muted)";
+  if (LTX) {
+    document.getElementById("gamebarFeed").textContent = feedbackText;
+    document.getElementById("gamebarMode").textContent = modeText;
+    document.getElementById("gamebarEnabled").textContent = enabledText;
+    document.getElementById("gamebarEnabled").style.color = enabled ? "var(--ok)" : "var(--muted)";
+    document.getElementById("gamebarError").textContent = errorText;
+    document.getElementById("gamebarError").style.color = s.error ? "var(--err)" : "var(--muted)";
+  }
 
   if (s.servo_error && s.servo_error !== lastServoError)
     log("Servo follower stopped: " + s.servo_error, "log-err");
@@ -3413,10 +4114,36 @@ function applyStatus(s) {
     AXIS_DEFS.forEach((def, i) => {
       const act = document.getElementById(def.id + "Act");
       if (act) act.textContent = "actual " + s.pose[i].toFixed(0) + " " + def.unit;
+      if (s.control_mode === "joint" && draggingId !== def.id) {
+        const slider = sliderEls[def.id];
+        const value = Number(s.pose[i]);
+        if (!slider || !Number.isFinite(value)) return;
+        const [lo, hi] = ws[def.id];
+        slider.value = Math.max(lo, Math.min(hi, value));
+        showAxis(def, slider.value);
+      }
     });
   }
 
-  if (Array.isArray(s.target)) {
+  if (Array.isArray(s.joints)) {
+    if (Number.isFinite(Number(s.joints[3]))) heldJointJ4 = Number(s.joints[3]);
+    JOINT_AXIS_DEFS.forEach((def, i) => {
+      const actual = gid(`ltx${def.id.toUpperCase()}Act`);
+      if (actual && Number.isFinite(Number(s.joints[i]))) {
+        actual.textContent = `actual ${Number(s.joints[i]).toFixed(1)} °`;
+      }
+      if (s.control_mode !== "joint" && jointDraggingId !== def.id) {
+        const slider = jointSliderEls[def.id];
+        const value = Number(s.joints[i]);
+        if (!slider || !Number.isFinite(value)) return;
+        const [lo, hi] = jointLimits[def.id];
+        slider.value = Math.max(lo, Math.min(hi, value));
+        showJointAxis(def, slider.value);
+      }
+    });
+  }
+
+  if (Array.isArray(s.target) && s.control_mode !== "joint") {
     AXIS_DEFS.forEach((def, i) => {
       if (draggingId === def.id) return;
       const el = sliderEls[def.id];
@@ -3430,8 +4157,22 @@ function applyStatus(s) {
     });
   }
 
+  if (Array.isArray(s.target) && s.control_mode === "joint") {
+    JOINT_AXIS_DEFS.forEach((def, i) => {
+      if (jointDraggingId === def.id) return;
+      const slider = jointSliderEls[def.id];
+      const value = Number(s.target[i]);
+      if (!slider || !Number.isFinite(value)) return;
+      if (Math.abs(Number(slider.value) - value) > 0.25) {
+        const [lo, hi] = jointLimits[def.id];
+        slider.value = Math.max(lo, Math.min(hi, value));
+        showJointAxis(def, slider.value);
+      }
+    });
+  }
+
   const smoothEl = document.getElementById("smooth");
-  if (smoothEl !== document.activeElement && typeof s.ramp_secs === "number") {
+  if (smoothEl && smoothEl !== document.activeElement && typeof s.ramp_secs === "number") {
     smoothEl.value = s.ramp_secs;
     document.getElementById("smoothVal").textContent = s.ramp_secs.toFixed(2) + " s";
   }
@@ -3458,6 +4199,21 @@ function syncSliders() {
       showAxis(def, v);
     });
     log("Sliders synced to current TCP pose", "log-info");
+  });
+}
+
+function syncJointSliders() {
+  api("/api/status").then(status => {
+    if (!Array.isArray(status.joints)) return;
+    JOINT_AXIS_DEFS.forEach((def, index) => {
+      const slider = jointSliderEls[def.id];
+      if (!slider) return;
+      const [lo, hi] = jointLimits[def.id];
+      const value = Math.max(lo, Math.min(hi, Number(status.joints[index])));
+      slider.value = value;
+      showJointAxis(def, value);
+    });
+    log("Joint sliders synced to current joint angles", "log-info");
   });
 }
 
@@ -3510,7 +4266,10 @@ function wire() {
     }
     if (res && res.ok) {
       setTimeout(poll, 100);
-      if (res.enabled) setTimeout(syncSliders, 300);
+      if (res.enabled) {
+        setTimeout(syncSliders, 300);
+        if (LTX) setTimeout(syncJointSliders, 300);
+      }
     }
   };
   document.getElementById("btnDisconnect").onclick = async () => report("disconnect", await api("/api/disconnect", {}));
@@ -3519,6 +4278,7 @@ function wire() {
     if (res.ok) {
       setTimeout(poll, 100);
       setTimeout(syncSliders, 300);
+      if (LTX) setTimeout(syncJointSliders, 300);
     }
   };
   document.getElementById("btnDisable").onclick = async () => report("disable", await api("/api/disable", {}));
@@ -3533,6 +4293,7 @@ function wire() {
     syncSliders();
   };
   document.getElementById("btnSync").onclick = syncSliders;
+  document.getElementById("btnJointSync").onclick = syncJointSliders;
   document.getElementById("btnSuck").onclick = async () => report("vacuum (pull)", await api("/api/pump", { mode:"suck" }));
   document.getElementById("btnBlow").onclick = async () => report("blow (push)", await api("/api/pump", { mode:"blow" }));
   document.getElementById("btnPumpOff").onclick = async () => report("pump off", await api("/api/pump", { mode:"off" }));
@@ -3545,6 +4306,7 @@ function wire() {
   document.getElementById("autoPpxAddFinePoint").onclick = addAutoPpxFineCalPoint;
   document.getElementById("autoPpxClearFineCal").onclick = clearAutoPpxFineCalPoints;
   document.getElementById("autoPpxGo").onclick = runAutoPpx;
+  document.getElementById("autoPpxPause").onclick = toggleAutoPpxPause;
   document.getElementById("autoPpxStop").onclick = stopAutoPpx;
   document.getElementById("autoPpxTuneX").addEventListener("input", () => scheduleAutoPpxFineTuneNudge(false));
   document.getElementById("autoPpxTuneY").addEventListener("input", () => scheduleAutoPpxFineTuneNudge(false));
@@ -3554,25 +4316,30 @@ function wire() {
   loadAutoPpxQueue();
 
   const speed = document.getElementById("speed");
-  let speedTimer = null;
-  speed.addEventListener("input", () => {
-    document.getElementById("speedVal").textContent = speed.value + "%";
-    clearTimeout(speedTimer);
-    speedTimer = setTimeout(async () => report("speed", await api("/api/speed", { ratio: parseInt(speed.value) })), 150);
-  });
+  if (speed) {
+    let speedTimer = null;
+    speed.addEventListener("input", () => {
+      document.getElementById("speedVal").textContent = speed.value + "%";
+      clearTimeout(speedTimer);
+      speedTimer = setTimeout(async () => report("speed", await api("/api/speed", { ratio: parseInt(speed.value) })), 150);
+    });
+  }
 
   const smooth = document.getElementById("smooth");
-  let smoothTimer = null;
-  smooth.addEventListener("input", () => {
-    document.getElementById("smoothVal").textContent = (+smooth.value).toFixed(2) + " s";
-    clearTimeout(smoothTimer);
-    smoothTimer = setTimeout(async () => report("smoothness", await api("/api/smoothness", { secs: parseFloat(smooth.value) })), 150);
-  });
+  if (smooth) {
+    let smoothTimer = null;
+    smooth.addEventListener("input", () => {
+      document.getElementById("smoothVal").textContent = (+smooth.value).toFixed(2) + " s";
+      clearTimeout(smoothTimer);
+      smoothTimer = setTimeout(async () => report("smoothness", await api("/api/smoothness", { secs: parseFloat(smooth.value) })), 150);
+    });
+  }
 }
 
 async function init() {
   const cfg = await api("/api/config");
   if (cfg.workspace) ws = cfg.workspace;
+  if (cfg.joint_limits) jointLimits = cfg.joint_limits;
   if (cfg.radius_min) radiusMin = cfg.radius_min;
   if (cfg.radius_max) radiusMax = cfg.radius_max;
   gameReachWorkspace = { x:ws.x || gameReachWorkspace.x, y:ws.y || gameReachWorkspace.y };
@@ -3581,6 +4348,7 @@ async function init() {
   if (cfg.default_ip) document.getElementById("ip").value = cfg.default_ip;
   if (cfg.relay_host_default) document.getElementById("relayHost").value = cfg.relay_host_default;
   buildAxes();
+  buildJointAxes();
   buildSlots();
   wire();
   setLinkMode("direct");

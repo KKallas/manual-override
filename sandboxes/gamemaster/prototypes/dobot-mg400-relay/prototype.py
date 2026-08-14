@@ -130,11 +130,24 @@ WORKSPACE = {
 RADIUS_MIN = 150.0   # mm — inside this the arm can't reach (too folded)
 RADIUS_MAX = 440.0   # mm — max horizontal reach
 
-# Conservative Tag Game defaults: 10% speed with a gentler ramp/brake profile.
-MAX_JOINT_VEL = 12.0    # deg/s
-MAX_LIN_VEL = 20.0      # mm/s
-MAX_ANG_VEL = 9.0       # deg/s
-RAMP_SECS = 0.50        # follower ramp/brake time -> accel = vel-cap / ramp-time
+# Global follower settings shared by both arms. The defaults preserve the former
+# fixed, conservative Tag Game profile; the upper limits match the original
+# standalone joint and Cartesian controller ranges.
+MOTION_SETTINGS_PATH = os.path.join(HERE, "motion-settings.json")
+DEFAULT_MOTION_SETTINGS = {
+    "tcp_xyz": 20.0,       # mm/s
+    "tcp_rotation": 9.0,   # deg/s
+    "joint": 12.0,         # deg/s along the four-joint path
+    "ramp_secs": 0.50,     # acceleration = velocity cap / ramp time
+}
+MOTION_SETTING_LIMITS = {
+    "tcp_xyz": (1.0, 200.0),
+    "tcp_rotation": (1.0, 90.0),
+    "joint": (1.0, 120.0),
+    "ramp_secs": (0.05, 0.80),
+}
+_motion_settings_lock = threading.Lock()
+_motion_settings = dict(DEFAULT_MOTION_SETTINGS)
 
 # Air pump box (two-line suck/blow model — see joint prototype).
 SUCK_DO_INDEX = 2
@@ -245,6 +258,56 @@ def _clamp_joints(j1, j2, j3, j4):
         _clamp(j3, *JOINT_LIMITS["j3"]),
         _clamp(j4, *JOINT_LIMITS["j4"]),
     )
+
+
+def _point_in_polygon(x, y, polygon):
+    """Ray-cast point containment for the robot-space Cal 2 boundary."""
+    inside = False
+    previous = polygon[-1]
+    for current in polygon:
+        x1, y1 = previous
+        x2, y2 = current
+        if ((y1 > y) != (y2 > y)):
+            crossing = (x2 - x1) * (y - y1) / (y2 - y1) + x1
+            if x <= crossing:
+                inside = not inside
+        previous = current
+    return inside
+
+
+def _validate_cal2_joint_pose(pose, guard):
+    """Validate a forward-kinematics pose against an LTX Cal 2 envelope."""
+    if (not isinstance(guard, dict)
+            or guard.get("format") != "auto-pp-calibration-2-v1"):
+        return "Auto PP Cal 2 safety limits are missing"
+    try:
+        polygon = [
+            (float(point[0]), float(point[1]))
+            for point in guard.get("polygon", [])
+        ]
+        radius_min = float(guard["radius_min"])
+        radius_max = float(guard["radius_max"])
+        z_min = float(guard["z_min"])
+        z_max = float(guard["z_max"])
+        x, y, z = (float(pose[0]), float(pose[1]), float(pose[2]))
+    except (KeyError, TypeError, ValueError, IndexError):
+        return "Auto PP Cal 2 safety limits are invalid"
+    if not (3 <= len(polygon) <= 128):
+        return "Auto PP Cal 2 safety boundary is incomplete"
+    values = [x, y, z, radius_min, radius_max, z_min, z_max]
+    values.extend(value for point in polygon for value in point)
+    if not all(math.isfinite(value) for value in values):
+        return "Auto PP Cal 2 safety limits contain non-finite values"
+    radius = math.hypot(x, y)
+    if radius < radius_min or radius > radius_max:
+        return (f"joint target TCP radius {radius:.1f} mm is outside the Auto PP "
+                f"Cal 2 limit {radius_min:.1f}-{radius_max:.1f} mm")
+    if z < z_min or z > z_max:
+        return (f"joint target TCP Z {z:.1f} mm is outside the Auto PP Cal 2 "
+                f"limit {z_min:.1f}-{z_max:.1f} mm")
+    if not _point_in_polygon(x, y, polygon):
+        return "joint target TCP is outside the Auto PP Cal 2 arm boundary"
+    return None
 
 
 def _clamp_pose(x, y, z, r):
@@ -413,19 +476,54 @@ def _is_operator_request():
     return bool(roles - set(SIDES))
 
 
+def _motion_settings_snapshot():
+    with _motion_settings_lock:
+        return dict(_motion_settings)
+
+
+def _load_motion_settings():
+    """Load persisted global follower settings, ignoring invalid individual keys."""
+    try:
+        with open(MOTION_SETTINGS_PATH) as settings_file:
+            data = json.load(settings_file)
+    except (OSError, ValueError, TypeError):
+        return
+    loaded = {}
+    for key, (minimum, maximum) in MOTION_SETTING_LIMITS.items():
+        try:
+            value = float(data[key])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if math.isfinite(value) and minimum <= value <= maximum:
+            loaded[key] = value
+    with _motion_settings_lock:
+        _motion_settings.update(loaded)
+
+
+def _save_motion_settings():
+    try:
+        with open(MOTION_SETTINGS_PATH, "w") as settings_file:
+            json.dump(_motion_settings, settings_file, indent=2)
+    except OSError:
+        pass
+
+
 _load_z_floor()
+_load_motion_settings()
 
 
-def _apply_motion(robot, mode):
-    """Push conservative velocity + acceleration caps to the follower for `mode`
-    (accel = velocity-cap / ramp-time)."""
-    secs = max(0.05, RAMP_SECS)
-    if mode == "cartesian":
-        robot.set_max_velocity_cartesian(MAX_LIN_VEL, MAX_ANG_VEL)
-        robot.set_max_accel_cartesian(MAX_LIN_VEL / secs, MAX_ANG_VEL / secs)
-    else:
-        robot.set_max_velocity_joint(MAX_JOINT_VEL)
-        robot.set_max_accel_joint(MAX_JOINT_VEL / secs)
+def _apply_motion(robot):
+    """Push the shared operator settings to both follower modes on one arm."""
+    settings = _motion_settings_snapshot()
+    secs = settings["ramp_secs"]
+    robot.set_max_velocity_cartesian(
+        settings["tcp_xyz"], settings["tcp_rotation"]
+    )
+    robot.set_max_accel_cartesian(
+        settings["tcp_xyz"] / secs, settings["tcp_rotation"] / secs
+    )
+    robot.set_max_velocity_joint(settings["joint"])
+    robot.set_max_accel_joint(settings["joint"] / secs)
 
 
 def _ensure_follower(robot, mode):
@@ -438,7 +536,7 @@ def _ensure_follower(robot, mode):
         return
     if robot.control_mode() != mode:
         robot.start_servo(mode)   # start_servo stops any current follower first
-        _apply_motion(robot, mode)
+        _apply_motion(robot)
 
 
 # ---- lease / arbitration helpers (call with _arb_lock held) ----------------
@@ -582,6 +680,7 @@ def _state_dict():
             "enabled": _z_floor_enabled,
             "models": {s: (_z_coef[s] is not None) for s in SIDES},
         }
+    state["motion_settings"] = _motion_settings_snapshot()
     return state
 
 
@@ -605,6 +704,10 @@ def config():
         "lease_secs": LEASE_SECS,
         "z_floor": {"value": _z_floor, "enabled": _z_floor_enabled,
                     "default": DEFAULT_Z_FLOOR},
+        "motion_settings": _motion_settings_snapshot(),
+        "motion_setting_limits": {
+            key: list(bounds) for key, bounds in MOTION_SETTING_LIMITS.items()
+        },
     })
 
 
@@ -647,6 +750,47 @@ def z_floor():
     return _ok(**out)
 
 
+@bp.route("/api/motion-settings", methods=["GET", "POST"])
+def motion_settings():
+    """Read or set the follower caps shared live by the purple and green arms."""
+    if request.method == "GET":
+        return _ok(
+            settings=_motion_settings_snapshot(),
+            limits={key: list(bounds) for key, bounds in MOTION_SETTING_LIMITS.items()},
+        )
+    if not _is_operator_request():
+        return _fail("gamemaster required"), 403
+    data = request.get_json(silent=True) or {}
+    _log_incoming("motion-settings", data)
+    updates = {}
+    for key, (minimum, maximum) in MOTION_SETTING_LIMITS.items():
+        if key not in data:
+            continue
+        try:
+            value = float(data[key])
+        except (TypeError, ValueError):
+            return _fail(f"{key} must be a number"), 400
+        if not math.isfinite(value) or not minimum <= value <= maximum:
+            return _fail(
+                f"{key} must be between {minimum:g} and {maximum:g}"
+            ), 400
+        updates[key] = value
+    if not updates:
+        return _fail("no motion settings supplied"), 400
+    with _motion_settings_lock:
+        _motion_settings.update(updates)
+        _save_motion_settings()
+        settings = dict(_motion_settings)
+    for side in SIDES:
+        robot = _arm(side)
+        if robot is None or not robot.is_connected():
+            continue
+        _apply_motion(robot)
+        _log_command("robot", side, "motion_settings", settings, ok=True)
+    _live.bump()
+    return _ok(settings=settings)
+
+
 # ---- side helpers ----------------------------------------------------------
 def _side_from(data):
     side = (data or {}).get("side")
@@ -676,6 +820,7 @@ def connect():
         robot = DobotMG400(ip, iface=iface, local_ip=local_ip)
         try:
             robot.connect()
+            _apply_motion(robot)
         except DobotError as e:
             _log_command("robot", side, "connect", link, ok=False, error=str(e))
             return _fail(f"Could not connect to {ip} via {local_ip}: {e}")
@@ -757,7 +902,7 @@ def enable():
         return _fail(str(e), errid=e.errid)
     if errid == 0:
         robot.start_servo(mode)
-        _apply_motion(robot, mode)
+        _apply_motion(robot)
         _log_command("robot", side, "enable + start_servo", {"mode": mode}, ok=True)
     else:
         _log_command("robot", side, "enable", {"errid": errid, "resp": resp}, ok=False)
@@ -925,11 +1070,50 @@ def move():
         j1, j2, j3, j4 = _clamp_joints(j1, j2, j3, j4)
         _sample_z_model(side, robot)   # learn the height model from live jogging too
         j1, j2, j3, j4, znote = _apply_z_floor(side, j1, j2, j3, j4, robot)
+        predicted_pose = None
+        guard = data.get("cal2_guard")
+        if guard is not None:
+            try:
+                target_joints = [j1, j2, j3, j4]
+                current_joints = [float(value) for value in robot.get_state()["joints"][:4]]
+                sample_count = max(
+                    1,
+                    min(64, int(math.ceil(max(
+                        abs(target_joints[index] - current_joints[index])
+                        for index in range(4)
+                    ) / 5.0))),
+                )
+                for sample_index in range(1, sample_count + 1):
+                    amount = sample_index / sample_count
+                    sample_joints = [
+                        current_joints[index]
+                        + (target_joints[index] - current_joints[index]) * amount
+                        for index in range(4)
+                    ]
+                    predicted_pose = robot.positive_solution(*sample_joints)
+                    error = _validate_cal2_joint_pose(predicted_pose, guard)
+                    if error:
+                        error = (f"Auto PP Cal 2 blocked joint path at "
+                                 f"{amount * 100:.0f}%: {error}")
+                        _log_command(
+                            "robot", side, "joint_cal2_guard",
+                            {"joints": sample_joints,
+                             "predicted_pose": predicted_pose},
+                            ok=False, error=error,
+                        )
+                        return _fail(error, predicted_pose=predicted_pose)
+            except (DobotError, KeyError, IndexError, TypeError, ValueError) as exc:
+                error = f"could not verify joint target against Auto PP Cal 2: {exc}"
+                _log_command("robot", side, "joint_cal2_guard", {}, ok=False,
+                             error=error)
+                return _fail(error)
         robot.set_target_joints(j1, j2, j3, j4)
         clamped = {"j1": round(j1, 2), "j2": round(j2, 2),
                    "j3": round(j3, 2), "j4": round(j4, 2)}
         if znote:
             clamped["z_floor"] = znote
+        if predicted_pose is not None:
+            clamped["predicted_pose"] = [round(value, 3) for value in predicted_pose]
         _log_command("robot", side, "set_target_joints", clamped, ok=True)
     else:
         p = data.get("pose")

@@ -17,6 +17,8 @@ sandboxes/*/.import-new/
 # generated game score logs
 high-score-log.jsonl
 sandboxes/*/prototypes/*/high-score-log.jsonl
+sandboxes/*/prototypes/*/score-log.txt
+sandboxes/*/prototypes/*/score-table-state.json
 sandboxes/*/prototypes/*/run-logs/
 
 # ---- OS / editor ----

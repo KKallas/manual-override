@@ -14,6 +14,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SHARED_PLAYER_DIR = os.path.abspath(
     os.path.join(HERE, "..", "..", "..", "green", "prototypes", "auto-pickup-game")
 )
+CAL2_DIR = os.path.abspath(
+    os.path.join(HERE, "..", "..", "..", "green", "prototypes", "auto-pp-cal-2")
+)
 
 MANIFEST = {
     "name": "Auto Pick and Place",
@@ -34,6 +37,7 @@ def index():
 
 @bp.route("/calibrate")
 def calibrate():
-    resp = send_from_directory(SHARED_PLAYER_DIR, "calibrate.html")
+    """Keep the established player URL, now backed only by six-point Cal 2."""
+    resp = send_from_directory(CAL2_DIR, "calibrate2.html")
     resp.headers["Cache-Control"] = "no-store, max-age=0"
     return resp
