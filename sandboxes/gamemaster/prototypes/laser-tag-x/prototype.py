@@ -297,6 +297,7 @@ def _fresh_state(game_mode=None):
         "finished_at": None,
         "tag_ids": {"green": [100, 101], "blue": [102, 103]},
         "final_stage": "outer_ring",
+        "first_center_manual": False,
         "first_center_tag": None,
         "first_center_team": None,
         "first_center_position": None,
@@ -405,6 +406,7 @@ def operator():
         else:
             for key in (
                 "phase", "started_at", "finished_at", "message", "final_stage",
+                "first_center_manual",
                 "first_center_tag", "first_center_team", "first_center_position",
                 "first_center_confirmed_at",
             ):

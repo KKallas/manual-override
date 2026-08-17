@@ -30,7 +30,7 @@ button.primary{background:#d9243d;border-color:#ff5367}button:disabled{opacity:.
 <body>
 <header class="hero"><div><h1>Laser Tag X</h1><div class="sub">Cooperative crossing-beam puzzle</div></div><a id="screenLink" class="button" target="_blank">Open external playfield ↗</a></header>
 <section class="stage"><img id="camera" alt="Overhead tag camera"><svg id="trackingOverlay" class="tracking-overlay" aria-hidden="true" preserveAspectRatio="xMidYMid meet"></svg><div class="hud"><div id="phase" class="badge">Setup</div><div id="timer" class="timer">0.0</div></div><div id="mission" class="mission">Choose four different physical tags and start the game.</div></section>
-<section class="panel controls"><button id="loadPlayfield">Load Laser Tag X playfield</button><button id="start" class="primary">Start Laser Tag X</button><button id="reset">Reset game</button><label class="ltx-mode" for="ltxGameMode"><span>Player game</span><select id="ltxGameMode"><option value="game_1">Game 1 — Joint Angles</option><option value="game_2">Game 2 — X/Y/Z Controls</option><option value="game_3">Game 3 — Auto PP</option><option value="game_4">Game 4 — Cue Builder</option></select></label><div class="manual-activation" role="group" aria-label="Manual tag placement confirmation"><label for="manualTarget">Manual tag placement</label><select id="manualTarget" aria-label="Outer target to activate" disabled></select><button id="manualActivate" type="button" disabled>Activate</button></div><div id="status" class="status">Loading camera and calibration…</div></section>
+<section class="panel controls"><button id="loadPlayfield">Load Laser Tag X playfield</button><button id="start" class="primary">Start Laser Tag X</button><button id="reset">Reset game</button><label class="ltx-mode" for="ltxGameMode"><span>Player game</span><select id="ltxGameMode"><option value="game_1">Game 1 — Joint Angles</option><option value="game_2">Game 2 — X/Y/Z Controls</option><option value="game_3">Game 3 — Auto PP</option><option value="game_4">Game 4 — Cue Builder</option></select></label><div class="manual-activation" role="group" aria-label="Manual tag placement confirmation"><label for="manualTarget">Manual tag placement</label><select id="manualTarget" aria-label="Game target to activate" disabled></select><button id="manualActivate" type="button" disabled>Activate</button></div><div id="status" class="status">Loading camera and calibration…</div></section>
 <main class="panel desk">
  <div><b>Gamemaster · Laser Tag X</b><div class="sub">Green plays on the left, blue on the right. Two mirrored diagonal beams must cross.</div></div>
  <div class="teams">
@@ -99,7 +99,7 @@ const DEFAULT_PLAYFIELD_EXTRAS=[
 // These are spatial confidence limits, not debounce timers.
 const RELEASE_TARGET_MAX_MM=45,RELEASE_TARGET_SPACING_FRACTION=.58,RELEASE_TARGET_MIN_MARGIN_MM=12;
 const VERIFY_CONFIRM_MS=400,VERIFY_CONTRADICTION_MS=2000,SCRIPT_VERIFY_CONTRADICTION_MS=2000,SCRIPT_VERIFY_CONTRADICTION_FRAMES=5;
-let state={phase:'setup',tag_ids:{green:[100,101],blue:[102,103]},final_stage:'outer_ring',ltx_game_mode:'game_4',ltx_visibility:{auto_pp_x:true,joint_angles:false,tcp_pose:true,auto_pick_place:true}}, visible=new Set(), flows={}, placements={green:[],blue:[]}, activatedTargets=new Set(), targetCache={}, targetVisibility={}, impactBase={}, ticking=false, flashing=false, stoppedAt=0, beamsReady=false, outerComplete=false,outerCompletionBusy=false, centerPlaced=null;
+let state={phase:'setup',tag_ids:{green:[100,101],blue:[102,103]},final_stage:'outer_ring',first_center_manual:false,ltx_game_mode:'game_4',ltx_visibility:{auto_pp_x:true,joint_angles:false,tcp_pose:true,auto_pick_place:true}}, visible=new Set(), flows={}, placements={green:[],blue:[]}, activatedTargets=new Set(), targetCache={}, targetVisibility={}, impactBase={}, ticking=false, flashing=false, stoppedAt=0, beamsReady=false, outerComplete=false,outerCompletionBusy=false, centerPlaced=null;
 let gameSequence=[...DEFAULT_SEQUENCE];
 let assignedTagIds={green:[...state.tag_ids.green],blue:[...state.tag_ids.blue]},tagOwnerById=new Map(TEAMS.flatMap(team=>assignedTagIds[team].map(id=>[id,team])));
 let cachedRelayArms={},armCalibration={},armSpatialModels={},activeFlowByTeam={green:null,blue:null},centerPickupByTeam={green:newCenterPickupState(),blue:newCenterPickupState()},lastRelayPoll=0,hardwareArmsReady=false,startBusy=false;
@@ -177,7 +177,7 @@ function elapsed(){if(!state.started_at)return 0;return Math.max(0,(stoppedAt||D
 function syncTagAssignments(ids){assignedTagIds={green:[...((ids&&ids.green)||[])].map(Number),blue:[...((ids&&ids.blue)||[])].map(Number)};tagOwnerById=new Map;for(const team of TEAMS)for(const id of assignedTagIds[team])tagOwnerById.set(id,team)}
 function assignedTag(team,player){return assignedTagIds[team]&&assignedTagIds[team][player]}
 function tagBelongsToTeam(id,team){return tagOwnerById.get(Number(id))===team}
-function apply(s){const phaseChanged=state.phase!==s.phase;if(phaseChanged)log(`Phase: ${state.phase} → ${s.phase}`);state=s;syncTagAssignments(s.tag_ids);$('ltxGameMode').value=s.ltx_game_mode||'game_4';if(s.first_center_tag!=null)centerPlaced={team:s.first_center_team,tag:+s.first_center_tag,last:s.first_center_position||null};else if(s.final_stage==='outer_ring')centerPlaced=null;if(s.phase==='won'&&!stoppedAt){stoppedAt=s.finished_at||Date.now()/1000;endRunLog('won')}if(phaseChanged&&s.phase==='won')loadScores();if(phaseChanged&&document.querySelector('.sequence-graph').children.length)renderSequenceEditor();render()}
+function apply(s){const phaseChanged=state.phase!==s.phase;if(phaseChanged)log(`Phase: ${state.phase} → ${s.phase}`);state=s;syncTagAssignments(s.tag_ids);$('ltxGameMode').value=s.ltx_game_mode||'game_4';if(s.first_center_manual)centerPlaced={team:'gamemaster',tag:null,last:null,manual:true};else if(s.first_center_tag!=null)centerPlaced={team:s.first_center_team,tag:+s.first_center_tag,last:s.first_center_position||null};else if(s.final_stage==='outer_ring')centerPlaced=null;if(s.phase==='won'&&!stoppedAt){stoppedAt=s.finished_at||Date.now()/1000;endRunLog('won')}if(phaseChanged&&s.phase==='won')loadScores();if(phaseChanged&&document.querySelector('.sequence-graph').children.length)renderSequenceEditor();render()}
 async function setLtxGameMode(mode){const select=$('ltxGameMode'),labels={game_1:'Game 1 — Joint Angles',game_2:'Game 2 — X/Y/Z Controls',game_3:'Game 3 — Auto PP',game_4:'Game 4 — Cue Builder'};select.disabled=true;try{await patch({ltx_game_mode:mode});$('status').textContent=`Player controls set to ${labels[mode]||mode} for both players.`}catch(e){select.value=state.ltx_game_mode||'game_4';$('status').textContent=`Could not update the player game: ${e.message}`}finally{select.disabled=false}}
 async function patch(body){apply(await post('/api/operator',body))}
 function spec(id,name,t,color,marker=true){return{id,name,x:t.x,y:.03,z:t.z,size:2,color,glow:1.25,marker:t.marker,links:[],show_area:true,show_aruco:marker,show_links:true}}
@@ -198,7 +198,7 @@ async function loadPlayfield(){
   // re-link targets that were activated before this clean board was installed.
   await endRunLog('playfield_reload');
   const ids=state.tag_ids||idsFromInputs();
-  apply({...state,phase:'setup',started_at:null,finished_at:null,tag_ids:ids,final_stage:'outer_ring',first_center_tag:null,first_center_team:null,first_center_position:null,first_center_confirmed_at:null,message:'Configure four physical tags, then start.'});
+  apply({...state,phase:'setup',started_at:null,finished_at:null,tag_ids:ids,final_stage:'outer_ring',first_center_manual:false,first_center_tag:null,first_center_team:null,first_center_position:null,first_center_confirmed_at:null,message:'Configure four physical tags, then start.'});
   resetLocal();
   for(const team of TEAMS)for(let i=0;i<2;i++)$(`${team}${i}`).value=ids[team][i];
   apply(await jsonTimed(`${U.self}/api/operator`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reset:true})},3000));
@@ -278,7 +278,7 @@ async function start(){
  const cameraMissing=all.filter(id=>!visible.has(id));
  if(cameraMissing.length)log(`Starting by gamemaster override; camera does not currently see ${cameraMissing.map(id=>'#'+id).join(', ')}. They can appear after the game starts.`);
  startBusy=true;render();$('status').textContent='Starting Laser Tag X…';resetLocal();
- try{await startRunLog(ids,gameSequence);await patch({phase:'running',started_at:Date.now()/1000,finished_at:null,tag_ids:ids,final_stage:'outer_ring',first_center_tag:null,first_center_team:null,first_center_position:null,first_center_confirmed_at:null,message:'Build two mirrored crossing beams'})}catch(e){startBusy=false;$('status').textContent=`Could not start logged run: ${e.message}`;log(`Start failed: ${e.message}`);render();return}
+ try{await startRunLog(ids,gameSequence);await patch({phase:'running',started_at:Date.now()/1000,finished_at:null,tag_ids:ids,final_stage:'outer_ring',first_center_manual:false,first_center_tag:null,first_center_team:null,first_center_position:null,first_center_confirmed_at:null,message:'Build two mirrored crossing beams'})}catch(e){startBusy=false;$('status').textContent=`Could not start logged run: ${e.message}`;log(`Start failed: ${e.message}`);render();return}
  startBusy=false;
  log('Game started. The count-up timer is running.');
  const atomCtrl=new AbortController(),atomTimer=setTimeout(()=>atomCtrl.abort(),1200);
@@ -293,7 +293,7 @@ async function start(){
 async function resetGame(){
  await endRunLog('reset');
  const ids=state.tag_ids||idsFromInputs();
- apply({...state,phase:'setup',started_at:null,finished_at:null,tag_ids:ids,final_stage:'outer_ring',first_center_tag:null,first_center_team:null,first_center_position:null,first_center_confirmed_at:null,message:'Configure four physical tags, then start.'});
+ apply({...state,phase:'setup',started_at:null,finished_at:null,tag_ids:ids,final_stage:'outer_ring',first_center_manual:false,first_center_tag:null,first_center_team:null,first_center_position:null,first_center_confirmed_at:null,message:'Configure four physical tags, then start.'});
  resetLocal();for(const team of TEAMS)for(let i=0;i<2;i++)$(`${team}${i}`).value=ids[team][i];
  log('Game reset. The current playfield was left unchanged.');
  try{apply(await jsonTimed(`${U.self}/api/operator`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reset:true})},3000))}
@@ -423,6 +423,7 @@ function recordCenterCoveragePending(team,id,flow,evidence){
 function canConfirmCenterPlacement(id,confirmTag,tags){
  const target=targetCache[CENTER.marker],centreStillHidden=!tags.some(tag=>+tag.id===CENTER.marker);if(!target||!confirmTag||!centreStillHidden||!overlaps(confirmTag,target))return false;
  if(!centerPlaced)return true;
+ if(centerPlaced.manual)return false;
  const firstVisible=tags.some(tag=>+tag.id===+centerPlaced.tag),differentTag=+id!==+centerPlaced.tag,firstPosition=centerPlaced.last||state.first_center_position;
  return differentTag&&!firstVisible&&!!firstPosition&&overlaps(confirmTag,firstPosition);
 }
@@ -431,7 +432,7 @@ async function confirmCenterPlacement(team,key,id,flow,confirmTag,tags){
  flow.slot=CENTER.marker;flow.sequenceIndex=gameSequence.length;
  if(!centerPlaced){
   const position={id:+id,nx:+confirmTag.nx,ny:+confirmTag.ny,corners:Array.isArray(confirmTag.corners)?confirmTag.corners:null,at:Date.now()};centerPlaced={team,tag:id,last:position};flow.state='centre_first';if(activeFlowByTeam[team]===key)activeFlowByTeam[team]=null;
-  await patch({final_stage:'centre_first_covered',first_center_tag:id,first_center_team:team,first_center_position:position,first_center_confirmed_at:Date.now()/1000,message:`Tag #${id} covers marker 38. Cover it with a different assigned tag.`});await setCentreFinalVisual('first_covered');recordRunEvent('center_first_covered',{team,physical_tag:id,target_marker:CENTER.marker,operation_id:flow.operationId,pump_command_seq:flow.blowPumpCommandSeq,illumination_percent:25,color:COLORS.green},'decision');log(`${team} tag #${id} visually confirmed on centre ${CENTER.marker}. Centre changed to green at 25% illumination; cover it with any different assigned tag.`)
+  await patch({final_stage:'centre_first_covered',first_center_manual:false,first_center_tag:id,first_center_team:team,first_center_position:position,first_center_confirmed_at:Date.now()/1000,message:`Tag #${id} covers marker 38. Cover it with a different assigned tag.`});await setCentreFinalVisual('first_covered');recordRunEvent('center_first_covered',{team,physical_tag:id,target_marker:CENTER.marker,operation_id:flow.operationId,pump_command_seq:flow.blowPumpCommandSeq,illumination_percent:25,color:COLORS.green},'decision');log(`${team} tag #${id} visually confirmed on centre ${CENTER.marker}. Centre changed to green at 25% illumination; cover it with any different assigned tag.`)
  }else{
   await setCentreFinalVisual('complete');recordRunEvent('center_second_covered',{team,physical_tag:id,covered_physical_tag:centerPlaced.tag,target_marker:CENTER.marker,operation_id:flow.operationId,pump_command_seq:flow.blowPumpCommandSeq,illumination_percent:50,color:'#ff334d'},'decision');await patch({phase:'won',final_stage:'complete',finished_at:Date.now()/1000,message:'Laser grid completed'});log(`Laser Tag X complete: tag #${id} covered tag #${centerPlaced.tag}; marker 38 is red at 50% illumination and maximum glow.`)
  }
@@ -571,6 +572,7 @@ function replayCompletedOperation(team,key,id,flow){
 }
 function completedCenterOperationBundle(team){
  if(!beamsReady||!['centre_ready','centre_first_covered'].includes(state.final_stage))return null;
+ if(state.first_center_manual)return null;
  const expectedTarget=state.final_stage==='centre_ready'?CENTER.marker:Number(state.first_center_tag),firstTag=Number(state.first_center_tag),bundles=[];
  for(const id of assignedTagIds[team]){if(state.final_stage==='centre_first_covered'&&+id===firstTag)continue;const bundle=completedOperationBundle(team,id,null,expectedTarget);if(bundle)bundles.push(bundle)}
  return bundles.sort((a,b)=>(Number(b.release&&b.release.seq)||evTime(b.release))-(Number(a.release&&a.release.seq)||evTime(a.release)))[0]||null;
@@ -661,10 +663,17 @@ async function armSlot(team,key,slot){
  await finishOuterTargetActivation(slot.marker);
 }
 async function manuallyActivateTarget(){
- if(manualActivationBusy||state.phase!=='running'||state.final_stage!=='outer_ring'||outerComplete)return;
- const marker=Number($('manualTarget').value),slot=OUTER_SLOTS.find(item=>item.marker===marker);if(!slot||activatedTargets.has(marker))return;
- manualActivationBusy=true;render();$('status').textContent=`Manually activating target #${marker}…`;
+ if(manualActivationBusy||state.phase!=='running')return;
+ const choice=$('manualTarget').value,marker=Number(choice),slot=OUTER_SLOTS.find(item=>item.marker===marker),firstCentre=choice==='centre-first'&&state.final_stage==='centre_ready',finalCentre=choice==='centre-final'&&state.final_stage==='centre_first_covered';if(!firstCentre&&!finalCentre&&(!slot||activatedTargets.has(marker)||state.final_stage!=='outer_ring'))return;
+ manualActivationBusy=true;render();$('status').textContent=firstCentre?'Manually confirming the first placement on target #38…':finalCentre?'Manually confirming the final placement on target #38…':`Manually activating target #${marker}…`;
  try{
+  if(firstCentre){
+   for(const flow of Object.values(flows)){flow.state='armed';flow.sequenceIndex=gameSequence.length;flow.context='board';flow.operationId=null}activeFlowByTeam={green:null,blue:null};for(const team of TEAMS)closeCenterPickup(team);
+   await setCentreFinalVisual('first_covered');recordRunEvent('center_first_covered',{target_marker:CENTER.marker,manual:true,confirmation:'gamemaster_manual',illumination_percent:25,color:COLORS.green},'decision');await patch({final_stage:'centre_first_covered',first_center_manual:true,first_center_tag:null,first_center_team:null,first_center_position:null,first_center_confirmed_at:Date.now()/1000,message:'Gamemaster confirmed the first cover on marker 38. Confirm the final cover to finish.'});log('Gamemaster manually confirmed the first placement on target #38. Target #38 is green; activate it once more to finish the game.');$('status').textContent='First placement on target #38 confirmed. Activate #38 again for the final step.';return
+  }
+  if(finalCentre){
+   await setCentreFinalVisual('complete');recordRunEvent('center_second_covered',{target_marker:CENTER.marker,manual:true,confirmation:'gamemaster_manual',illumination_percent:50,color:'#ff334d'},'decision');await patch({phase:'won',final_stage:'complete',finished_at:Date.now()/1000,message:'Laser grid completed by gamemaster confirmation'});log('Gamemaster manually confirmed the final placement on target #38. Laser Tag X is complete.');$('status').textContent='Final placement on target #38 confirmed. Game complete.';return
+  }
   const result=await activateOuterTarget(slot,{ownerTeam:'gamemaster'});if(!result)return;
   recordRunEvent('target_activated',{target_marker:marker,side:result.side,activation_count:activatedTargets.size,manual:true,confirmation:'gamemaster_manual'},'decision');
   log(`Gamemaster manually confirmed tag placement on ${result.side}-side target ${marker} (${activatedTargets.size}/8).`);
@@ -683,7 +692,7 @@ async function recoverPlayfieldProgress(){
  if(['centre_ready','centre_first_covered','complete'].includes(state.final_stage)){
   outerComplete=true;beamsReady=state.final_stage!=='complete';
   for(const flow of Object.values(flows)){flow.state='armed';flow.sequenceIndex=gameSequence.length;flow.context='board';flow.centerWasVisible=false;flow.centerCandidate=false;flow.centerCandidateMatch=null}
-  if(state.first_center_tag!=null)centerPlaced={team:state.first_center_team,tag:+state.first_center_tag,last:state.first_center_position||null};
+  if(state.first_center_manual)centerPlaced={team:'gamemaster',tag:null,last:null,manual:true};else if(state.first_center_tag!=null)centerPlaced={team:state.first_center_team,tag:+state.first_center_tag,last:state.first_center_position||null};
   await setCentreFinalVisual(state.final_stage==='centre_first_covered'?'first_covered':state.final_stage==='complete'?'complete':'ready');
   log(`Recovered final stage: ${state.final_stage}.`);return;
  }
@@ -832,7 +841,7 @@ async function tick(){
    // dropped tag against its recorded release pose while this team's arm is
    // already allowed to bind to and move the other tag.
    for(let i=0;i<2;i++){const key=`${team}${i}`,f=flows[key];if(!f||!['awaiting_verify','background_center'].includes(f.state))continue;const id=assignedTag(team,i),p=liveTags.find(x=>+x.id===+id&&tagBelongsToTeam(x.id,team))||null;await processSequenceStep(team,key,id,f,p,liveTags,units,arms[team])}
-   if(beamsReady&&!activeFlowByTeam[team])await bindCenterPickupOnSuction(team,liveTags,arms[team]);
+   if(beamsReady&&!state.first_center_manual&&!activeFlowByTeam[team])await bindCenterPickupOnSuction(team,liveTags,arms[team]);
    const key=bindTeamFlow(team,liveTags,arms[team]);if(!key)continue;const f=flows[key],i=+key.slice(-1),id=assignedTag(team,i),p=liveTags.find(x=>+x.id===+id&&tagBelongsToTeam(x.id,team))||null;
    if(f.state==='sequencing'){
     const step=expectedStep(f),operationReleased=f.operationId&&!!operationEvent(team,f.operationId,'release_completed'),unexpectedVisible=f.sequenceIndex>0&&step!=='verify'&&!!p&&!f.visualCandidateMarker&&!operationReleased;if(unexpectedVisible){restartDetectionFlow(team,key,id,f,p,arms[team],'the physical tag reappeared before Confirm Drop');continue}
@@ -844,16 +853,16 @@ async function tick(){
  }catch(e){renderTrackingOverlay(null);$('status').textContent=`Tracking unavailable: ${e.message}`}finally{ticking=false}
 }
 function render(){
- $('timer').textContent=elapsed().toFixed(1);$('phase').textContent=state.phase==='running'?'Live':state.phase==='won'?'Complete':'Setup';$('mission').textContent=state.phase==='running'?(state.final_stage==='centre_first_covered'?`Marker 38 is green at 25%. Cover tag #${state.first_center_tag} with any different assigned tag.`:outerComplete?`Outer ring complete. Marker ${CENTER.marker} is white at 25% brightness; cover it with any assigned tag.`:'Activate all eight outer targets. Any assigned physical tag may move to either side.'):state.phase==='won'?'Marker 38 is red at 50% illumination and maximum glow.':'Choose four different physical tags and start the game.';
+ $('timer').textContent=elapsed().toFixed(1);$('phase').textContent=state.phase==='running'?'Live':state.phase==='won'?'Complete':'Setup';$('mission').textContent=state.phase==='running'?(state.final_stage==='centre_first_covered'?(state.first_center_manual?'Marker 38 is green at 25%. Gamemaster: activate target #38 again to confirm the final cover.':`Marker 38 is green at 25%. Cover tag #${state.first_center_tag} with any different assigned tag.`):outerComplete?`Outer ring complete. Marker ${CENTER.marker} is white at 25% brightness; cover it with any assigned tag.`:'Activate all eight outer targets. Any assigned physical tag may move to either side.'):state.phase==='won'?'Marker 38 is red at 50% illumination and maximum glow.':'Choose four different physical tags and start the game.';
  for(const team of TEAMS){const ids=[+$(`${team}0`).value,+$(`${team}1`).value],ok=ids.every(id=>visible.has(id));$(`${team}Lock`).textContent=state.phase==='setup'?(ok?`VISIBLE — tags #${ids.join(' and #')} detected`:`Not visible: #${ids.filter(id=>!visible.has(id)).join(' and #')} · start is still allowed`):`${placements[team].length}/4 ${team}-side targets activated`;$(`${team}Lock`).classList.toggle('ok',ok)}
  for(const team of TEAMS)for(let i=0;i<2;i++)$(`${team}${i}`).disabled=state.phase!=='setup';$('start').disabled=state.phase!=='setup'||startBusy;
  $('loadPlayfield').disabled=playfieldBusy;renderManualActivation();
  const activated=[...activatedTargets].sort((a,b)=>a-b),f=Object.values(flows),pickupIndex=gameSequence.indexOf('pickup'),dropIndex=gameSequence.indexOf('drop');$('activatedStatus').textContent=`Activated outer targets: ${activated.length?activated.map(id=>'#'+id).join(', '):'none'} (${activated.length}/8)`;$('step0').textContent=pickupIndex<0?'Pickup is not in this sequence.':`${f.filter(x=>x.sequenceIndex>pickupIndex).length}/4 active runs past pickup.`;$('step1').textContent=dropIndex<0?'Drop impact is not in this sequence.':`${f.filter(x=>x.sequenceIndex>dropIndex).length}/4 active runs past drop impact.`;$('step2').textContent=`${activated.length}/8 outer targets confirmed.`;$('step3').textContent=outerComplete?`Outer ring complete · centre ${CENTER.marker} remains.`:`${activated.length}/8 outer targets activated.`;updateSequenceGraphState();
 }
 function renderManualActivation(){
- const select=$('manualTarget'),button=$('manualActivate'),available=OUTER_SLOTS.filter(slot=>!activatedTargets.has(slot.marker)),availableKey=available.map(slot=>slot.marker).join(',');
- if(select.dataset.available!==availableKey){const previous=Number(select.value);select.replaceChildren();if(!available.length){const option=document.createElement('option');option.textContent='All outer targets activated';option.value='';select.append(option)}else for(const slot of available){const side=slot.marker<=33?'left / green':'right / blue',option=document.createElement('option');option.value=String(slot.marker);option.textContent=`Target #${slot.marker} — ${side}`;select.append(option)}if(available.some(slot=>slot.marker===previous))select.value=String(previous);select.dataset.available=availableKey}
- const disabled=state.phase!=='running'||state.final_stage!=='outer_ring'||outerComplete||manualActivationBusy||!available.length;select.disabled=disabled;button.disabled=disabled;
+ const select=$('manualTarget'),button=$('manualActivate'),outer=OUTER_SLOTS.filter(slot=>!activatedTargets.has(slot.marker)),choices=state.final_stage==='centre_ready'?[{value:'centre-first',label:'Target #38 — confirm first cover'}]:state.final_stage==='centre_first_covered'?[{value:'centre-final',label:'Target #38 — final cover / finish game'}]:state.final_stage==='outer_ring'?outer.map(slot=>({value:String(slot.marker),label:`Target #${slot.marker} — ${slot.marker<=33?'left / green':'right / blue'}`})):[],availableKey=choices.map(choice=>choice.value).join(',');
+ if(select.dataset.available!==availableKey){const previous=select.value;select.replaceChildren();if(!choices.length){const option=document.createElement('option');option.textContent=state.phase==='won'?'Game complete':'No targets available';option.value='';select.append(option)}else for(const choice of choices){const option=document.createElement('option');option.value=choice.value;option.textContent=choice.label;select.append(option)}if(choices.some(choice=>choice.value===previous))select.value=previous;select.dataset.available=availableKey}
+ const disabled=state.phase!=='running'||manualActivationBusy||!choices.length;select.disabled=disabled;button.disabled=disabled;
 }
 function calibrationSide(team){return team==='blue'?'purple':team}
 async function calibration(){

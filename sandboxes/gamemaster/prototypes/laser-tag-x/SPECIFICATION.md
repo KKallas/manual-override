@@ -185,7 +185,8 @@ Button behavior:
 - Physical-tag inputs and all detection-sequence editing controls are enabled only in setup.
 - Playfield loading disables only its own button while in progress.
 - Reset remains available in all phases.
-- Manual tag placement is enabled only during the running outer-ring stage. Its selector lists the unactivated outer markers 30–37. Pressing `Activate` applies the same red target, center link, mirrored-pair link, progress, and outer-ring completion effects as an automatically confirmed placement. The activated marker is removed from the selector immediately.
+- During the running outer-ring stage, Manual tag placement lists the unactivated outer markers 30–37. Pressing `Activate` applies the same red target, center link, mirrored-pair link, progress, and outer-ring completion effects as an automatically confirmed placement. The activated marker is removed from the selector immediately.
+- Once the outer ring is complete, the selector offers `Target #38 — confirm first cover`. Activating it advances to the durable manual first-cover state and changes the option to `Target #38 — final cover / finish game`. Activating #38 again applies the normal final visual, ends the game, stops the timer, and records the paired winning score.
 
 ### 5.5 Team assignment panels
 
@@ -445,6 +446,7 @@ The server’s initial state is:
   "finished_at": null,
   "tag_ids": {"green": [100, 101], "blue": [102, 103]},
   "final_stage": "outer_ring",
+  "first_center_manual": false,
   "first_center_tag": null,
   "first_center_team": null,
   "first_center_position": null,
@@ -537,7 +539,7 @@ Finale-stage recovery while phase is still running, for `centre_ready` or `centr
 
 - mark the outer stage complete;
 - arm all flows at the end of their sequences;
-- reconstruct the first center tag from coarse state when present;
+- reconstruct the first center tag from coarse state when present, or reconstruct a manual first-cover sentinel when `first_center_manual` is true;
 - reapply the appropriate center visual.
 
 After diagnostic events load, independently recover the newest unsettled, completed, receipt-valid LTX center operation for each team. For `centre_ready`, its intended target must be marker 38. For `centre_first_covered`, its intended target must be the persisted first physical tag and its source must be a different assigned tag. Rebuild the operation-scoped center flow in the background from suction, release, and blow receipts, then stop at the normal live camera verification gate. `center_first_covered` and `center_second_covered` settle their operation IDs so this replay is idempotent.
@@ -1023,6 +1025,8 @@ On success:
 
 The second tag may belong to either team.
 
+The gamemaster may bypass physical center detection from the Manual tag placement control. The first manual #38 activation sets the first-covered visual, persists `first_center_manual: true` with no invented physical tag ID, clears in-progress center flows, and suppresses automatic center binding. The next manual #38 activation performs the normal final visual and `won` transition, including score and diagnostic-run completion behavior. If the first center cover was detected normally, the same final manual #38 option may still be used to finish the game.
+
 ## 17. Flash latency test mode
 
 Latency mode is an operator diagnostic available only during a running game.
@@ -1078,6 +1082,7 @@ Otherwise accept these optional fields:
 - `finished_at`
 - `message`
 - `final_stage`
+- `first_center_manual`
 - `first_center_tag`
 - `first_center_team`
 - `first_center_position`
