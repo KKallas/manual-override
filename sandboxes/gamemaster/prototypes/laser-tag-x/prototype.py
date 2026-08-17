@@ -151,10 +151,44 @@ def _visible_scores_locked():
         score for score in _read_score_log()
         if score["recorded_at"] > _score_reset_at
     ]
-    return sorted(
+    scores = sorted(
         scores,
         key=lambda score: (score["elapsed_seconds"], score["recorded_at"]),
     )
+    ranked = []
+    for index, score in enumerate(scores):
+        row = dict(score)
+        row["rank"] = index + 1
+        if index:
+            faster = scores[index - 1]
+            row["next_faster_rank"] = index
+            row["next_faster_seconds"] = round(
+                score["elapsed_seconds"] - faster["elapsed_seconds"], 3)
+            row["next_faster_player_label"] = faster.get("player_label") or ""
+        else:
+            row["next_faster_rank"] = None
+            row["next_faster_seconds"] = None
+            row["next_faster_player_label"] = ""
+        ranked.append(row)
+    return ranked
+
+
+def _score_result_locked(score_id):
+    """Return the visible table position for one just-recorded score."""
+    rows = _visible_scores_locked()
+    for row in rows:
+        if row.get("score_id") != score_id:
+            continue
+        return {
+            "score_id": score_id,
+            "rank": row["rank"],
+            "total_scores": len(rows),
+            "elapsed_seconds": row["elapsed_seconds"],
+            "next_faster_rank": row["next_faster_rank"],
+            "next_faster_seconds": row["next_faster_seconds"],
+            "next_faster_player_label": row["next_faster_player_label"],
+        }
+    return None
 
 
 def _registered_player_names():
@@ -184,7 +218,18 @@ def _append_winning_score_locked():
     if not math.isfinite(started_at) or not math.isfinite(finished_at) or finished_at < started_at:
         return None
     tags = _state.get("tag_ids") or {}
-    player_names = _state.get("player_names") or _registered_player_names()
+    # Preserve names that were captured when play began, but repair either
+    # missing side from the live registration snapshot. Player controllers may
+    # still be completing/retrying registration when the operator presses
+    # Start. The old ``snapshot or fallback`` expression never reached its
+    # fallback because {"green": "", "purple": ""} is truthy.
+    player_names = dict(_state.get("player_names") or {})
+    if any(not str(player_names.get(side) or "").strip() for side in ("green", "purple")):
+        registered_names = _registered_player_names()
+        for side in ("green", "purple"):
+            if not str(player_names.get(side) or "").strip():
+                player_names[side] = registered_names.get(side) or ""
+    _state["player_names"] = player_names
     green_player_name = str(player_names.get("green") or "").strip()[:32]
     purple_player_name = str(player_names.get("purple") or "").strip()[:32]
     green_label = f"Green · {green_player_name}" if green_player_name else "Green"
@@ -304,6 +349,7 @@ def _fresh_state(game_mode=None):
         "first_center_confirmed_at": None,
         "message": "Configure four physical tags, then start.",
         "player_names": {"green": "", "purple": ""},
+        "score_result": None,
         "ltx_game_mode": game_mode,
         "game_mode_at_start": None,
         "ltx_visibility": _ltx_visibility(game_mode),
@@ -322,6 +368,10 @@ def _snapshot_locked():
     out = dict(_state)
     out["tag_ids"] = {team: list(ids) for team, ids in _state["tag_ids"].items()}
     out["player_names"] = dict(_state["player_names"])
+    out["score_result"] = (
+        dict(_state["score_result"])
+        if isinstance(_state.get("score_result"), dict) else None
+    )
     out["ltx_visibility"] = dict(_state["ltx_visibility"])
     out["server_time"] = time.time()
     return out
@@ -433,7 +483,9 @@ def operator():
                 _state["game_mode_at_start"] = _state["ltx_game_mode"]
             _state["updated_at"] = time.time()
             if previous_phase != "won" and _state.get("phase") == "won":
-                _append_winning_score_locked()
+                score = _append_winning_score_locked()
+                if score is not None:
+                    _state["score_result"] = _score_result_locked(score["score_id"])
         out = _snapshot_locked()
     _live.bump()
     return jsonify(out)
@@ -462,7 +514,10 @@ def reset_scores():
     with _lock:
         _score_reset_at = time.time()
         _save_score_reset_at(_score_reset_at)
+        _state["score_result"] = None
+        _state["updated_at"] = time.time()
         reset_at = _score_reset_at
+    _live.bump()
     return jsonify({
         "ok": True,
         "scores": [],

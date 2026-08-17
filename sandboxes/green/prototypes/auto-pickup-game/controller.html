@@ -2225,9 +2225,30 @@ function renderLtxGameState() {
     if (!clockHandle) startClock();
   } else if (s.phase === 'won') {
     stopClock();
-    gid('clock').textContent = ltxElapsed(s).toFixed(1);
-    gid('runStatus').textContent = `Laser Tag X complete in ${ltxElapsed(s).toFixed(1)}s.`;
-    setBanner('You Win', true, 'win');
+    const finishTime = ltxElapsed(s).toFixed(1);
+    const result = s.score_result || {};
+    const rank = Number(result.rank);
+    const total = Number(result.total_scores);
+    const gap = Number(result.next_faster_seconds);
+    const nextRank = Number(result.next_faster_rank);
+    gid('clock').textContent = finishTime;
+    if (Number.isFinite(rank) && rank > 0) {
+      const place = `scoreboard #${rank}${Number.isFinite(total) && total > 0 ? ` of ${total}` : ''}`;
+      if (Number.isFinite(gap) && gap >= 0 && Number.isFinite(nextRank) && nextRank > 0) {
+        gid('runStatus').textContent = gap === 0
+          ? `Laser Tag X complete in ${finishTime}s — ${place}, tied on time with #${nextRank}.`
+          : `Laser Tag X complete in ${finishTime}s — ${place}. #${nextRank} is ${gap.toFixed(1)}s faster.`;
+        setBanner(gap === 0
+          ? `You Win\n#${rank} · Tied with #${nextRank}`
+          : `You Win\n#${rank} · ${gap.toFixed(1)}s to #${nextRank}`, true, 'win');
+      } else {
+        gid('runStatus').textContent = `Laser Tag X complete in ${finishTime}s — ${place}, fastest on the board.`;
+        setBanner(`You Win\n#${rank} · Fastest`, true, 'win');
+      }
+    } else {
+      gid('runStatus').textContent = `Laser Tag X complete in ${finishTime}s.`;
+      setBanner('You Win', true, 'win');
+    }
   } else {
     stopClock();
     gid('clock').textContent = '0.0';
@@ -3772,6 +3793,7 @@ function buildAxes() {
   wrap.innerHTML = "";
   AXIS_DEFS.forEach(def => {
     const [lo, hi] = ws[def.id];
+    const reverseForLtx = LTX && def.id === "y";
     const div = document.createElement("div");
     div.className = "axis";
     div.innerHTML = `
@@ -3783,8 +3805,9 @@ function buildAxes() {
           <span class="unit">${def.unit}</span>
           <span class="actual" id="${def.id}Act"></span></span>
       </div>
-      <input type="range" id="${def.id}" min="${lo}" max="${hi}" step="${def.step}" value="0" disabled />
-      <div class="limits"><span>${lo} ${def.unit}</span><span>${hi} ${def.unit}</span></div>`;
+      <input type="range" id="${def.id}" min="${lo}" max="${hi}" step="${def.step}" value="0"
+        dir="${reverseForLtx ? "rtl" : "ltr"}" disabled />
+      <div class="limits"><span>${reverseForLtx ? hi : lo} ${def.unit}</span><span>${reverseForLtx ? lo : hi} ${def.unit}</span></div>`;
     wrap.appendChild(div);
   });
   AXIS_DEFS.forEach(def => {

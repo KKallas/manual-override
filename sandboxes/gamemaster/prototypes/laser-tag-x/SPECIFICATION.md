@@ -265,14 +265,16 @@ For a practically completable game, `verify` must be present. The existing valid
 
 ### 5.8 Scoring table
 
-Place the scoring table immediately below the complete Expected detection sequence section and above the progress summary. Each completed game produces one cooperative row for `Green + Purple`; it does not create separate team scores. Rows show rank, both player sides followed by their registered player names, the played game type (`Game 1`, `Game 2`, `Game 3`, or `Game 4`), the shared winning time to one decimal place, and the local completion date/time. Do not show the assigned 100-series physical tag IDs in the player labels. Rank all currently visible rows by ascending elapsed time and then by recording time. Historical rows recorded before game types were added show an em dash in that column.
+Place the scoring table immediately below the complete Expected detection sequence section and above the progress summary. Each completed game produces one cooperative row for `Green + Purple`; it does not create separate team scores. Rows show rank, both player sides followed by their registered player names, the played game type (`Game 1`, `Game 2`, `Game 3`, or `Game 4`), the shared winning time to one decimal place, the time gap to the immediately faster score, and the local completion date/time. The leading row says `Fastest`; every other row says how many seconds faster the preceding row is and identifies that row by rank and player label. Do not show the assigned 100-series physical tag IDs in the player labels. Rank all currently visible rows by ascending elapsed time and then by recording time. Historical rows recorded before game types were added show an em dash in that column.
+
+When a game finishes, highlight its row as the latest finish and report its ordinal scoreboard place. The LTX player finish HUD also shows that place. For any place below first, both views show how many seconds faster the immediately preceding score is; first place is labeled fastest.
 
 The score header contains:
 
 - a `Download score log` link; and
 - a `Reset scoring table` button.
 
-The reset clears only the table view by persisting a cutoff timestamp in `score-table-state.json`. It must never truncate or rewrite `score-log.txt`. The text log is append-only, uses one JSON object per winning line, and preserves every win across table resets and server restarts. A win record includes the registered Green/Purple player names and shared player label, the selected `game_mode` and human-readable `game_type`, elapsed/start/finish timestamps, both sides' assigned tag IDs, and the diagnostic run ID when one exists. Snapshot both registered names and the selected game mode when the game starts so later player or mode changes cannot relabel a completed score. Record a win exactly once when the server phase first transitions into `won`.
+The reset clears only the table view by persisting a cutoff timestamp in `score-table-state.json`. It must never truncate or rewrite `score-log.txt`. The text log is append-only, uses one JSON object per winning line, and preserves every win across table resets and server restarts. A win record includes the registered Green/Purple player names and shared player label, the selected `game_mode` and human-readable `game_type`, elapsed/start/finish timestamps, both sides' assigned tag IDs, and the diagnostic run ID when one exists. Snapshot both registered names and the selected game mode when the game starts so later player or mode changes cannot relabel a completed score. If either start-time name is empty because that controller registration was still completing or retrying, fill only that missing side from the current registered-name snapshot when the win is recorded; never replace a nonempty start-time name. Record a win exactly once when the server phase first transitions into `won`.
 
 ### 5.9 Progress summary
 
@@ -452,11 +454,13 @@ The server’s initial state is:
   "first_center_position": null,
   "first_center_confirmed_at": null,
   "message": "Configure four physical tags, then start.",
+  "player_names": {"green": "", "purple": ""},
+  "score_result": null,
   "updated_at": "<server epoch seconds>"
 }
 ```
 
-Every state snapshot also includes `server_time` in epoch seconds.
+Every state snapshot also includes `server_time` in epoch seconds. After a win, `score_result` contains the recorded `score_id`, the row's `rank`, the current visible score count, and the immediately faster row's rank, player label, and time gap. It remains `null` in setup/running state and after a scoring-table reset.
 
 Valid compatibility phases are:
 
@@ -1097,7 +1101,7 @@ When a nonreset patch changes the phase from anything other than `won` to `won`,
 
 All three routes require `gamemaster`.
 
-`GET /api/scores` returns the score rows recorded after the current table-reset cutoff, ranked by fastest elapsed time first, plus `reset_at` and the score-log filename.
+`GET /api/scores` returns the score rows recorded after the current table-reset cutoff, ranked by fastest elapsed time first, plus `reset_at` and the score-log filename. Each returned row is annotated with its one-based `rank`; rows below first also include `next_faster_rank`, `next_faster_seconds`, and `next_faster_player_label` for the immediately preceding row.
 
 `POST /api/scores/reset` persists the current server time as the new table cutoff and returns an empty score list with `log_preserved: true`. It must not modify `score-log.txt`.
 
