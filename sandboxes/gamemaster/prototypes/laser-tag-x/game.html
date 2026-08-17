@@ -15,7 +15,7 @@ button.primary{background:#d9243d;border-color:#ff5367}button:disabled{opacity:.
 .stage{position:relative;height:min(68vh,720px);min-height:420px;background:#000;border-block:1px solid #263141;overflow:hidden}.stage img{display:block;width:100%;height:100%;object-fit:contain}.tracking-overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.tracking-marker{fill:none;stroke:#00dc00;stroke-width:3;vector-effect:non-scaling-stroke}.tracking-label{fill:#00dc00;stroke:#00160a;stroke-width:4;paint-order:stroke;stroke-linejoin:round;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:900}
 .hud{position:absolute;inset:16px 16px auto;display:flex;justify-content:space-between;pointer-events:none}.badge,.timer{padding:9px 14px;border:1px solid #ffffff38;border-radius:9px;background:#05080dcc;backdrop-filter:blur(7px);font-weight:900;text-transform:uppercase}.timer{font-size:50px;line-height:1;font-variant-numeric:tabular-nums}
 .mission{position:absolute;left:18px;right:18px;bottom:18px;padding:13px;border:1px solid #ffffff30;border-radius:9px;background:#05080ddd;text-align:center;font-size:18px;font-weight:800}
-.panel{padding:14px;border:1px solid #293647;border-radius:10px;background:#101620}.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.status{flex:1;color:#c4cedc;font-size:13px}.ltx-mode{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:6px 10px;border:1px solid #354153;border-radius:8px;background:#0a1018;color:#d7e0ec;font-size:12px;font-weight:750;white-space:nowrap}.ltx-mode select{min-height:30px;padding:4px 30px 4px 8px;border:1px solid #354153;border-radius:6px;background:#060a10;color:#fff;font:inherit;font-weight:750}.ltx-mode select:disabled{opacity:.55}
+.panel{padding:14px;border:1px solid #293647;border-radius:10px;background:#101620}.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.status{flex:1;color:#c4cedc;font-size:13px}.ltx-mode,.manual-activation{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:6px 10px;border:1px solid #354153;border-radius:8px;background:#0a1018;color:#d7e0ec;font-size:12px;font-weight:750;white-space:nowrap}.ltx-mode select,.manual-activation select{min-height:30px;padding:4px 30px 4px 8px;border:1px solid #354153;border-radius:6px;background:#060a10;color:#fff;font:inherit;font-weight:750}.ltx-mode select:disabled,.manual-activation select:disabled{opacity:.55}.manual-activation button{min-height:30px;padding:4px 11px;border-radius:6px;font-size:12px}
 .desk{display:grid;gap:13px;margin-bottom:22px}.teams{display:grid;grid-template-columns:1fr 1fr;gap:12px}.team{padding:14px;border:1px solid #304054;border-radius:9px;background:#0a1018}.team.green{border-top:4px solid var(--green)}.team.blue{border-top:4px solid var(--blue)}
 .team h2{margin:0 0 9px;font-size:13px;text-transform:uppercase}.inputs{display:grid;grid-template-columns:1fr 1fr;gap:9px}.inputs label{font-size:12px;color:#aab5c5}.inputs input{width:100%;margin-top:5px;padding:8px;border:1px solid #354153;border-radius:6px;background:#060a10;color:white;font-size:17px}
 .lock{margin-top:8px;color:#8e9aaa;font-size:12px}.lock.ok{color:#62e49d}.progress{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.step{padding:10px;border:1px solid #2b394b;border-radius:8px;background:#080d14;font-size:12px}.step b{display:block;margin-bottom:3px;color:var(--gold)}
@@ -30,7 +30,7 @@ button.primary{background:#d9243d;border-color:#ff5367}button:disabled{opacity:.
 <body>
 <header class="hero"><div><h1>Laser Tag X</h1><div class="sub">Cooperative crossing-beam puzzle</div></div><a id="screenLink" class="button" target="_blank">Open external playfield ↗</a></header>
 <section class="stage"><img id="camera" alt="Overhead tag camera"><svg id="trackingOverlay" class="tracking-overlay" aria-hidden="true" preserveAspectRatio="xMidYMid meet"></svg><div class="hud"><div id="phase" class="badge">Setup</div><div id="timer" class="timer">0.0</div></div><div id="mission" class="mission">Choose four different physical tags and start the game.</div></section>
-<section class="panel controls"><button id="loadPlayfield">Load Laser Tag X playfield</button><button id="start" class="primary">Start Laser Tag X</button><button id="reset">Reset game</button><label class="ltx-mode" for="ltxGameMode"><span>Player game</span><select id="ltxGameMode"><option value="game_1">Game 1 — Joint Angles</option><option value="game_2">Game 2 — X/Y/Z Controls</option><option value="game_3">Game 3 — Auto PP</option><option value="game_4">Game 4 — Cue Builder</option></select></label><div id="status" class="status">Loading camera and calibration…</div></section>
+<section class="panel controls"><button id="loadPlayfield">Load Laser Tag X playfield</button><button id="start" class="primary">Start Laser Tag X</button><button id="reset">Reset game</button><label class="ltx-mode" for="ltxGameMode"><span>Player game</span><select id="ltxGameMode"><option value="game_1">Game 1 — Joint Angles</option><option value="game_2">Game 2 — X/Y/Z Controls</option><option value="game_3">Game 3 — Auto PP</option><option value="game_4">Game 4 — Cue Builder</option></select></label><div class="manual-activation" role="group" aria-label="Manual tag placement confirmation"><label for="manualTarget">Manual tag placement</label><select id="manualTarget" aria-label="Outer target to activate" disabled></select><button id="manualActivate" type="button" disabled>Activate</button></div><div id="status" class="status">Loading camera and calibration…</div></section>
 <main class="panel desk">
  <div><b>Gamemaster · Laser Tag X</b><div class="sub">Green plays on the left, blue on the right. Two mirrored diagonal beams must cross.</div></div>
  <div class="teams">
@@ -103,7 +103,7 @@ let state={phase:'setup',tag_ids:{green:[100,101],blue:[102,103]},final_stage:'o
 let gameSequence=[...DEFAULT_SEQUENCE];
 let assignedTagIds={green:[...state.tag_ids.green],blue:[...state.tag_ids.blue]},tagOwnerById=new Map(TEAMS.flatMap(team=>assignedTagIds[team].map(id=>[id,team])));
 let cachedRelayArms={},armCalibration={},armSpatialModels={},activeFlowByTeam={green:null,blue:null},centerPickupByTeam={green:newCenterPickupState(),blue:newCenterPickupState()},lastRelayPoll=0,hardwareArmsReady=false,startBusy=false;
-let playfieldBusy=false;
+let playfieldBusy=false,manualActivationBusy=false,activationPromises=new Map();
 const LASER_OPERATION_TERMINAL_EVENTS=new Set(['target_activated','activation_blocked','release_pose_target_unresolved','operation_protocol_error','center_first_covered','center_second_covered']);
 let diagnosticRun=null,diagnosticEvents=[],diagnosticPollBusy=false,consumedOperationIds=new Set(),settledOperationIds=new Set();
 let scores=[],scoreResetBusy=false;
@@ -260,7 +260,7 @@ function updateSequenceGraphState(){
 function moveSequenceNode(index,offset){if(state.phase!=='setup')return;const next=index+offset;if(next<0||next>=gameSequence.length)return;[gameSequence[index],gameSequence[next]]=[gameSequence[next],gameSequence[index]];saveSequence();renderSequenceEditor();render()}
 function removeSequenceNode(index){if(state.phase!=='setup')return;gameSequence.splice(index,1);saveSequence();renderSequenceEditor();render()}
 function addSequenceNode(){if(state.phase!=='setup')return;const value=$('sequenceAdd').value;if(!value||gameSequence.includes(value))return;gameSequence.push(value);saveSequence();renderSequenceEditor();render()}
-function resetLocal(){flows={};placements={green:[],blue:[]};activatedTargets=new Set();activeFlowByTeam={green:null,blue:null};centerPickupByTeam={green:newCenterPickupState(),blue:newCenterPickupState()};impactBase={};consumedOperationIds=new Set();settledOperationIds=new Set();stoppedAt=0;beamsReady=false;outerComplete=false;outerCompletionBusy=false;centerPlaced=null;hardwareArmsReady=false;lastRelayPoll=0;for(const team of TEAMS)for(let i=0;i<2;i++)flows[`${team}${i}`]={state:'sequencing',seen:false,slot:null,targetMarker:null,pendingTargetMarker:null,pendingTargetAt:0,targetNodeEnteredAt:0,coverageWindowAt:0,occlusionTargetMarker:null,occlusionCandidates:[],targetDecisionTrail:[],coveredTargetMarker:null,releaseTargetMarker:null,releaseTargetResolution:null,coverageConfirmed:false,coverageConfirmedAt:0,visualCandidateMarker:null,visualCandidateAt:0,verificationContradictionKey:null,verificationContradictionAt:0,scriptContradictionKey:null,scriptContradictionAt:0,scriptContradictionFrames:0,suctionWasOn:false,suctionOffAt:0,blowLatched:false,suctionPumpCommandSeq:null,releasePumpCommandSeq:null,blowPumpCommandSeq:null,sequenceIndex:0,context:'board',lastPumpMode:null,lastTag:null,armRange:null,pickupArmConfirmed:false,pickupPrimed:false,centerWasVisible:false,centerCandidate:false,centerCandidateMatch:null,centerCoverageBlockKey:null,dropArmPose:null,releaseArmPose:null,poseBlockReason:null,operationId:null}}
+function resetLocal(){flows={};placements={green:[],blue:[]};activatedTargets=new Set();activationPromises=new Map();manualActivationBusy=false;activeFlowByTeam={green:null,blue:null};centerPickupByTeam={green:newCenterPickupState(),blue:newCenterPickupState()};impactBase={};consumedOperationIds=new Set();settledOperationIds=new Set();stoppedAt=0;beamsReady=false;outerComplete=false;outerCompletionBusy=false;centerPlaced=null;hardwareArmsReady=false;lastRelayPoll=0;for(const team of TEAMS)for(let i=0;i<2;i++)flows[`${team}${i}`]={state:'sequencing',seen:false,slot:null,targetMarker:null,pendingTargetMarker:null,pendingTargetAt:0,targetNodeEnteredAt:0,coverageWindowAt:0,occlusionTargetMarker:null,occlusionCandidates:[],targetDecisionTrail:[],coveredTargetMarker:null,releaseTargetMarker:null,releaseTargetResolution:null,coverageConfirmed:false,coverageConfirmedAt:0,visualCandidateMarker:null,visualCandidateAt:0,verificationContradictionKey:null,verificationContradictionAt:0,scriptContradictionKey:null,scriptContradictionAt:0,scriptContradictionFrames:0,suctionWasOn:false,suctionOffAt:0,blowLatched:false,suctionPumpCommandSeq:null,releasePumpCommandSeq:null,blowPumpCommandSeq:null,sequenceIndex:0,context:'board',lastPumpMode:null,lastTag:null,armRange:null,pickupArmConfirmed:false,pickupPrimed:false,centerWasVisible:false,centerCandidate:false,centerCandidateMatch:null,centerCoverageBlockKey:null,dropArmPose:null,releaseArmPose:null,poseBlockReason:null,operationId:null}}
 function restartDetectionFlow(team,key,id,flow,tag,arm,reason){flow.state='sequencing';flow.sequenceIndex=0;flow.context=flow.context==='center'?'center':'board';flow.seen=!!tag;flow.lastTag=tag?{...tag,at:Date.now()}:flow.lastTag;flow.slot=null;flow.targetMarker=null;flow.pendingTargetMarker=null;flow.pendingTargetAt=0;flow.targetNodeEnteredAt=0;flow.coverageWindowAt=0;flow.occlusionTargetMarker=null;flow.occlusionCandidates=[];flow.coveredTargetMarker=null;flow.releaseTargetMarker=null;flow.releaseTargetResolution=null;flow.coverageConfirmed=false;flow.coverageConfirmedAt=0;flow.visualCandidateMarker=null;flow.visualCandidateAt=0;flow.verificationContradictionKey=null;flow.verificationContradictionAt=0;flow.scriptContradictionKey=null;flow.scriptContradictionAt=0;flow.scriptContradictionFrames=0;flow.suctionWasOn=false;flow.suctionOffAt=0;flow.blowLatched=false;flow.suctionPumpCommandSeq=null;flow.releasePumpCommandSeq=null;flow.blowPumpCommandSeq=null;flow.lastPumpMode=arm&&arm.pump_mode||'off';flow.armRange=null;flow.pickupArmConfirmed=false;flow.pickupPrimed=false;flow.centerCoverageBlockKey=null;flow.dropArmPose=null;flow.releaseArmPose=null;flow.poseBlockReason=null;flow.operationId=null;if(activeFlowByTeam[team]===key)activeFlowByTeam[team]=null;log(`${team} tag #${id} returned to Start: ${reason}`)}
 function clearScriptContradiction(flow){flow.scriptContradictionKey=null;flow.scriptContradictionAt=0;flow.scriptContradictionFrames=0}
 function clearVerificationEvidence(flow,preserveScriptContradiction=false){flow.visualCandidateMarker=null;flow.visualCandidateAt=0;flow.verificationContradictionKey=null;flow.verificationContradictionAt=0;if(!preserveScriptContradiction){flow.poseBlockReason=null;clearScriptContradiction(flow)}}
@@ -634,14 +634,43 @@ async function completeOuterRing(){
   activeFlowByTeam={green:null,blue:null};log('All eight outer targets activated. Every playfield area except centre 38 was removed; centre 38 is white at maximum glow and 25% brightness.');
  }catch(e){log(`Outer-ring completion will retry: ${e.message}`)}finally{outerCompletionBusy=false}
 }
-async function armSlot(team,key,slot){
- const a=await areaForMarker(slot.marker);if(!a)return;
- await json(`${U.play}/api/areas/${a.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({color:'#ff334d',glow:3})});
- const centre=await areaForMarker(CENTER.marker);if(centre&&!centre.links.includes(a.id))await json(`${U.play}/api/areas/${centre.id}/links`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:a.id})});
- const physicalTag=assignedTag(team,+key.slice(-1)),side=slot.marker<=33?'green':'blue',operationId=flows[key].operationId;if(operationId)consumedOperationIds.add(operationId);placements[side].push({key,ownerTeam:team,slot:slot.marker,index:SLOTS[side].findIndex(item=>item.marker===slot.marker),area:a.id});activatedTargets.add(slot.marker);flows[key].slot=slot.marker;flows[key].state='armed';flows[key].targetDecisionTrail=[];recordRunEvent('target_activated',{team,physical_tag:physicalTag,target_marker:slot.marker,operation_id:operationId,side,activation_count:activatedTargets.size},'decision');log(`${team} tag #${physicalTag} activated ${side}-side target ${slot.marker} (${activatedTargets.size}/8).`);
- log(`Centre target #${CENTER.marker} linked to confirmed outer target #${slot.marker}.`);
+async function activateOuterTarget(slot,placement={}){
+ if(!slot||activatedTargets.has(slot.marker))return null;
+ if(activationPromises.has(slot.marker)){await activationPromises.get(slot.marker);return null}
+ const activation=(async()=>{
+  const area=await areaForMarker(slot.marker);if(!area)throw Error(`target #${slot.marker} is missing from the Laser Tag X playfield`);
+  await json(`${U.play}/api/areas/${area.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({color:'#ff334d',glow:3})});
+  const centre=await areaForMarker(CENTER.marker);if(!centre)throw Error(`centre target #${CENTER.marker} is missing from the Laser Tag X playfield`);
+  if(!centre.links.includes(area.id))await json(`${U.play}/api/areas/${centre.id}/links`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:area.id})});
+  const side=slot.marker<=33?'green':'blue',entry={key:placement.key||null,ownerTeam:placement.ownerTeam||null,slot:slot.marker,index:SLOTS[side].findIndex(item=>item.marker===slot.marker),area:area.id};
+  if(!placements[side].some(item=>+item.slot===+slot.marker))placements[side].push(entry);
+  activatedTargets.add(slot.marker);render();
+  return{area,side,entry};
+ })();
+ activationPromises.set(slot.marker,activation);
+ try{return await activation}finally{activationPromises.delete(slot.marker)}
+}
+async function finishOuterTargetActivation(marker){
+ log(`Centre target #${CENTER.marker} linked to confirmed outer target #${marker}.`);
  try{await updateBeams()}catch(e){log(`Final link update was incomplete: ${e.message}`)}
  if(activatedTargets.size>=OUTER_SLOTS.length)await completeOuterRing();
+}
+async function armSlot(team,key,slot){
+ const result=await activateOuterTarget(slot,{key,ownerTeam:team});if(!result)return;
+ const physicalTag=assignedTag(team,+key.slice(-1)),operationId=flows[key].operationId;if(operationId)consumedOperationIds.add(operationId);flows[key].slot=slot.marker;flows[key].state='armed';flows[key].targetDecisionTrail=[];recordRunEvent('target_activated',{team,physical_tag:physicalTag,target_marker:slot.marker,operation_id:operationId,side:result.side,activation_count:activatedTargets.size},'decision');log(`${team} tag #${physicalTag} activated ${result.side}-side target ${slot.marker} (${activatedTargets.size}/8).`);
+ await finishOuterTargetActivation(slot.marker);
+}
+async function manuallyActivateTarget(){
+ if(manualActivationBusy||state.phase!=='running'||state.final_stage!=='outer_ring'||outerComplete)return;
+ const marker=Number($('manualTarget').value),slot=OUTER_SLOTS.find(item=>item.marker===marker);if(!slot||activatedTargets.has(marker))return;
+ manualActivationBusy=true;render();$('status').textContent=`Manually activating target #${marker}…`;
+ try{
+  const result=await activateOuterTarget(slot,{ownerTeam:'gamemaster'});if(!result)return;
+  recordRunEvent('target_activated',{target_marker:marker,side:result.side,activation_count:activatedTargets.size,manual:true,confirmation:'gamemaster_manual'},'decision');
+  log(`Gamemaster manually confirmed tag placement on ${result.side}-side target ${marker} (${activatedTargets.size}/8).`);
+  await finishOuterTargetActivation(marker);$('status').textContent=`Target #${marker} activated by gamemaster confirmation.`;
+ }catch(e){$('status').textContent=`Could not activate target #${marker}: ${e.message}`;log(`Manual target activation failed: ${e.message}`)}
+ finally{manualActivationBusy=false;render()}
 }
 async function updateBeams(){
  const all=[...placements.green,...placements.blue];let pairs=[];
@@ -658,9 +687,10 @@ async function recoverPlayfieldProgress(){
   await setCentreFinalVisual(state.final_stage==='centre_first_covered'?'first_covered':state.final_stage==='complete'?'complete':'ready');
   log(`Recovered final stage: ${state.final_stage}.`);return;
  }
- const linked=new Set((centre.links||[]).map(String)),recovered=areas.filter(area=>+area.marker>=30&&+area.marker<=37&&area.name.startsWith('Laser Tag X -')&&(linked.has(String(area.id))||String(area.color||'').toLowerCase()==='#ff334d')).map(area=>+area.marker);
- for(const marker of recovered){activatedTargets.add(marker);recordRunEvent('target_recovered',{target_marker:marker,reason:'playfield colour or centre link'})}
+ const linked=new Set((centre.links||[]).map(String)),recoveredAreas=areas.filter(area=>+area.marker>=30&&+area.marker<=37&&area.name.startsWith('Laser Tag X -')&&(linked.has(String(area.id))||String(area.color||'').toLowerCase()==='#ff334d')),recovered=recoveredAreas.map(area=>+area.marker);
+ for(const area of recoveredAreas){const marker=+area.marker,side=marker<=33?'green':'blue';activatedTargets.add(marker);if(!placements[side].some(item=>+item.slot===marker))placements[side].push({key:null,ownerTeam:null,slot:marker,index:SLOTS[side].findIndex(item=>item.marker===marker),area:area.id,recovered:true});recordRunEvent('target_recovered',{target_marker:marker,reason:'playfield colour or centre link'})}
  if(recovered.length)log(`Recovered ${recovered.length}/8 activated outer targets from the live playfield${recovered.length===8?'; completing the centre transition now.':'.'}`);
+ if(recovered.length)try{await updateBeams()}catch(e){log(`Recovered mirrored links could not be refreshed: ${e.message}`)}
  if(activatedTargets.size>=OUTER_SLOTS.length)await completeOuterRing();
 }
 function crossing(pairs){const indexes=pairs.map(p=>p[0].index);return Math.min(...indexes)<=1&&Math.max(...indexes)>=2}
@@ -817,8 +847,13 @@ function render(){
  $('timer').textContent=elapsed().toFixed(1);$('phase').textContent=state.phase==='running'?'Live':state.phase==='won'?'Complete':'Setup';$('mission').textContent=state.phase==='running'?(state.final_stage==='centre_first_covered'?`Marker 38 is green at 25%. Cover tag #${state.first_center_tag} with any different assigned tag.`:outerComplete?`Outer ring complete. Marker ${CENTER.marker} is white at 25% brightness; cover it with any assigned tag.`:'Activate all eight outer targets. Any assigned physical tag may move to either side.'):state.phase==='won'?'Marker 38 is red at 50% illumination and maximum glow.':'Choose four different physical tags and start the game.';
  for(const team of TEAMS){const ids=[+$(`${team}0`).value,+$(`${team}1`).value],ok=ids.every(id=>visible.has(id));$(`${team}Lock`).textContent=state.phase==='setup'?(ok?`VISIBLE — tags #${ids.join(' and #')} detected`:`Not visible: #${ids.filter(id=>!visible.has(id)).join(' and #')} · start is still allowed`):`${placements[team].length}/4 ${team}-side targets activated`;$(`${team}Lock`).classList.toggle('ok',ok)}
  for(const team of TEAMS)for(let i=0;i<2;i++)$(`${team}${i}`).disabled=state.phase!=='setup';$('start').disabled=state.phase!=='setup'||startBusy;
- $('loadPlayfield').disabled=playfieldBusy;
+ $('loadPlayfield').disabled=playfieldBusy;renderManualActivation();
  const activated=[...activatedTargets].sort((a,b)=>a-b),f=Object.values(flows),pickupIndex=gameSequence.indexOf('pickup'),dropIndex=gameSequence.indexOf('drop');$('activatedStatus').textContent=`Activated outer targets: ${activated.length?activated.map(id=>'#'+id).join(', '):'none'} (${activated.length}/8)`;$('step0').textContent=pickupIndex<0?'Pickup is not in this sequence.':`${f.filter(x=>x.sequenceIndex>pickupIndex).length}/4 active runs past pickup.`;$('step1').textContent=dropIndex<0?'Drop impact is not in this sequence.':`${f.filter(x=>x.sequenceIndex>dropIndex).length}/4 active runs past drop impact.`;$('step2').textContent=`${activated.length}/8 outer targets confirmed.`;$('step3').textContent=outerComplete?`Outer ring complete · centre ${CENTER.marker} remains.`:`${activated.length}/8 outer targets activated.`;updateSequenceGraphState();
+}
+function renderManualActivation(){
+ const select=$('manualTarget'),button=$('manualActivate'),available=OUTER_SLOTS.filter(slot=>!activatedTargets.has(slot.marker)),availableKey=available.map(slot=>slot.marker).join(',');
+ if(select.dataset.available!==availableKey){const previous=Number(select.value);select.replaceChildren();if(!available.length){const option=document.createElement('option');option.textContent='All outer targets activated';option.value='';select.append(option)}else for(const slot of available){const side=slot.marker<=33?'left / green':'right / blue',option=document.createElement('option');option.value=String(slot.marker);option.textContent=`Target #${slot.marker} — ${side}`;select.append(option)}if(available.some(slot=>slot.marker===previous))select.value=String(previous);select.dataset.available=availableKey}
+ const disabled=state.phase!=='running'||state.final_stage!=='outer_ring'||outerComplete||manualActivationBusy||!available.length;select.disabled=disabled;button.disabled=disabled;
 }
 function calibrationSide(team){return team==='blue'?'purple':team}
 async function calibration(){
@@ -828,7 +863,7 @@ async function calibration(){
   $('calibration').textContent=missing.length?`Auto PP Cal 2 TPS incomplete for: ${missing.join(', ')}.`:'Auto PP Cal 2 TPS loaded for both teams and used with corrected camera coordinates.';
  }catch(e){armCalibration={};armSpatialModels={};$('calibration').textContent=`Auto PP Cal 2 could not be loaded: ${e.message}`}
 }
-$('loadPlayfield').onclick=loadPlayfield;$('start').onclick=start;$('reset').onclick=resetGame;$('resetScores').onclick=resetScoreTable;$('ltxGameMode').onchange=e=>setLtxGameMode(e.target.value);$('addSequenceNode').onclick=addSequenceNode;gameSequence=loadSequence();renderSequenceEditor();
+$('loadPlayfield').onclick=loadPlayfield;$('start').onclick=start;$('reset').onclick=resetGame;$('manualActivate').onclick=manuallyActivateTarget;$('resetScores').onclick=resetScoreTable;$('ltxGameMode').onchange=e=>setLtxGameMode(e.target.value);$('addSequenceNode').onclick=addSequenceNode;gameSequence=loadSequence();renderSequenceEditor();
 new EventSource(`${U.self}/api/events`).onmessage=e=>{try{apply(JSON.parse(e.data))}catch(_){}};
 async function init(){
  resetLocal();

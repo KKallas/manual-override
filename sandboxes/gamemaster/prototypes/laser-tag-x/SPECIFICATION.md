@@ -174,18 +174,18 @@ The controls, left to right, are:
 
 1. `Load Laser Tag X playfield`
 2. primary red button `Start Laser Tag X`
-3. `Enable flash latency test`, toggling to `Disable flash latency test`
-4. `Reset game`
-5. a disabled calibration selector showing the sole option `Auto PP Cal 2`
+3. `Reset game`
+4. the player-game selector
+5. a `Manual tag placement` selector and `Activate` button
 6. a flexible status message
 
 Button behavior:
 
 - Start is enabled only in setup and while a start request is not already running.
-- The latency button is enabled only while the game phase is running.
 - Physical-tag inputs and all detection-sequence editing controls are enabled only in setup.
 - Playfield loading disables only its own button while in progress.
 - Reset remains available in all phases.
+- Manual tag placement is enabled only during the running outer-ring stage. Its selector lists the unactivated outer markers 30–37. Pressing `Activate` applies the same red target, center link, mirrored-pair link, progress, and outer-ring completion effects as an automatically confirmed placement. The activated marker is removed from the selector immediately.
 
 ### 5.5 Team assignment panels
 

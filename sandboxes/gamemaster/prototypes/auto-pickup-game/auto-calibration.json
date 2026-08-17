@@ -14,7 +14,7 @@
         "u": 0.25,
         "v": 0.25,
         "marker": 20,
-        "area_id": "a5770"
+        "area_id": "a5843"
       },
       "top_right": {
         "key": "top_right",
@@ -22,7 +22,7 @@
         "u": 0.75,
         "v": 0.25,
         "marker": 21,
-        "area_id": "a5771"
+        "area_id": "a5844"
       },
       "bottom_right": {
         "key": "bottom_right",
@@ -30,7 +30,7 @@
         "u": 0.75,
         "v": 0.75,
         "marker": 22,
-        "area_id": "a5772"
+        "area_id": "a5845"
       },
       "bottom_left": {
         "key": "bottom_left",
@@ -38,7 +38,7 @@
         "u": 0.25,
         "v": 0.75,
         "marker": 23,
-        "area_id": "a5773"
+        "area_id": "a5846"
       },
       "center": {
         "key": "center",
@@ -46,7 +46,7 @@
         "u": 0.5,
         "v": 0.5,
         "marker": 24,
-        "area_id": "a5774"
+        "area_id": "a5847"
       }
     },
     "corner_map": {
@@ -55,7 +55,7 @@
       "bottom_right": 22,
       "bottom_left": 23
     },
-    "updated_at": 1786634664.508628
+    "updated_at": 1786950235.875226
   },
   "arms": {
     "green": {
