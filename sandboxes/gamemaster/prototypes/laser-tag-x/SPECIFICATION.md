@@ -447,6 +447,7 @@ The server’s initial state is:
   "started_at": null,
   "finished_at": null,
   "tag_ids": {"green": [100, 101], "blue": [102, 103]},
+  "activated_targets": [],
   "final_stage": "outer_ring",
   "first_center_manual": false,
   "first_center_tag": null,
@@ -864,7 +865,9 @@ Let:
 - `best` be the nearest unactivated target;
 - `runnerUp` be the second-nearest unactivated target, if any;
 - `neighborSpacing` be the smallest distance from `best` to any other calibrated outer target, including activated targets;
-- `maxDistance = min(45 mm, neighborSpacing × 0.58)`, or 45 mm if spacing is unavailable;
+- `maxDistance = min(90 mm, neighborSpacing × 2.25)`, or 90 mm if spacing is unavailable;
+- `heightDistance` is the absolute difference between release Z and the calibrated drop Z;
+- `maxHeightDistance = 60 mm`;
 - `requiredMargin = max(12 mm, neighborSpacing × 0.12)`, or 12 mm if spacing is unavailable; and
 - `margin = runnerUp.distance - best.distance`, or infinity with no runner-up.
 
@@ -872,6 +875,7 @@ The resolution is unique only when:
 
 ```text
 best.distance <= maxDistance
+and heightDistance <= maxHeightDistance
 and margin >= requiredMargin
 ```
 
@@ -882,6 +886,7 @@ On failure, emit `release_pose_target_unresolved` with the closest ranked candid
 - `release pose unavailable`
 - `no calibrated unactivated targets`
 - `nearest target exceeds release-distance limit`
+- `release height exceeds height-distance limit`
 - `nearest target is not spatially unique`
 
 ### 14.2 Final visual candidate
@@ -889,7 +894,7 @@ On failure, emit `release_pose_target_unresolved` with the closest ranked candid
 For each unactivated outer target that is currently hidden but cached:
 
 1. rank every live physical tag ID 100–105 by normalized center distance to the cached target;
-2. keep the target only if this flow’s physical tag is the nearest physical tag; and
+2. keep the target only if this flow’s physical tag is the nearest physical tag and is at least 0.012 normalized camera units closer than the runner-up (unless there is no runner-up); and
 3. require the geometric overlap rule from section 9.3.
 
 Sort surviving targets by distance and use the nearest.
@@ -1092,6 +1097,8 @@ Otherwise accept these optional fields:
 - `first_center_position`
 - `first_center_confirmed_at`
 - `tag_ids.green` and `tag_ids.blue`, each only when it is an array of exactly two values; coerce both values to integers
+- `activated_targets`, replacing progress with the sorted unique marker IDs 30–37
+- `activated_target`, atomically adding one marker ID 30–37 to existing progress
 
 Set `updated_at` on nonreset patches and return the complete snapshot.
 
@@ -1342,6 +1349,15 @@ Optional but integrated route:
 Neither LTX player waits for, polls for, or stops because of Laser Tag X verification or `target_activated` feedback. All Laser Tag X intention/receipt writes are fire-and-forget diagnostics from the player's perspective: success, rejection, delay, or unavailability must not gate the current robot operation or the next queue operation. After `operation_completed`, LTX immediately continues its own queue. Laser Tag X retains the released operation as a background-verification flow and verifies it when the arm naturally leaves the target and exposes the physical tag to the camera.
 
 The LTX Cue Builder exposes `Go`, a `Pause`/`Resume` toggle, and `Stop`. Pause is cooperative and preserves the current queue index, pickup attempt, operation identity, pump receipts, and trusted tag placements. A pause request lets the current planned movement or atomic release/blow sequence reach its safe checkpoint, then prevents the next robot action. Resume continues the same cue from that checkpoint without emitting a replacement operation. Stop remains distinct: it aborts the cue, clears any paused state, and commands the arm to hold.
+
+Each Green and Purple LTX video shows distance meters during a running game:
+
+- During the outer ring, show four orange meters for that player's four markers (Green 30–33; Purple 34–37). Each meter uses the uniquely closest assigned physical tag, shows horizontal and Z error in millimeters, and turns green with a `DROP` cue inside the same 90 mm horizontal and 60 mm vertical acceptance window. Remove a meter as soon as its marker appears in `activated_targets`.
+- During `centre_ready`, replace the outer meters with distance to marker 38.
+- During `centre_first_covered`, replace it with distance to `first_center_tag`, excluding that already-placed tag as a source.
+- While suction is active, use the live arm pose as the carried tag pose only when the operation or a 12 mm nearest-tag margin identifies one physical tag. Otherwise keep the meter orange and report that the closest tag is unclear.
+
+The Cue Builder's target-drop arrival wait uses independent 18 mm X/Y and 40 mm Z tolerances. This lets a requested drop proceed through ordinary arm settling, while Laser Tag X still requires unique release-pose attribution and authoritative final camera overlap before activation.
 
 ## 21. Error handling and safety properties
 

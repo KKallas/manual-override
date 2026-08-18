@@ -744,16 +744,11 @@ def _save_calibration():
         json.dump(_calibration, fh, indent=2)
 
 
-def _load_calibration2():
-    global _calibration2
-    try:
-        with open(CALIBRATION2_PATH, "r", encoding="utf-8") as fh:
-            saved = json.load(fh)
-    except (OSError, ValueError, TypeError):
-        return
+def _calibration2_from_saved(saved):
+    """Validate a saved Cal 2 document without changing live state."""
     base = _default_calibration2()
     if not isinstance(saved, dict):
-        return
+        return base
     for key, target in ((saved.get("playfield") or {}).get("targets") or {}).items():
         if key in base["playfield"]["targets"] and isinstance(target, dict):
             base["playfield"]["targets"][key].update({
@@ -829,6 +824,19 @@ def _load_calibration2():
             except (TypeError, ValueError):
                 pass
     base["playfield"]["updated_at"] = (saved.get("playfield") or {}).get("updated_at")
+    return base
+
+
+def _load_calibration2():
+    global _calibration2
+    try:
+        with open(CALIBRATION2_PATH, "r", encoding="utf-8") as fh:
+            saved = json.load(fh)
+    except (OSError, ValueError, TypeError):
+        return
+    if not isinstance(saved, dict):
+        return
+    base = _calibration2_from_saved(saved)
     _calibration2 = base
 
 
@@ -1247,7 +1255,9 @@ def _calibration_write_allowed(data=None):
 def hub_init(ctx):
     global _hub_ctx
     _hub_ctx = ctx
-    _ensure_playfield_calibration_areas()
+    # Loading the prototype must be read-only. Calibration fields are shared
+    # with other games, so only the explicit playfield endpoints below may
+    # replace the currently active areas or camera settings.
 
 
 def _playfield_module():
@@ -1420,6 +1430,96 @@ def api_calibration_playfield():
 def api_calibration2():
     return jsonify({"ok": True, "calibration": _calibration2_public(),
                     "access": _calibration_access_public()})
+
+
+@bp.route("/api/calibration2/export.zip", methods=["POST"])
+def api_calibration2_export_zip():
+    """Download Cal 2 state without activating or modifying it."""
+    if not (_is_operator() or _player_side() in TEAMS):
+        return jsonify({"ok": False, "error": "team or gamemaster required"}), 403
+    side = _player_side() or "all"
+    calibration = _calibration2_public()
+    payload = io.BytesIO()
+    with zipfile.ZipFile(payload, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(
+            "auto-calibration-2.json",
+            json.dumps(calibration, indent=2, sort_keys=True),
+        )
+        zf.writestr(
+            "calibration-info.json",
+            json.dumps({
+                "format": "auto-pp-calibration-2-export-v1",
+                "side": side,
+                "exported_at": _dt.datetime.now(_dt.UTC).isoformat(),
+                "active_area": calibration["playfield"]["active_area"],
+            }, indent=2, sort_keys=True),
+        )
+    payload.seek(0)
+    return Response(
+        payload.getvalue(),
+        mimetype="application/zip",
+        headers={
+            "Content-Disposition":
+                f"attachment; filename=auto-pp-cal-2-{side}.zip"
+        },
+    )
+
+
+@bp.route("/api/calibration2/import.zip", methods=["POST"])
+def api_calibration2_import_zip():
+    """Restore saved Cal 2 state only after an explicit, authorized upload."""
+    global _calibration2
+    player_side = _player_side()
+    ok, err = _calibration_write_allowed()
+    if not ok:
+        return jsonify({"ok": False, "error": err}), 403
+    upload = request.files.get("file")
+    if upload is None:
+        return jsonify({"ok": False, "error": "zip file required"}), 400
+    try:
+        raw = upload.read(2 * 1024 * 1024 + 1)
+        if len(raw) > 2 * 1024 * 1024:
+            raise ValueError("calibration zip is larger than 2 MB")
+        with zipfile.ZipFile(io.BytesIO(raw), "r") as zf:
+            if "auto-calibration-2.json" not in zf.namelist():
+                raise ValueError("auto-calibration-2.json missing from zip")
+            info = zf.getinfo("auto-calibration-2.json")
+            if info.file_size > 2 * 1024 * 1024:
+                raise ValueError("calibration document is larger than 2 MB")
+            saved = json.loads(
+                zf.read("auto-calibration-2.json").decode("utf-8"))
+    except (OSError, UnicodeDecodeError, zipfile.BadZipFile,
+            json.JSONDecodeError, ValueError) as exc:
+        return jsonify({
+            "ok": False, "error": f"invalid Cal 2 calibration zip: {exc}"
+        }), 400
+    if not isinstance(saved, dict) or \
+            saved.get("format") != "auto-pp-calibration-2-v1":
+        return jsonify({
+            "ok": False,
+            "error": "uploaded file is not an Auto PP Cal 2 calibration",
+        }), 400
+    imported = _calibration2_from_saved(saved)
+    with _calibration_lock:
+        if _is_operator():
+            _calibration2 = imported
+        else:
+            # A player restores only their arm plus the two intentionally shared
+            # values. Do not replace the live playfield, target object IDs, or
+            # the other player's calibration.
+            _calibration2["arms"][player_side] = imported["arms"][player_side]
+            _calibration2["shared_z"] = imported["shared_z"]
+            _calibration2["playfield"]["active_area"] = \
+                imported["playfield"]["active_area"]
+            _calibration2["playfield"]["updated_at"] = time.time()
+        _save_calibration2()
+        out = json.loads(json.dumps(_calibration2))
+    _live.bump()
+    return jsonify({
+        "ok": True,
+        "calibration": out,
+        "active_area": out["playfield"]["active_area"],
+    })
 
 
 @bp.route("/api/calibration2/playfield", methods=["POST"])

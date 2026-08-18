@@ -36,7 +36,7 @@ LTX_GAME_MODES = {
     "game_3": {
         "auto_pp_x": False,
         "joint_angles": False,
-        "tcp_pose": False,
+        "tcp_pose": True,
         "auto_pick_place": True,
         "video_click_move": True,
     },
@@ -341,6 +341,7 @@ def _fresh_state(game_mode=None):
         "started_at": None,
         "finished_at": None,
         "tag_ids": {"green": [100, 101], "blue": [102, 103]},
+        "activated_targets": [],
         "final_stage": "outer_ring",
         "first_center_manual": False,
         "first_center_tag": None,
@@ -367,6 +368,7 @@ def _roles():
 def _snapshot_locked():
     out = dict(_state)
     out["tag_ids"] = {team: list(ids) for team, ids in _state["tag_ids"].items()}
+    out["activated_targets"] = list(_state.get("activated_targets") or [])
     out["player_names"] = dict(_state["player_names"])
     out["score_result"] = (
         dict(_state["score_result"])
@@ -468,6 +470,19 @@ def operator():
                     values = incoming.get(team)
                     if isinstance(values, list) and len(values) == 2:
                         _state["tag_ids"][team] = [int(values[0]), int(values[1])]
+            incoming_activated = data.get("activated_targets")
+            if isinstance(incoming_activated, list):
+                _state["activated_targets"] = sorted({
+                    int(marker) for marker in incoming_activated
+                    if isinstance(marker, (int, float)) and 30 <= int(marker) <= 37
+                })
+            incoming_activated_target = data.get("activated_target")
+            if isinstance(incoming_activated_target, (int, float)):
+                marker = int(incoming_activated_target)
+                if 30 <= marker <= 37:
+                    _state["activated_targets"] = sorted({
+                        *(_state.get("activated_targets") or []), marker,
+                    })
             incoming_game_mode = data.get("ltx_game_mode")
             if incoming_game_mode is not None:
                 if incoming_game_mode not in LTX_GAME_MODES:

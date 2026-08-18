@@ -228,6 +228,19 @@
   .ltxInstructionTeam { font-weight:950; text-transform:uppercase; }
   .ltxInstructionTeam.green { color:#36e07c; }
   .ltxInstructionTeam.purple { color:#b86bff; }
+  .ltxDistanceMeters { position:absolute; top:54px; left:10px; z-index:7; width:min(310px,calc(100% - 20px));
+    display:grid; gap:6px; padding:9px; border:1px solid rgba(255,166,43,.65); border-radius:9px;
+    background:rgba(3,4,5,.88); box-shadow:0 8px 24px rgba(0,0,0,.34); pointer-events:none; }
+  .ltxDistanceMeters[hidden] { display:none; }
+  .ltxDistanceTitle { color:#ffd19a; font-size:10px; font-weight:950; letter-spacing:.08em; text-transform:uppercase; }
+  .ltxDistanceMeter { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:3px 8px; align-items:center;
+    color:#ffc06b; font-size:11px; font-weight:900; font-variant-numeric:tabular-nums; }
+  .ltxDistanceMeter.ready { color:#54e68e; }
+  .ltxDistanceLabel { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ltxDistanceValue { white-space:nowrap; }
+  .ltxDistanceTrack { grid-column:1/-1; height:8px; overflow:hidden; border:1px solid currentColor; border-radius:999px; background:rgba(255,255,255,.09); }
+  .ltxDistanceFill { display:block; width:0; height:100%; background:#f5a623; transition:width .18s linear,background-color .18s linear; }
+  .ltxDistanceMeter.ready .ltxDistanceFill { background:#36e07c; }
   .feedTools { position:absolute; top:10px; right:10px; z-index:7; display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
   .feedTools button, .flipBtn { display:inline-flex; align-items:center;
     gap:7px; padding:7px 11px; border:1px solid var(--line); border-radius:7px; cursor:pointer;
@@ -301,6 +314,7 @@
         <span>Move the physical tags over the 4 <span id="ltxInstructionTeam" class="ltxInstructionTeam"></span> markers on the outer ring to activate the center marker.</span>
         <span>After each move, clear the arm for visual camera confirmation and activation.</span>
       </div>
+      <div id="ltxDistanceMeters" class="ltxDistanceMeters" aria-live="polite" hidden></div>
       <div id="centerOverlay" class="centerOverlay" hidden></div>
       <div class="feedTools">
         <button id="btnLoadPlayfield" type="button">Load playfield</button>
@@ -553,13 +567,20 @@ const AUTO_PP_OUTER_GUARD_MM = 4;
 const AUTO_PP_PATH_STEP_MM = 25;
 const AUTO_PP_TRANSPORT_TIMEOUT_MS = 45000;
 const AUTO_PP_TRANSPORT_TOLERANCE_MM = 16;
-const AUTO_PP_DROP_TOLERANCE_MM = 1;
+const AUTO_PP_DROP_XY_TOLERANCE_MM = 18;
+const AUTO_PP_DROP_Z_TOLERANCE_MM = 40;
+const AUTO_PP_DROP_TOLERANCE_MM = { x:AUTO_PP_DROP_XY_TOLERANCE_MM, y:AUTO_PP_DROP_XY_TOLERANCE_MM, z:AUTO_PP_DROP_Z_TOLERANCE_MM };
+const LTX_DROP_XY_RANGE_MM = 90;
+const LTX_DROP_Z_RANGE_MM = 60;
+const LTX_UNIQUE_TAG_MARGIN_MM = 12;
 const AUTO_PPX_SOURCE_GRACE_MS = 10000;
 let feedZoomState = { scale:1, tx:0, ty:0 };
 let autoPpxCal2FeedBoundary = [];
 let videoClickSeq = 0;
 let lastVideoTargetPoint = null;
 let currentArmPose = null;
+let ltxHeldTagId = null;
+let activeOperation = null;
 const ARM_TRAIL_LIFETIME_MS = 10000;
 const ARM_TRAIL_MIN_MOVE_MM = 0.5;
 let armTrailPoints = [];
@@ -1523,6 +1544,7 @@ async function activeGameTags() {
 }
 function renderGameField(tags) {
   latestGameTags = tags;
+  renderLtxDistanceMeters();
   setFeedZoom(tags);
   if (lastVideoTargetPoint) showClickDot(lastVideoTargetPoint.u, lastVideoTargetPoint.v);
   const overlay = gid("calOverlay");
@@ -2211,6 +2233,7 @@ function renderLtxGameState() {
   const s = ltxGameState;
   if (!s) {
     renderLtxCenterOverlay(null);
+    renderLtxDistanceMeters(null);
     stopClock();
     gid('clock').textContent = '--';
     gid('runStatus').textContent = 'Waiting for the Laser Tag X gamemaster…';
@@ -2218,6 +2241,7 @@ function renderLtxGameState() {
     return;
   }
   renderLtxCenterOverlay(s);
+  renderLtxDistanceMeters(s);
   if (s.phase === 'running') {
     gid('clock').textContent = ltxElapsed(s).toFixed(1);
     gid('runStatus').textContent = 'Laser Tag X timer running.';
@@ -2305,6 +2329,109 @@ function renderLtxCenterOverlay(s = ltxGameState) {
   } else {
     overlay.textContent = 'To win, stack one tag from each team in the center.';
   }
+}
+
+function ltxAssignedTagIds(s = ltxGameState) {
+  const ids = s && s.tag_ids && s.tag_ids[TEAM === 'green' ? 'green' : 'blue'];
+  return Array.isArray(ids) ? ids.map(Number).filter(id => id >= 100 && id <= 105) : [];
+}
+function ltxTagById(id) {
+  return latestVisibleArucoTags.find(tag => Number(tag.id) === Number(id))
+    || autoPpxRememberedTags.get(Number(id)) || null;
+}
+function ltxRobotPoseForTag(tag, asTarget = false) {
+  if (!tag) return null;
+  try {
+    const samples = cal2CalibrationSamples();
+    if (samples.length < 6) return null;
+    const corrected = compensateCal2Parallax(Number(tag.nx), Number(tag.ny), tag.id);
+    const xy = cal2RawPose(samples, corrected.u, corrected.v);
+    const z = asTarget
+      ? autoPpxDropZForTarget(xy, tag, true)
+      : autoPpxDropZForPose(xy, true);
+    return { ...xy, z };
+  } catch (_) {
+    return null;
+  }
+}
+function inferLtxHeldTagId(assignedIds) {
+  if (!currentArmPose) return null;
+  const ranked = assignedIds.map(id => {
+    const tag = ltxTagById(id);
+    if (!tag || tag.obscured) return null;
+    const pose = ltxRobotPoseForTag(tag, false);
+    return pose ? { id, distance:Math.hypot(currentArmPose.x-pose.x, currentArmPose.y-pose.y) } : null;
+  }).filter(Boolean).sort((a,b) => a.distance-b.distance);
+  if (!ranked[0] || ranked[0].distance > 120) return null;
+  if (ranked[1] && ranked[1].distance-ranked[0].distance < LTX_UNIQUE_TAG_MARGIN_MM) return null;
+  return ranked[0].id;
+}
+function ltxDistanceTargets(s) {
+  if (!s || s.phase !== 'running') return [];
+  if (s.final_stage === 'outer_ring') {
+    const activated = new Set((s.activated_targets || []).map(Number));
+    const markers = TEAM === 'green' ? [30,31,32,33] : [34,35,36,37];
+    return markers.filter(marker => !activated.has(marker)).map(marker => ({ marker, title:`Target #${marker}` }));
+  }
+  if (s.final_stage === 'centre_ready') return [{ marker:38, title:'Center #38' }];
+  if (s.final_stage === 'centre_first_covered' && Number(s.first_center_tag) >= 100) {
+    return [{ marker:Number(s.first_center_tag), title:`Stack on #${Number(s.first_center_tag)}`, physical:true }];
+  }
+  return [];
+}
+function ltxDistanceReading(target, assignedIds) {
+  const targetTag = ltxTagById(target.marker), targetPose = ltxRobotPoseForTag(targetTag, true);
+  if (!targetPose) return { target, label:target.title, value:'target not visible', fill:0, ready:false };
+  const allowedIds = assignedIds.filter(id => id !== target.marker);
+  let source = null, unique = false;
+  if (pumpMode === 'suck' && currentArmPose) {
+    const operationTag = Number(activeOperation && activeOperation.physical_tag);
+    if (allowedIds.includes(operationTag)) ltxHeldTagId = operationTag;
+    if (!allowedIds.includes(Number(ltxHeldTagId))) ltxHeldTagId = inferLtxHeldTagId(allowedIds);
+    source = { id:ltxHeldTagId, pose:currentArmPose, carried:true };
+    unique = Number.isFinite(Number(source.id));
+  } else {
+    ltxHeldTagId = null;
+    const ranked = allowedIds.map(id => {
+      const tag = ltxTagById(id);
+      if (!tag || tag.obscured) return null;
+      const pose = ltxRobotPoseForTag(tag, false);
+      return pose ? { id, pose, distance:Math.hypot(pose.x-targetPose.x, pose.y-targetPose.y) } : null;
+    }).filter(Boolean).sort((a,b) => a.distance-b.distance);
+    source = ranked[0] || null;
+    unique = !!source && (!ranked[1] || ranked[1].distance-source.distance >= LTX_UNIQUE_TAG_MARGIN_MM);
+  }
+  if (!source || !source.pose) return { target, label:target.title, value:'waiting for Atom tag', fill:0, ready:false };
+  const horizontal = Math.hypot(source.pose.x-targetPose.x, source.pose.y-targetPose.y);
+  const height = Number.isFinite(source.pose.z)&&Number.isFinite(targetPose.z)?Math.abs(source.pose.z-targetPose.z):Infinity;
+  const ready = unique && horizontal <= LTX_DROP_XY_RANGE_MM && height <= LTX_DROP_Z_RANGE_MM;
+  const rangeRatio = Math.max(horizontal/LTX_DROP_XY_RANGE_MM, height/LTX_DROP_Z_RANGE_MM);
+  const fill = Math.max(3, Math.min(100, 100*(1-Math.min(rangeRatio,3)/3)));
+  const sourceLabel = Number.isFinite(Number(source.id)) ? `#${Number(source.id)}` : 'Atom tag';
+  const value = `${ready?'DROP · ':unique?'':'closest unclear · '}XY ${Math.round(horizontal)} · Z ${Number.isFinite(height)?Math.round(height):'—'} mm`;
+  return { target, label:`${sourceLabel} → ${target.title}`, value, fill, ready };
+}
+function renderLtxDistanceMeters(s = ltxGameState) {
+  const panel = gid('ltxDistanceMeters');
+  if (!panel) return;
+  const targets = LTX ? ltxDistanceTargets(s) : [];
+  if (!targets.length) { panel.hidden = true; panel.replaceChildren(); return; }
+  const assignedIds = ltxAssignedTagIds(s), title = document.createElement('div');
+  title.className = 'ltxDistanceTitle';
+  title.textContent = s.final_stage === 'outer_ring'
+    ? 'Drop distance · uniquely closest tag'
+    : s.final_stage === 'centre_ready' ? 'Finale · distance to #38' : 'Finale · distance to last Atom tag';
+  const children = [title];
+  for (const target of targets) {
+    const reading = ltxDistanceReading(target, assignedIds), meter = document.createElement('div');
+    const label = document.createElement('span'), value = document.createElement('span'), track = document.createElement('span'), fill = document.createElement('span');
+    meter.className = `ltxDistanceMeter${reading.ready?' ready':''}`;
+    label.className = 'ltxDistanceLabel'; label.textContent = reading.label;
+    value.className = 'ltxDistanceValue'; value.textContent = reading.value;
+    track.className = 'ltxDistanceTrack'; fill.className = 'ltxDistanceFill'; fill.style.width = `${reading.fill}%`;
+    track.append(fill); meter.append(label,value,track); children.push(meter);
+  }
+  panel.replaceChildren(...children); panel.hidden = false;
 }
 
 async function loadLtxGameState() {
@@ -2578,6 +2705,14 @@ function poseErrorText(err) {
     .join(", ");
 }
 
+function poseWithinTolerance(err, tolerance, axes = ["x", "y", "z"]) {
+  if (!err || !err.deltas) return false;
+  return axes.every(axis => {
+    const limit = typeof tolerance === "number" ? tolerance : Number(tolerance && tolerance[axis]);
+    return Number.isFinite(limit) && Number(err.deltas[axis]) <= limit;
+  });
+}
+
 async function waitForPose(target, timeoutMs = 18000, tol = 10, axes = ["x", "y", "z"]) {
   const start = Date.now();
   let lastPose = null;
@@ -2588,7 +2723,7 @@ async function waitForPose(target, timeoutMs = 18000, tol = 10, axes = ["x", "y"
     if (Array.isArray(s.pose)) {
       lastPose = s.pose;
       lastError = poseError(s.pose, target, axes);
-      if (lastError.max <= tol) return { ok:true, pose:lastPose, error:lastError };
+      if (poseWithinTolerance(lastError, tol, axes)) return { ok:true, pose:lastPose, error:lastError };
     }
     await delay(140);
   }
@@ -3015,7 +3150,7 @@ async function moveToPose(pose, label, wait = true) {
     }
     if (!arrived.ok) {
       const detail = poseErrorText(arrived.error);
-      if(label==="target drop"&&arrived.error&&arrived.error.deltas.x<=3&&arrived.error.deltas.y<=3){
+      if(label==="target drop"&&arrived.error&&arrived.error.deltas.x<=AUTO_PP_DROP_XY_TOLERANCE_MM&&arrived.error.deltas.y<=AUTO_PP_DROP_XY_TOLERANCE_MM){
         await waitForCal2BaseGuard("target drop retry");
         cal2MotionGeneration+=1;
         log("target drop: XY is correct; retrying the vertical descent before release","log-info");
@@ -3624,7 +3759,7 @@ async function runAutoPpx() {
   gid("autoPpxClearFineCal").disabled = true;
   gid("autoPpxQueue").querySelectorAll("select,button").forEach(el => { el.disabled = true; });
   gid("autoPpxLoop").disabled = true;
-  let activeOperation = null;
+  activeOperation = null;
   // Most recent robot-confirmed release for each physical tag.  This exists
   // only for the current Go run and is used solely for an immediate repeated
   // pickup while the returning arm obscures the tag from the camera.
@@ -3758,6 +3893,8 @@ async function runAutoPpx() {
     setAutoPpxStatus(e.message === "stopped" ? "Stopped." : e.message, e.message === "stopped" ? "" : "err");
     log(`Auto PP X ✗ ${e.message}`, e.message === "stopped" ? "log-info" : "log-err");
   } finally {
+    activeOperation = null;
+    ltxHeldTagId = null;
     autoPpxRunning = false;
     autoPpxAbort = false;
     autoPpxCueRunning = false;
@@ -4134,6 +4271,7 @@ function applyStatus(s) {
   if (Array.isArray(s.pose)) {
     currentArmPose={x:Number(s.pose[0]),y:Number(s.pose[1]),z:Number(s.pose[2])};
     renderCurrentArmPose();
+    renderLtxDistanceMeters();
     AXIS_DEFS.forEach((def, i) => {
       const act = document.getElementById(def.id + "Act");
       if (act) act.textContent = "actual " + s.pose[i].toFixed(0) + " " + def.unit;
