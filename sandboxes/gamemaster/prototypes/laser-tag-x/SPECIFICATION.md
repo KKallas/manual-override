@@ -1357,7 +1357,7 @@ Each Green and Purple LTX video shows distance meters during a running game:
 - During `centre_first_covered`, replace it with distance to `first_center_tag`, excluding that already-placed tag as a source.
 - While suction is active, use the live arm pose as the carried tag pose only when the operation or a 12 mm nearest-tag margin identifies one physical tag. Otherwise keep the meter orange and report that the closest tag is unclear.
 
-The Cue Builder's target-drop arrival wait uses independent 18 mm X/Y and 40 mm Z tolerances. This lets a requested drop proceed through ordinary arm settling, while Laser Tag X still requires unique release-pose attribution and authoritative final camera overlap before activation.
+The Cue Builder's target-drop arrival wait uses independent 18 mm X/Y and 1 mm Z tolerances. It must not release while a vertical descent is still in progress. A flat target (IDs 30–38) uses the calibrated drop Z; only a physical 100-series target adds the 31.5 mm tag-height offset for stacking one physical tag on another. Laser Tag X still requires unique release-pose attribution and authoritative final camera overlap before activation.
 
 ## 21. Error handling and safety properties
 

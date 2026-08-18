@@ -568,8 +568,12 @@ const AUTO_PP_PATH_STEP_MM = 25;
 const AUTO_PP_TRANSPORT_TIMEOUT_MS = 45000;
 const AUTO_PP_TRANSPORT_TOLERANCE_MM = 16;
 const AUTO_PP_DROP_XY_TOLERANCE_MM = 18;
-const AUTO_PP_DROP_Z_TOLERANCE_MM = 40;
+// Do not release while a vertical descent is merely in progress. The target
+// Z already includes any intentional stack height, so every drop must settle
+// at that calculated height before the pump turns off.
+const AUTO_PP_DROP_Z_TOLERANCE_MM = 1;
 const AUTO_PP_DROP_TOLERANCE_MM = { x:AUTO_PP_DROP_XY_TOLERANCE_MM, y:AUTO_PP_DROP_XY_TOLERANCE_MM, z:AUTO_PP_DROP_Z_TOLERANCE_MM };
+const AUTO_PP_PHYSICAL_TAG_HEIGHT_MM = 31.5;
 const LTX_DROP_XY_RANGE_MM = 90;
 const LTX_DROP_Z_RANGE_MM = 60;
 const LTX_UNIQUE_TAG_MARGIN_MM = 12;
@@ -3328,7 +3332,7 @@ function autoPpxDropZForPose(pose, includeLiveTune = true) {
 function autoPpxDropZForTarget(pose, targetTag, includeLiveTune = true) {
   // A physical target in the 100s is 31.5 mm above the flat targets in the 30s.
   return autoPpxDropZForPose(pose, includeLiveTune)
-    + (Number(targetTag && targetTag.id) >= 100 ? 31.5 : 0);
+    + (Number(targetTag && targetTag.id) >= 100 ? AUTO_PP_PHYSICAL_TAG_HEIGHT_MM : 0);
 }
 
 async function captureAutoPpxPoses() {
