@@ -17,7 +17,7 @@
         "marker": 30,
         "s": 1.3,
         "t": 0.25,
-        "area_id": "a5981"
+        "area_id": "a5987"
       },
       "p2": {
         "key": "p2",
@@ -25,7 +25,7 @@
         "marker": 31,
         "s": 0.36,
         "t": -0.25,
-        "area_id": "a5982"
+        "area_id": "a5988"
       },
       "p3": {
         "key": "p3",
@@ -33,7 +33,7 @@
         "marker": 32,
         "s": -0.233333,
         "t": -0.2625,
-        "area_id": "a5983"
+        "area_id": "a5989"
       },
       "p4": {
         "key": "p4",
@@ -41,7 +41,7 @@
         "marker": 33,
         "s": -0.053333,
         "t": 0.3125,
-        "area_id": "a5984"
+        "area_id": "a5990"
       },
       "p5": {
         "key": "p5",
@@ -49,7 +49,7 @@
         "marker": 34,
         "s": 0.566667,
         "t": 1.0,
-        "area_id": "a5985"
+        "area_id": "a5991"
       },
       "p6": {
         "key": "p6",
@@ -57,13 +57,13 @@
         "marker": 35,
         "s": 1.3,
         "t": 1.0,
-        "area_id": "a5986"
+        "area_id": "a5992"
       }
     },
     "saved_areas": null,
     "saved_settings": null,
     "saved_camera_view": "normal",
-    "updated_at": 1787042462.911308
+    "updated_at": 1787055058.30118
   },
   "arms": {
     "green": {
@@ -115,6 +115,7 @@
         }
       },
       "pickup_height": -98.672,
+      "stack_drop_offset": 31.5,
       "points": {
         "p1": {
           "key": "p1",
@@ -281,7 +282,8 @@
           }
         }
       },
-      "pickup_height": -99.0,
+      "pickup_height": -98.5,
+      "stack_drop_offset": 32.5,
       "points": {
         "p1": {
           "key": "p1",
@@ -398,7 +400,7 @@
           }
         }
       },
-      "updated_at": 1787042440.719352
+      "updated_at": 1787057062.172819
     }
   }
 }

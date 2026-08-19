@@ -230,7 +230,9 @@
   .ltxInstructionTeam.purple { color:#b86bff; }
   .ltxDistanceMeters { position:absolute; top:54px; left:10px; z-index:7; width:min(310px,calc(100% - 20px));
     display:grid; gap:6px; padding:9px; border:1px solid rgba(255,166,43,.65); border-radius:9px;
-    background:rgba(3,4,5,.88); box-shadow:0 8px 24px rgba(0,0,0,.34); pointer-events:none; }
+    background:linear-gradient(135deg,rgba(63,35,8,.42),rgba(7,10,14,.3));
+    box-shadow:0 8px 24px rgba(0,0,0,.28),inset 0 0 24px rgba(245,166,35,.07);
+    -webkit-backdrop-filter:blur(7px) saturate(1.18); backdrop-filter:blur(7px) saturate(1.18); pointer-events:none; }
   .ltxDistanceMeters[hidden] { display:none; }
   .ltxDistanceTitle { color:#ffd19a; font-size:10px; font-weight:950; letter-spacing:.08em; text-transform:uppercase; }
   .ltxDistanceMeter { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:3px 8px; align-items:center;
@@ -238,9 +240,17 @@
   .ltxDistanceMeter.ready { color:#54e68e; }
   .ltxDistanceLabel { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .ltxDistanceValue { white-space:nowrap; }
-  .ltxDistanceTrack { grid-column:1/-1; height:8px; overflow:hidden; border:1px solid currentColor; border-radius:999px; background:rgba(255,255,255,.09); }
-  .ltxDistanceFill { display:block; width:0; height:100%; background:#f5a623; transition:width .18s linear,background-color .18s linear; }
-  .ltxDistanceMeter.ready .ltxDistanceFill { background:#36e07c; }
+  .ltxDistanceTrack { grid-column:1/-1; display:grid; grid-template-columns:repeat(24,minmax(0,1fr)); gap:2px;
+    height:11px; padding:1px; border:1px solid rgba(255,192,107,.7); border-radius:3px;
+    background:rgba(17,11,5,.42); box-shadow:inset 0 1px 3px rgba(0,0,0,.7); }
+  .ltxDistanceSegment { min-width:0; border-radius:1px; background:rgba(255,192,107,.1);
+    box-shadow:inset 0 0 0 1px rgba(255,209,154,.08); transition:background-color .15s linear,box-shadow .15s linear; }
+  .ltxDistanceSegment.lit { background:#f5a623;
+    box-shadow:0 0 5px rgba(245,166,35,.7),inset 0 1px rgba(255,231,186,.6); }
+  .ltxDistanceMeter.ready .ltxDistanceTrack { border-color:rgba(84,230,142,.78); }
+  .ltxDistanceMeter.ready .ltxDistanceSegment { background:rgba(84,230,142,.1); }
+  .ltxDistanceMeter.ready .ltxDistanceSegment.lit { background:#36e07c;
+    box-shadow:0 0 5px rgba(54,224,124,.72),inset 0 1px rgba(218,255,232,.65); }
   .feedTools { position:absolute; top:10px; right:10px; z-index:7; display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
   .feedTools button, .flipBtn { display:inline-flex; align-items:center;
     gap:7px; padding:7px 11px; border:1px solid var(--line); border-radius:7px; cursor:pointer;
@@ -2428,12 +2438,18 @@ function renderLtxDistanceMeters(s = ltxGameState) {
   const children = [title];
   for (const target of targets) {
     const reading = ltxDistanceReading(target, assignedIds), meter = document.createElement('div');
-    const label = document.createElement('span'), value = document.createElement('span'), track = document.createElement('span'), fill = document.createElement('span');
+    const label = document.createElement('span'), value = document.createElement('span'), track = document.createElement('span');
     meter.className = `ltxDistanceMeter${reading.ready?' ready':''}`;
     label.className = 'ltxDistanceLabel'; label.textContent = reading.label;
     value.className = 'ltxDistanceValue'; value.textContent = reading.value;
-    track.className = 'ltxDistanceTrack'; fill.className = 'ltxDistanceFill'; fill.style.width = `${reading.fill}%`;
-    track.append(fill); meter.append(label,value,track); children.push(meter);
+    track.className = 'ltxDistanceTrack';
+    const segmentCount = 24, litSegments = Math.round(segmentCount*reading.fill/100);
+    for (let index = 0; index < segmentCount; index++) {
+      const segment = document.createElement('span');
+      segment.className = `ltxDistanceSegment${index<litSegments?' lit':''}`;
+      track.append(segment);
+    }
+    meter.append(label,value,track); children.push(meter);
   }
   panel.replaceChildren(...children); panel.hidden = false;
 }
@@ -3318,6 +3334,15 @@ function autoPpxTransportZ() {
   return calibratedZ("transport_height");
 }
 
+function autoPpxStackDropOffset() {
+  if (selectedAutoPpxCalibration() !== "cal2") return AUTO_PP_PHYSICAL_TAG_HEIGHT_MM;
+  const raw = (((gameCalibration2.arms || {})[TEAM] || {}).stack_drop_offset);
+  const offset = Number(raw);
+  return raw == null || raw === "" || !Number.isFinite(offset)
+    ? AUTO_PP_PHYSICAL_TAG_HEIGHT_MM
+    : Math.max(0, Math.min(100, offset));
+}
+
 function autoPpxPickupZForPose(pose, includeLiveTune = true) {
   const correction = pose ? autoPpxFineCalCorrection(pose) : { dz:0 };
   const liveTune = includeLiveTune ? autoPpxTune("autoPpxTuneZ", -30, 30) : 0;
@@ -3330,9 +3355,10 @@ function autoPpxDropZForPose(pose, includeLiveTune = true) {
 }
 
 function autoPpxDropZForTarget(pose, targetTag, includeLiveTune = true) {
-  // A physical target in the 100s is 31.5 mm above the flat targets in the 30s.
+  // A 100-series target means this drop is stacking one physical tag on
+  // another. Cal 2 lets each arm tune that vertical offset independently.
   return autoPpxDropZForPose(pose, includeLiveTune)
-    + (Number(targetTag && targetTag.id) >= 100 ? AUTO_PP_PHYSICAL_TAG_HEIGHT_MM : 0);
+    + (Number(targetTag && targetTag.id) >= 100 ? autoPpxStackDropOffset() : 0);
 }
 
 async function captureAutoPpxPoses() {
@@ -3986,6 +4012,7 @@ function buildJointAxes() {
   wrap.innerHTML = "";
   for (const def of JOINT_AXIS_DEFS) {
     const [lo, hi] = jointLimits[def.id];
+    const reverseForLtx = LTX && def.id === "j1";
     const div = document.createElement("div");
     div.className = "axis";
     div.innerHTML = `
@@ -3999,8 +4026,8 @@ function buildJointAxes() {
         </span>
       </div>
       <input type="range" id="ltx${def.id.toUpperCase()}" min="${lo}" max="${hi}"
-        step="${def.step}" value="0" disabled />
-      <div class="limits"><span>${lo} °</span><span>${hi} °</span></div>`;
+        step="${def.step}" value="0" dir="${reverseForLtx ? "rtl" : "ltr"}" disabled />
+      <div class="limits"><span>${reverseForLtx ? hi : lo} °</span><span>${reverseForLtx ? lo : hi} °</span></div>`;
     wrap.appendChild(div);
   }
   for (const def of JOINT_AXIS_DEFS) {

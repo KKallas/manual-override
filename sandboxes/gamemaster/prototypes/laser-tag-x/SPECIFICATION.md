@@ -240,11 +240,11 @@ The valid event catalog is:
 | `pickup` | Tag picked up | Overhead camera | The assigned physical tag was seen, becomes hidden under a suitably close arm, and suction confirms the pickup. |
 | `suction_start` | Suction start | MG400 robot pump | Pump mode becomes `suck`. Also opens the target-coverage observation window. |
 | `pickup_impact` | Pickup impact | Atom tag accelerometer | The assigned Atom’s impact counter increases; fires a team-colored flash. |
-| `target_hidden` | Target covered by arm | Overhead camera | A previously visible target disappears after the coverage window opened while the arm is spatially compatible. Final outer attribution still depends on the measured release pose. |
+| `target_hidden` | Target covered by arm | Overhead camera | A previously visible target disappears after the coverage window opened while the arm is spatially compatible. This is provisional occlusion evidence; sustained final camera overlap chooses the outer target. |
 | `suction_off` | Suction off | MG400 robot pump | Optional diagnostic step: after confirmed coverage, a prior suction state transitions to `off` or `blow`. |
 | `blow` | Blow | MG400 robot pump | The pump reaches `blow`. This is the default release milestone. |
 | `drop` | Drop impact | Atom tag accelerometer | The Atom impact counter increases; records the arm pose and fires a flash. |
-| `verify` | Confirm drop | Overhead camera | The physical tag is visually confirmed over the same target uniquely selected from the measured release pose. |
+| `verify` | Confirm drop | Overhead camera | The physical tag is uniquely and sustainably confirmed over a target after parallax correction. The release pose is retained only as a diagnostic. |
 
 The default sequence is:
 
@@ -730,8 +730,8 @@ Each flow tracks at least:
 - frozen drop and release arm poses;
 - arm/tag match details and pickup priming;
 - suction and blow edge state;
-- 400 ms confirmation and 2 s contradiction timers;
-- optional team LTX operation ID; and
+- five-frame/400 ms confirmation and 2 s contradiction timers;
+- placement ID plus an optional team LTX operation ID; and
 - center-pickup candidacy.
 
 Each team has exactly one physical arm and therefore at most one foreground `sequencing` flow. `awaiting_verify` flows do not own the arm; they continue camera-only verification in the background while the arm may pick up the team’s other tag.
@@ -740,7 +740,7 @@ Each team has exactly one physical arm and therefore at most one foreground `seq
 
 If that team's LTX telemetry is present and the script is active, its operation owns an exclusive arm lease through `operation_completed` or `operation_failed`. If the operation's flow has already entered background verification, do not fall through to spatial binding for another tag while that lease remains active. For a noncompleted/nonfailed `operation_started`, bind only that team's arm to the assigned physical tag named by the operation. Copy its operation ID, reset pump-edge evidence for the new operation, and treat a logged `source_pickup` as pickup-arm confirmation. Green maps to `green_ltx`; the blue game team maps to the purple player/relay and `purple_ltx`.
 
-When the bound operation completes with valid pump receipts but its operation ID has already received a terminal Laser Tag X disposition, restart that tag's sequencing flow before selecting the current active operation. This releases stale bindings after outcomes such as `release_pose_target_unresolved` while preserving the arm lease until the controller reports `operation_completed`. An unsettled, receipt-valid completed operation remains bound so its durable receipt bundle can drain through replay and visual verification.
+When the bound operation completes with valid pump receipts but its operation ID has already received a terminal Laser Tag X disposition, restart that tag's sequencing flow before selecting the current active operation. This releases stale bindings after a terminal activation or safety block while preserving the arm lease until the controller reports `operation_completed`. An unsettled, receipt-valid completed operation remains bound so its durable receipt bundle can drain through replay and visual verification.
 
 Otherwise:
 
@@ -770,7 +770,7 @@ Pickup requires all of the following:
 
 For green while LTX telemetry is active, a matching `source_pickup` intention may supply the pickup-arm confirmation in place of the local spatial match. Center pickup also has the explicit fallback/ambiguity rules in section 16.
 
-If the tag reappears before suction, cancel priming. On success, emit `pickup` and advance one node.
+If the tag reappears before suction, cancel priming. On success, create a placement ID when one does not already exist, emit `placement_started` and `pickup`, and advance one node. Scripted placements reuse their operation ID as the placement ID; manually controlled placements generate an independent ID.
 
 Center pickup has an additional binding mechanism described in section 16. Once a center pickup is uniquely bound, a leading `pickup` node is consumed immediately because the suction transaction itself supplied the identity evidence.
 
@@ -795,26 +795,23 @@ When the assigned Atom impact counter increases:
 
 For every non-background flow, track pump mode even when no pump node is currently expected.
 
-A release edge occurs when previous mode was `suck` and current mode becomes `off` or `blow`. Freeze the arm pose only once for that placement.
+A release edge occurs when previous mode was `suck` and current mode becomes `off` or `blow`. Record that release independently of pose availability, and freeze the first valid arm pose at or after the edge only once for that placement.
 
-For manual operation, latch `blow` only after suction has been observed in the same per-tag pump transaction. If blow occurs after that transaction's suction but a release pose was not yet captured, capture it then.
+For manual operation, latch `blow` only after suction has been observed in the same per-tag pump transaction. If blow occurs after that transaction's suction but a release pose was not yet captured, capture it then when available. A missing manual pose sample does not invalidate coherent final camera evidence.
 
 For Green and Purple LTX, pump evidence is operation-scoped instead of inferred from a shared sampled level. Before queue movement begins, LTX issues an idempotent pump-off protocol probe and requires the relay to return the same operation ID, the authenticated player side, a positive command sequence, and a valid measured pose. Every subsequent scoped pump command requires the same receipt fields, and its sequence must be strictly greater than the preceding receipt. A missing or contradictory receipt stops the script and commands the pump to its safe off state.
 
 Successful suction emits `suction_completed` with the operation ID and relay pump-command sequence; only that event can satisfy scripted pickup and suction-start detection. `release_completed` must carry the matching operation ID, physical tag, actual release pose returned by the successful pump-off command, and relay pump-command sequence. Resolve and freeze that pose only for the matching flow. `blow_completed` must carry the same operation ID and its relay command sequence; consume it only after the matching release pose has been accepted. The suction, release, and blow sequences must be strictly ordered. Events belonging to another operation cannot advance the flow, and every command sequence is consumed idempotently by at most one flow. A completed operation with a missing, invalid, or unordered receipt bundle emits `operation_protocol_error`, returns that tag flow to Start, and releases that team's arm lease instead of retaining a stale flow.
 
-If the browser did not consume those events while the Laser Tag X document was visible, replay the newest completed, receipt-valid operation for that physical tag from the durable run log. The reducer binds by operation ID and physical tag, consumes pickup and suction from `suction_completed`, resolves target coverage from the frozen `release_completed` pose, consumes `blow_completed`, and stops at visual verification. Replaying the same bundle is idempotent and must not emit a second activation.
+If the browser did not consume those events while the Laser Tag X document was visible, replay the newest completed, receipt-valid operation for that physical tag from the durable run log. The reducer binds by operation ID and physical tag, consumes pickup and suction from `suction_completed`, restores any previously logged provisional camera occlusion, consumes `blow_completed`, and stops at visual verification. Replaying the same bundle is idempotent and must not emit a second activation.
 
-An operation is permanently ineligible for replay once Laser Tag X emits `target_activated`, `activation_blocked`, `release_pose_target_unresolved`, or `operation_protocol_error` with that operation ID. Record that disposition synchronously in the browser before posting the event, and derive it again from the durable run log so neither event-posting latency nor a browser reload can rebind a rejected operation. `release_pose_target_unresolved` is terminal because release-pose evidence is frozen and cannot be replaced by a later pump edge.
+An operation is permanently ineligible for replay once Laser Tag X emits `target_activated`, `activation_blocked`, or `operation_protocol_error` with that operation ID. Record that disposition synchronously in the browser before posting the event, and derive it again from the durable run log so neither event-posting latency nor a browser reload can rebind a rejected operation. Legacy `release_pose_target_unresolved` records remain terminal for compatibility, but new runs emit only nonauthoritative `release_pose_diagnostic` records.
 
-For board context, resolve the frozen release pose against outer targets as described in section 14. For center context, retain only the release pose and release timestamp.
+For board context, rank the frozen release pose against outer targets only for diagnostics as described in section 14. For center context, retain only the release pose and release timestamp.
 
 ### 13.5 Target hidden
 
-Board context has two paths:
-
-- If a unique target has already been resolved from the frozen release pose, emit authoritative `target_hidden` for that marker and advance.
-- Otherwise find the closest acceptable newly hidden target under the arm, mark coverage provisionally, emit a nonauthoritative `target_hidden`, and advance. This provisional marker cannot by itself activate a target; the later release pose remains authoritative.
+In board context, find the closest acceptable newly hidden target under the arm, mark coverage provisionally, freeze its last frame-current camera detection, emit a nonauthoritative `target_hidden`, and advance. This provisional marker cannot by itself activate a target; sustained final camera evidence remains authoritative.
 
 Center context succeeds when cached center marker 38 exists, marker 38 is currently non-live, and the arm spatially matches center. It records center coverage and advances.
 
@@ -854,86 +851,44 @@ Use the frozen release pose, else the frozen drop pose, else current arm pose as
 
 ## 14. Outer target attribution and verification
 
-Outer activation requires agreement between a measured release pose and final camera evidence. Camera occlusion alone is never authoritative.
+Outer activation is owned by a camera-observed placement transaction. Pump and pickup evidence bind the physical tag to the transaction; final frame-current camera evidence chooses the target. Arm release pose is diagnostic and can neither select a different marker nor veto coherent camera evidence.
 
-### 14.1 Release-pose target resolution
+### 14.1 Live target snapshots
 
-For each cached outer target with a valid camera-to-robot projection, compute its robot-space distance from the frozen release pose. Exclude already activated targets from the ranked candidates.
+Update an outer target's cache only while that marker is present in the webcam service's frame-current `visible_ids`. Never refresh its timestamp or position from a stale merged tracker entry. When a previously seen target becomes non-live after the placement's suction coverage window opened, retain its last live detection and monotonic missing-since time as a provisional occlusion candidate.
 
-Let:
+### 14.2 Release-pose diagnostics
 
-- `best` be the nearest unactivated target;
-- `runnerUp` be the second-nearest unactivated target, if any;
-- `neighborSpacing` be the smallest distance from `best` to any other calibrated outer target, including activated targets;
-- `maxDistance = min(90 mm, neighborSpacing × 2.25)`, or 90 mm if spacing is unavailable;
-- `heightDistance` is the absolute difference between release Z and the calibrated drop Z;
-- `maxHeightDistance = 60 mm`;
-- `requiredMargin = max(12 mm, neighborSpacing × 0.12)`, or 12 mm if spacing is unavailable; and
-- `margin = runnerUp.distance - best.distance`, or infinity with no runner-up.
+Freeze the release arm pose once per placement when one is available. Rank that pose against calibrated outer targets using the existing distance, height, spacing, and margin calculations, but treat the result only as a diagnostic suggestion. Emit `release_pose_diagnostic` with the ranked targets, suggested marker when one exists, release pose, pump receipt, placement ID, operation ID, and provisional occlusion candidates. A manually observed pump release remains valid if no pose sample is available.
 
-The resolution is unique only when:
+An unresolved or disagreeing release-pose ranking is not terminal. It must not set `releaseTargetMarker`, mark coverage authoritative, emit an activation, or discard a camera candidate.
 
-```text
-best.distance <= maxDistance
-and heightDistance <= maxHeightDistance
-and margin >= requiredMargin
-```
+### 14.3 Final visual candidate
 
-On success, freeze `releaseTargetMarker`, mark coverage confirmed at the release time, emit `release_pose_target`, and never let a later pump edge replace this placement’s evidence.
+For each unactivated target that is frame-current hidden and either became hidden after this placement's suction window opened or appears in this placement's recorded occlusion candidates:
 
-On failure, emit `release_pose_target_unresolved` with the closest ranked candidates and reason:
+1. project every live physical tag ID 100–105 from its raised camera position back onto the ground plane using its owning team's Auto PP Cal 2 parallax model;
+2. rank the projected physical tags by normalized distance to the target's frozen last-live position;
+3. require this flow's physical tag to be nearest by at least 0.012 normalized camera units unless there is no runner-up;
+4. require the projected physical tag to geometrically overlap the frozen target; and
+5. if the same physical tag overlaps multiple hidden targets, require the nearest target to lead the runner-up by at least 0.012.
 
-- `release pose unavailable`
-- `no calibrated unactivated targets`
-- `nearest target exceeds release-distance limit`
-- `release height exceeds height-distance limit`
-- `nearest target is not spatially unique`
+Use marker number as the final tie-breaker only after the uniqueness margins have passed. Otherwise there is no candidate.
 
-### 14.2 Final visual candidate
+### 14.4 Success and contradiction handling
 
-For each unactivated outer target that is currently hidden but cached:
+The same visual candidate must remain coherent for at least five observed frames spanning at least 400 ms for both manual and scripted control. A changed or missing candidate resets confirmation. A missing physical tag waits and does not count as contradiction evidence.
 
-1. rank every live physical tag ID 100–105 by normalized center distance to the cached target;
-2. keep the target only if this flow’s physical tag is the nearest physical tag and is at least 0.012 normalized camera units closer than the runner-up (unless there is no runner-up); and
-3. require the geometric overlap rule from section 9.3.
+For a scripted placement, the sustained camera-selected marker and physical tag must also match the released operation. For a manually controlled arm, no intended target or operation ID is required.
 
-Sort surviving targets by distance and use the nearest.
+On success:
 
-### 14.3 Outer success
+- freeze `releaseTargetMarker` to the camera-selected marker;
+- emit `verify` with raw and ground-projected physical detections, the frozen target detection, placement ID, optional operation ID, occlusion evidence, and release/arm diagnostics;
+- activate and link that exact marker; and
+- emit `target_activated` carrying the placement ID.
 
-The visual candidate’s marker must equal the frozen `releaseTargetMarker`. Manual operation requires that agreement continuously for 400 ms. A matching-side LTX operation instead succeeds from one coherent current camera frame when the physical tag is live, the target marker is absent in that same frame, the physical tag uniquely overlaps the cached target position, the frozen release pose resolves to that target, and the ordered operation receipts name the same physical tag and intended target.
-
-Then:
-
-- emit a detailed `verify` decision containing camera, target, pose, arm-match, occlusion, and release-confidence evidence;
-- set the flow’s sequence index to End;
-- activate and link the target;
-- emit `target_activated`;
-- release the team arm if still bound; and
-- unless the outer transition has already begun, restart that physical tag at Start for another placement.
-
-The manual 400 ms timer resets when the matching candidate changes or disappears. Scripted verification succeeds immediately on one coherent matching frame. A coherent match also clears any accumulated scripted contradiction evidence.
-
-### 14.4 Outer failure and contradiction handling
-
-If no unique release target exists when a live tag reaches verification, emit `activation_blocked` and immediately restart the flow at Start.
-
-When a release target exists but final evidence contradicts it, classify the contradiction as one of:
-
-- visual target differs from release-pose target;
-- released tag does not agree with measured arm pose; or
-- physical tag is visible without covering a hidden target.
-
-For manual operation, require the same contradiction continuously for 2000 ms. Then emit `activation_blocked`, log the safety failure, and restart at Start. A matching candidate clears contradiction accumulation.
-
-For a scripted board operation, count only polls in which a live physical tag supplies contradictory verification evidence. The same contradiction key must be observed in at least five such camera polls and span at least 2000 ms from its first observed poll. Missing-tag polls do not increment or reset the counter. A changed contradiction key begins a new counter, and a coherent matching frame clears it. When both thresholds are met:
-
-1. emit `activation_blocked` with the operation ID, observed-frame count, elapsed time, both configured thresholds, frozen release pose, physical detection, arm distances, and release-target diagnostics;
-2. synchronously mark that operation ID settled through the normal terminal-event path before posting the event;
-3. log the terminal safety failure; and
-4. restart the tag flow at Start.
-
-This bound prevents an operation with permanently contradictory frozen evidence from remaining `activation_pending` indefinitely or being replayed after reload.
+When a live released tag does not uniquely overlap a target hidden during its placement, manual control requires the contradiction continuously for 2000 ms. Scripted control requires at least five contradictory live-tag polls spanning at least 2000 ms. Then emit `activation_blocked` and restart the tag flow. Release-pose disagreement is logged but is not a contradiction category.
 
 ### 14.5 Team LTX safety gate
 
@@ -944,11 +899,11 @@ At verification, find the newest matching-side LTX operation for the physical ta
 - has `operation_started`;
 - has `release_completed`;
 - has no `operation_failed`; and
-- has not been settled by a Laser Tag X `target_activated`, `activation_blocked`, `release_pose_target_unresolved`, or `operation_protocol_error` event with the same operation ID.
+- has not been settled by a Laser Tag X `target_activated`, `activation_blocked`, or `operation_protocol_error` event with the same operation ID. Treat legacy `release_pose_target_unresolved` events as terminal when replaying an older run.
 
-Without such an operation, keep waiting and emit/log an activation block once per release-block episode. With one, associate its operation ID with the Laser Tag X verification.
+Without such an operation, keep waiting and emit/log `activation_pending` once per release-wait episode. Do not settle the operation merely because its receipt has not arrived yet. With one, associate its operation ID with the Laser Tag X verification.
 
-Compatibility note: activation checks operation identity and physical tag but does not directly reject a different LTX target marker. The diagnostics comparison detects that target divergence after the fact.
+For scripted control, require the operation's intended target marker and physical tag to match the sustained camera-selected placement before activation. For manual control, the placement ID supplies transaction identity and no intended marker or operation receipt is required.
 
 ## 15. Outer completion and beam semantics
 
@@ -961,7 +916,9 @@ Every activated target records:
 - total activation count; and
 - optional operation ID.
 
-The UI and transition use the size of the unique activated-marker set. At eight, run the center-only transition. A failed transition logs `Outer-ring completion will retry: <reason>` and is attempted again on later ticks.
+The UI and transition use the size of the unique activated-marker set. While the outer ring is incomplete, the camera also tracks whether one physical tag in the 100–105 range is already covering cached marker 38. Marker 38 must be hidden and the physical tag must be live and overlap its cached position. The candidate is cleared if marker 38 reappears or no qualifying physical tag remains visibly over the center.
+
+At eight activated markers, run the center-only transition. If an early center candidate is still present, persist it immediately as the first center cover, apply the green first-cover visual, and enter `centre_first_covered` so only the different final tag remains. Otherwise enter the ordinary white `centre_ready` stage. A failed transition logs `Outer-ring completion will retry: <reason>` and is attempted again on later ticks.
 
 Mirrored links are visual progress only. The implemented game does not use geometric line-crossing analysis as an acceptance condition.
 
@@ -969,7 +926,7 @@ Mirrored links are visual progress only. The implemented game does not use geome
 
 ### 16.1 Arming
 
-After the outer transition, each flow becomes `armed` at End. For each team, a separate center-pickup transaction watches its assigned tags. Manual operation watches sampled arm pump mode; LTX automation watches matching-side operation-scoped command receipts.
+After the outer transition, each flow becomes `armed` at End. If a prepositioned first center tag belongs to one of the four assigned flows, that flow becomes `centre_first` instead. For each team, a separate center-pickup transaction watches its assigned tags. Manual operation watches sampled arm pump mode; LTX automation watches matching-side operation-scoped command receipts.
 
 The first physical tag already covering center is excluded from eligibility for the second pickup.
 
@@ -1271,9 +1228,9 @@ Keep only the latest 1000 events in memory, but append every event to disk. Each
 
 Laser Tag X emits at least these event names:
 
-- lifecycle/log: `run_started`, `run_ended`, `log`
+- lifecycle/log: `run_started`, `run_ended`, `placement_started`, `log`
 - sequence observations: `pickup`, `suction_start`, `pickup_impact`, `target_hidden`, `blow`, `drop`
-- target evidence: `target_occlusion_candidate`, `release_pose_target`, `release_pose_target_unresolved`, `verify`, `activation_blocked`
+- target evidence: `target_occlusion_candidate`, `release_pose_diagnostic`, `verify`, `activation_blocked`
 - board decisions: `target_activated`, `target_recovered`
 - center decisions: `center_pickup_candidate`, `center_pickup_waiting`, `center_pickup_ambiguous`, `center_pickup_candidate_eliminated`, `center_pickup_release_pending`, `center_pickup_resolved_at_release`, `center_pickup_unresolved`, `center_pickup_bound`, `center_first_covered`, `center_second_covered`
 
@@ -1357,7 +1314,7 @@ Each Green and Purple LTX video shows distance meters during a running game:
 - During `centre_first_covered`, replace it with distance to `first_center_tag`, excluding that already-placed tag as a source.
 - While suction is active, use the live arm pose as the carried tag pose only when the operation or a 12 mm nearest-tag margin identifies one physical tag. Otherwise keep the meter orange and report that the closest tag is unclear.
 
-The Cue Builder's target-drop arrival wait uses independent 18 mm X/Y and 1 mm Z tolerances. It must not release while a vertical descent is still in progress. A flat target (IDs 30–38) uses the calibrated drop Z; only a physical 100-series target adds the 31.5 mm tag-height offset for stacking one physical tag on another. Laser Tag X still requires unique release-pose attribution and authoritative final camera overlap before activation.
+The Cue Builder's target-drop arrival wait uses independent 18 mm X/Y and 1 mm Z tolerances. It must not release while a vertical descent is still in progress. A flat target (IDs 30–38) uses the calibrated drop Z; only a physical 100-series target adds the 31.5 mm tag-height offset for stacking one physical tag on another. Laser Tag X requires sustained unique, parallax-corrected camera attribution before activation; its release-pose ranking remains diagnostic.
 
 ## 21. Error handling and safety properties
 
@@ -1366,7 +1323,7 @@ The reconstructed tab must preserve these safety properties:
 - Never activate an outer target from camera occlusion alone.
 - Never guess between multiple center-pickup candidates.
 - Never process a team without a valid six-point TPS arm model.
-- Never attribute a release to a target beyond the calibrated distance/margin limits.
+- Never activate an outer target unless the released physical tag has sustained unique, parallax-corrected camera overlap with a target hidden during that placement.
 - Do not let a background verification flow consume later pump edges from the same team arm.
 - Do not overwrite a frozen release pose with a later release belonging to the team’s other tag.
 - Never make LTX robot motion wait for or fail because of Laser Tag X feedback; Laser Tag X is a passive consumer of operation telemetry.
@@ -1425,8 +1382,8 @@ A rebuild is behaviorally compatible when at least the following scenarios pass.
 
 1. A seen tag hidden under its matched arm and followed by suction consumes pickup.
 2. Target disappearance after suction logs only provisional coverage.
-3. Suck-to-off/blow freezes one release pose and selects a target only within the distance and margin thresholds.
-4. Final live physical tag overlap must agree with that selected target for 400 ms.
+3. Suck-to-off/blow freezes one release pose for diagnostics but does not choose or veto the target.
+4. The same unique parallax-corrected physical-tag/hidden-target overlap must persist for at least five observed frames spanning at least 400 ms.
 5. Success turns the target red, links it from center, records activation, frees the arm, and restarts the tag flow.
 6. A persistent mismatch for 2 s blocks activation and restarts the flow.
 
@@ -1441,7 +1398,7 @@ A rebuild is behaviorally compatible when at least the following scenarios pass.
 1. Green and Purple `operation_started` events bind only their mapped game arm to that operation’s physical tag.
 2. After a side's `script_started`, its activation without an unconsumed released operation remains blocked.
 3. Matching releases and Laser activations display aligned paths independently in both diagnostics panels.
-4. A target mismatch displays `DIVERGED` in the affected panel even though the compatibility implementation may already have activated the target.
+4. A scripted operation whose intended target differs from the sustained camera-selected target is blocked and recorded as divergence evidence.
 
 ### 22.7 Outer completion
 
@@ -1476,7 +1433,7 @@ A replacement implementation is complete only when it includes:
 - four per-tag flows with per-team arm arbitration;
 - TPS and parallax calibration handling;
 - Atom impact and pump-edge handling;
-- release-pose target attribution and visual safety gates;
+- camera-owned placement attribution, release-pose diagnostics, and visual safety gates;
 - exact 13-area board installation and playfield effects;
 - full outer-to-center-to-win lifecycle;
 - latency mode;

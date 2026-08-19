@@ -243,6 +243,9 @@ def _default_calibration2():
                 "camera_view": "normal",
                 "parallax_points": _empty_cal2_parallax_points(),
                 "pickup_height": None,
+                # Raise a drop by one physical tag when its destination is
+                # another 100-series tag. Each arm can tune this separately.
+                "stack_drop_offset": 31.5,
                 "points": {
                     key: {**target, "camera": None, "pose": _empty_pose()}
                     for key, target in targets.items()
@@ -804,6 +807,12 @@ def _calibration2_from_saved(saved):
             except (KeyError, ValueError):
                 pass
         base["arms"][side]["updated_at"] = arm.get("updated_at")
+        try:
+            stack_drop_offset = float(arm["stack_drop_offset"])
+            if math.isfinite(stack_drop_offset) and 0 <= stack_drop_offset <= 100:
+                base["arms"][side]["stack_drop_offset"] = stack_drop_offset
+        except (KeyError, TypeError, ValueError):
+            pass
     shared_z = saved.get("shared_z") or {}
     try:
         base["shared_z"]["transport_height"] = float(shared_z["transport_height"])
@@ -1653,25 +1662,37 @@ def api_calibration2_z():
     if not _is_operator() and not _calibration_access[side]["enabled"]:
         return jsonify({"ok": False, "error": f"{side} calibration is not enabled by the gamemaster"}), 403
     heights = {}
-    if "pickup_height" in data or "transport_height" in data:
+    accepted_heights = (
+        "pickup_height", "transport_height", "stack_drop_offset")
+    if any(key in data for key in accepted_heights):
         raw_heights = {
             key: data[key]
-            for key in ("pickup_height", "transport_height") if key in data
+            for key in accepted_heights if key in data
         }
     else:
         height = str(data.get("height") or "")
-        if height not in ("pickup_height", "transport_height"):
-            return jsonify({"ok": False, "error": "height must be pickup_height or transport_height"}), 400
+        if height not in accepted_heights:
+            return jsonify({
+                "ok": False,
+                "error": "height must be pickup_height, transport_height, or stack_drop_offset",
+            }), 400
         raw_heights = {height: data.get("z")}
     try:
         for height, raw_value in raw_heights.items():
             value = round(float(raw_value), 3)
-            if (not math.isfinite(value)
-                    or not WORKSPACE["z"][0] <= value <= WORKSPACE["z"][1]):
+            if not math.isfinite(value):
+                raise ValueError
+            if height == "stack_drop_offset":
+                if not 0 <= value <= 100:
+                    raise ValueError
+            elif not WORKSPACE["z"][0] <= value <= WORKSPACE["z"][1]:
                 raise ValueError
             heights[height] = value
     except (TypeError, ValueError):
-        return jsonify({"ok": False, "error": "Z must be a finite value inside the robot workspace"}), 400
+        return jsonify({
+            "ok": False,
+            "error": "Z values must be inside the robot workspace and the 100s stack drop offset must be 0-100 mm",
+        }), 400
     with _calibration_lock:
         if "pickup_height" in heights:
             _calibration2["arms"][side]["pickup_height"] = \
@@ -1680,6 +1701,10 @@ def api_calibration2_z():
         if "transport_height" in heights:
             _calibration2["shared_z"]["transport_height"] = \
                 heights["transport_height"]
+        if "stack_drop_offset" in heights:
+            _calibration2["arms"][side]["stack_drop_offset"] = \
+                heights["stack_drop_offset"]
+            _calibration2["arms"][side]["updated_at"] = time.time()
         _save_calibration2()
     return jsonify({"ok": True, "calibration": _calibration2_public()})
 
@@ -1715,9 +1740,12 @@ def api_calibration2_reset():
     with _calibration_lock:
         view = _calibration2["arms"][side].get("camera_view", "normal")
         pickup_height = _calibration2["arms"][side].get("pickup_height")
+        stack_drop_offset = _calibration2["arms"][side].get(
+            "stack_drop_offset", 31.5)
         _calibration2["arms"][side] = _default_calibration2()["arms"][side]
         _calibration2["arms"][side]["camera_view"] = view
         _calibration2["arms"][side]["pickup_height"] = pickup_height
+        _calibration2["arms"][side]["stack_drop_offset"] = stack_drop_offset
         _save_calibration2()
     return jsonify({"ok": True, "calibration": _calibration2_public()})
 
