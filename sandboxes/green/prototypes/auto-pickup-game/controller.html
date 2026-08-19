@@ -615,6 +615,10 @@ let autoPpxAbort = false;
 let autoPpxCueRunning = false;
 let autoPpxPaused = false;
 let autoPpxPauseWaiting = false;
+let autoPpxClickOverride = null;
+let autoPpxClickOverrideGeneration = 0;
+let autoPpxCueAtomicDepth = 0;
+let autoPpxCueAtomicLabel = "";
 let autoPpxFineTuneAnchor = null;
 let autoPpxFineTuneTimer = null;
 let autoPpxFineTuneMoveBusy = false;
@@ -626,6 +630,67 @@ let laserIntentQueue = Promise.resolve();
 
 function invalidateVideoClicks() {
   videoClickSeq += 1;
+}
+
+function motionInterruptedError(reason = "motion superseded") {
+  const error = new Error(reason);
+  error.motionInterrupted = true;
+  return error;
+}
+
+function throwIfMotionInterrupted(interruptWhen) {
+  if (interruptWhen && interruptWhen()) throw motionInterruptedError();
+}
+
+function beginAutoPpxClickOverride(clickSeq) {
+  autoPpxClickOverrideGeneration += 1;
+  const override = { id:autoPpxClickOverrideGeneration, clickSeq };
+  autoPpxClickOverride = override;
+  autoPpxPauseWaiting = false;
+  setAutoPpxStatus("Click override requested. Finishing any pump command, then moving safely...");
+  log("Cue temporarily overridden by a video click.", "log-info");
+  return override;
+}
+
+function finishAutoPpxClickOverride(override, reached = false) {
+  if (!override || !autoPpxClickOverride || autoPpxClickOverride.id !== override.id) return;
+  autoPpxClickOverride = null;
+  if (!autoPpxCueRunning) return;
+  if (autoPpxPaused) {
+    setAutoPpxStatus("Click override complete. Cue remains paused.", "ok");
+  } else {
+    setAutoPpxStatus(reached ? "Clicked point reached. Resuming cue..." : "Click override ended. Resuming cue...");
+  }
+  log(reached ? "Clicked point reached; cue is resuming where it left off." : "Click override ended; cue is resuming.", reached ? "log-ok" : "log-info");
+}
+
+function cancelAutoPpxClickOverride() {
+  autoPpxClickOverrideGeneration += 1;
+  autoPpxClickOverride = null;
+  invalidateVideoClicks();
+}
+
+async function waitForAutoPpxCueAtomic(override) {
+  while (autoPpxCueAtomicDepth > 0) {
+    if (autoPpxAbort || !autoPpxCueRunning) throw new Error("stopped");
+    if (!autoPpxClickOverride || autoPpxClickOverride.id !== override.id || videoClickSeq !== override.clickSeq) {
+      throw motionInterruptedError();
+    }
+    setAutoPpxStatus(`Click override waiting for ${autoPpxCueAtomicLabel || "the current pump action"} to finish safely...`);
+    await delay(50);
+  }
+}
+
+async function runAutoPpxCueAtomic(label, action) {
+  await waitForAutoPpxResume(label);
+  autoPpxCueAtomicDepth += 1;
+  autoPpxCueAtomicLabel = label;
+  try {
+    return await action();
+  } finally {
+    autoPpxCueAtomicDepth = Math.max(0, autoPpxCueAtomicDepth - 1);
+    if (!autoPpxCueAtomicDepth) autoPpxCueAtomicLabel = "";
+  }
 }
 
 async function gmFetch(path, opts = {}) {
@@ -668,7 +733,10 @@ function applyLtxConfig(config = {}) {
   if (!LTX) return;
   const visibility = config.visibility || {};
   const videoClickEnabled = config.video_click_move === true;
-  if (ltxVideoClickEnabled && !videoClickEnabled) invalidateVideoClicks();
+  if (ltxVideoClickEnabled && !videoClickEnabled) {
+    if (autoPpxClickOverride) cancelAutoPpxClickOverride();
+    else invalidateVideoClicks();
+  }
   ltxVideoClickEnabled = videoClickEnabled;
   const cuePanel = gid("autoPpxPanel");
   const jointAnglesPanel = gid("jointAnglesPanel");
@@ -1356,19 +1424,21 @@ function toggleAutoPpxPause() {
 }
 async function waitForAutoPpxResume(nextAction = "next action") {
   if (autoPpxAbort) throw new Error("stopped");
-  if (!autoPpxCueRunning || !autoPpxPaused) return;
-  while (autoPpxPaused) {
+  if (!autoPpxCueRunning || (!autoPpxPaused && !autoPpxClickOverride)) return;
+  let waitedForOverride = false;
+  while (autoPpxPaused || autoPpxClickOverride) {
     if (autoPpxAbort) throw new Error("stopped");
-    if (!autoPpxPauseWaiting) {
+    if (autoPpxPaused && !autoPpxPauseWaiting) {
       autoPpxPauseWaiting = true;
       setAutoPpxStatus("Cue paused safely. Press Resume to continue.", "ok");
       log(`Cue paused before ${nextAction}.`, "log-info");
     }
-    await delay(100);
+    if (autoPpxClickOverride) waitedForOverride = true;
+    await delay(50);
   }
   autoPpxPauseWaiting = false;
   if (autoPpxAbort) throw new Error("stopped");
-  setAutoPpxStatus(`Resuming cue: ${nextAction}...`);
+  setAutoPpxStatus(`${waitedForOverride ? "Resuming cue" : "Cue resumed"}: ${nextAction}...`);
 }
 function cleanAutoPpxFinePoint(point) {
   const dz = Number(point && point.dz);
@@ -1997,6 +2067,40 @@ function syncTargetSliders(pose, axes = ["x", "y"]) {
     showAxis(def, v);
   }
 }
+function autoPpxClickOverrideWasSuperseded(override) {
+  return !override
+    || !autoPpxClickOverride
+    || autoPpxClickOverride.id !== override.id
+    || videoClickSeq !== override.clickSeq
+    || !autoPpxCueRunning
+    || autoPpxAbort;
+}
+async function performAutoPpxClickOverride(pose, override) {
+  const interruptWhen = () => autoPpxClickOverrideWasSuperseded(override);
+  await waitForAutoPpxCueAtomic(override);
+  throwIfMotionInterrupted(interruptWhen);
+  const status = await api("/api/status", null, "GET");
+  throwIfMotionInterrupted(interruptWhen);
+  if (!Array.isArray(status.pose) || status.pose.length < 3) throw new Error("live arm position is unavailable");
+  const current = {x:Number(status.pose[0]), y:Number(status.pose[1]), z:Number(status.pose[2])};
+  if (!Object.values(current).every(Number.isFinite)) throw new Error("live arm position is invalid");
+  const transportZ = autoPpxTransportZ();
+  if (Math.abs(current.z - transportZ) > 3) {
+    setAutoPpxStatus("Click override: lifting vertically to transport height...");
+    await moveToPose(
+      {...current, z:transportZ},
+      "video override lift",
+      true,
+      {clickOverride:override, allowCal2ExcludedStart:true},
+    );
+  }
+  throwIfMotionInterrupted(interruptWhen);
+  const safeTarget = {...pose, z:transportZ};
+  setAutoPpxStatus("Click override: moving to the clicked point at transport height...");
+  await moveToPose(safeTarget, "video target", true, {clickOverride:override, allowCal2ExcludedStart:true});
+  throwIfMotionInterrupted(interruptWhen);
+  return safeTarget;
+}
 async function handleVideoClick(ev) {
   if (LTX && !ltxVideoClickEnabled) return;
   if (ev.defaultPrevented) return;
@@ -2004,9 +2108,12 @@ async function handleVideoClick(ev) {
   if (ev.target && ev.target.closest && ev.target.closest(".feedTools, button, label, input, select, a")) return;
   if (ev.cancelable) ev.preventDefault();
   const seq = ++videoClickSeq;
+  let override = null;
+  let overrideReached = false;
   let pt;
   try {
     pt = normalizedVideoClick(ev);
+    if (LTX && autoPpxCueRunning) override = beginAutoPpxClickOverride(seq);
     // Auto PP X click-to-move uses the Cal 2 TPS mapping. Refresh that
     // calibration at click time so the pose never comes from stale startup
     // data or the legacy Auto PP calibration.
@@ -2022,14 +2129,19 @@ async function handleVideoClick(ev) {
     log(`video target set -> X ${fmtNum(pose.x)} Y ${fmtNum(pose.y)}`, "log-info");
     if (!connected) return;
     if (seq !== videoClickSeq) return;
-    if(AUTO_PPX)await moveToPose(pose,"video target",false);
+    if (override) {
+      await performAutoPpxClickOverride(pose, override);
+      overrideReached = true;
+    } else if(AUTO_PPX)await moveToPose(pose,"video target",false);
     else{
       const res = await api("/api/move", pose);
       if (!res.ok) throw new Error(res.error || "move failed");
       log(`video target sent -> X ${fmtNum(pose.x)} Y ${fmtNum(pose.y)} Z ${fmtNum(pose.z)}`, "log-ok");
     }
   } catch (e) {
-    log(`video target ✗ ${e.message}`, "log-err");
+    if (!e.motionInterrupted && !(override && e.message === "stopped")) log(`video target ✗ ${e.message}`, "log-err");
+  } finally {
+    if (override) finishAutoPpxClickOverride(override, overrideReached);
   }
 }
 
@@ -2733,13 +2845,15 @@ function poseWithinTolerance(err, tolerance, axes = ["x", "y", "z"]) {
   });
 }
 
-async function waitForPose(target, timeoutMs = 18000, tol = 10, axes = ["x", "y", "z"]) {
+async function waitForPose(target, timeoutMs = 18000, tol = 10, axes = ["x", "y", "z"], interruptWhen = null) {
   const start = Date.now();
   let lastPose = null;
   let lastError = null;
   while (Date.now() - start < timeoutMs) {
     if (autoPpxAbort) throw new Error("stopped");
+    throwIfMotionInterrupted(interruptWhen);
     const s = await api("/api/status", null, "GET");
+    throwIfMotionInterrupted(interruptWhen);
     if (Array.isArray(s.pose)) {
       lastPose = s.pose;
       lastError = poseError(s.pose, target, axes);
@@ -2747,6 +2861,7 @@ async function waitForPose(target, timeoutMs = 18000, tol = 10, axes = ["x", "y"
     }
     await delay(140);
   }
+  throwIfMotionInterrupted(interruptWhen);
   return { ok:false, pose:lastPose, error:lastError };
 }
 
@@ -2960,25 +3075,27 @@ function planCal2Movement(start,target,label,{allowCal2ExcludedStart=false}={}){
   if(!cal2DirectPathHasClearance(release,target))throw new Error(`${label} did not find a safe compensation release point`);
   return dense.concat({...target});
 }
-async function executeCal2Plan(plan,label){
+async function executeCal2Plan(plan,label,interruptWhen=null){
   if(plan.length>1)log(`${label}: executing ${plan.length} checked waypoints at no more than ${AUTO_PP_PATH_STEP_MM} mm per axis`,"log-info");
   for(let index=0;index<plan.length;index+=1){
     if(autoPpxAbort)throw new Error("stopped");
+    throwIfMotionInterrupted(interruptWhen);
     const waypoint=plan[index];
     assertAutoPpxPoseSafe(waypoint,`${label} route waypoint`);
     syncTargetSliders(waypoint,["x","y","z"]);
     const res=await api("/api/move",waypoint);
+    throwIfMotionInterrupted(interruptWhen);
     if(!res.ok)throw new Error(res.error||`${label} route failed`);
     showZFloor(res.z_floor);
-    const arrived=await waitForPose(waypoint,30000,3);
+    const arrived=await waitForPose(waypoint,30000,3,["x","y","z"],interruptWhen);
     if(!arrived.ok)throw new Error(`${label} route waypoint ${index+1} did not settle`);
   }
   return plan[plan.length-1];
 }
-async function routeCal2TransportAroundBase(start,target,label){
+async function routeCal2TransportAroundBase(start,target,label,interruptWhen=null){
   const plan=planCal2Movement(start,target,label);
   if(plan.length===1)return null;
-  return executeCal2Plan(plan,label);
+  return executeCal2Plan(plan,label,interruptWhen);
 }
 async function recoverArmFromInnerBoundary(start,target,status){
   const radiusMin=autoPpxPlanningRadiusMin();
@@ -3093,14 +3210,39 @@ async function waitForCal2BaseGuard(label,timeoutMs=45000){
   }
 }
 
-async function moveToPose(pose, label, wait = true) {
+const AUTO_PPX_CUE_MOTION_LABELS = new Set([
+  "source hover", "source pickup", "lift to moving height",
+  "target hover", "target drop", "return to moving height",
+]);
+
+async function moveToPose(pose, label, wait = true, options = {}) {
+  const cueOwned = autoPpxCueRunning
+    && !options.clickOverride
+    && (options.cueOwned === true || AUTO_PPX_CUE_MOTION_LABELS.has(label));
+  while (true) {
+    if (cueOwned) await waitForAutoPpxResume(label);
+    const cueGeneration = cueOwned ? autoPpxClickOverrideGeneration : null;
+    const interruptWhen = options.clickOverride
+      ? () => autoPpxClickOverrideWasSuperseded(options.clickOverride)
+      : (cueOwned ? () => autoPpxClickOverrideGeneration !== cueGeneration : null);
+    try {
+      return await moveToPoseAttempt(pose, label, wait, {...options, cueOwned, interruptWhen});
+    } catch (error) {
+      if (!cueOwned || !error.motionInterrupted) throw error;
+      log(`${label}: click override interrupted this cue movement; it will be retried.`, "log-info");
+      await waitForAutoPpxResume(label);
+    }
+  }
+}
+
+async function moveToPoseAttempt(pose, label, wait = true, options = {}) {
+  const interruptWhen = options.interruptWhen || null;
   assertReadyForAutoAction();
   if (autoPpxAbort) throw new Error("stopped");
-  await waitForAutoPpxResume(label);
   await waitForCal2BaseGuard(label);
-  await waitForAutoPpxResume(label);
+  throwIfMotionInterrupted(interruptWhen);
   cal2MotionGeneration+=1;
-  pauseUserMoves();
+  pauseUserMoves({preserveVideoClick:Boolean(options.clickOverride)});
   if (AUTO_PPX) assertAutoPpxPoseSafe(pose, label);
   const target = clampedPose(pose);
   if (!Object.values(target).every(Number.isFinite)) throw new Error(`${label} target is invalid`);
@@ -3108,26 +3250,38 @@ async function moveToPose(pose, label, wait = true) {
   let res=null;
   if(AUTO_PPX){
     const status=await api("/api/status",null,"GET");
+    throwIfMotionInterrupted(interruptWhen);
     if(!Array.isArray(status.pose)||status.pose.length<3)throw new Error(`${label} cannot be planned because live arm position is unavailable`);
     let start={x:Number(status.pose[0]),y:Number(status.pose[1]),z:Number(status.pose[2])};
     if(!Object.values(start).every(Number.isFinite))throw new Error(`${label} cannot be planned because live arm position is invalid`);
     start=await ensureSafePlanningStart(start,target,status);
-    const allowCal2ExcludedStart=LTX&&label==="video target";
+    throwIfMotionInterrupted(interruptWhen);
+    const allowCal2ExcludedStart=Boolean(options.allowCal2ExcludedStart)||(LTX&&label==="video target");
+    if(options.cueOwned&&(label==="source pickup"||label==="target drop")&&Math.hypot(start.x-target.x,start.y-target.y)>3){
+      const hoverTarget={...target,z:autoPpxTransportZ()};
+      const hoverPlan=planCal2Movement(start,hoverTarget,`${label} resume hover`,{allowCal2ExcludedStart});
+      log(`${label}: returning through transport height before resuming the working-height move`,"log-info");
+      await executeCal2Plan(hoverPlan,`${label} resume hover`,interruptWhen);
+      start=hoverTarget;
+    }
     cal2Plan=planCal2Movement(start,target,label,{allowCal2ExcludedStart});
     log(`${label}: collision check passed${cal2Plan.length>1?` with ${cal2Plan.length} constrained execution waypoints`:" for the next short step"}`,"log-info");
     if(cal2Plan.length>1){
-      await executeCal2Plan(cal2Plan,label);
+      await executeCal2Plan(cal2Plan,label,interruptWhen);
       res={ok:true};
     }
   }
   if(!res){
+    throwIfMotionInterrupted(interruptWhen);
     syncTargetSliders(target, ["x", "y", "z"]);
     res=await api("/api/move", target);
+    throwIfMotionInterrupted(interruptWhen);
     if (!res.ok) throw new Error(res.error || `${label} move failed`);
     showZFloor(res.z_floor);
   }
   let accepted = target;
   const st = await api("/api/status", null, "GET");
+  throwIfMotionInterrupted(interruptWhen);
   if (Array.isArray(st.target) && st.target.length >= 3) {
     accepted = clampedPose({ x:st.target[0], y:st.target[1], z:st.target[2] });
     syncTargetSliders(accepted, ["x", "y", "z"]);
@@ -3137,7 +3291,7 @@ async function moveToPose(pose, label, wait = true) {
     const requiresTransportArrival=["source hover","lift to moving height","target hover","return to moving height"].includes(label);
     const requiresExactArrival=requiresTransportArrival||label==="source pickup"||label==="target drop";
     const settleTolerance=label==="target drop"?AUTO_PP_DROP_TOLERANCE_MM:(requiresExactArrival?3:10);
-    const arrived = await waitForPose(accepted,requiresExactArrival?30000:18000,settleTolerance);
+    const arrived = await waitForPose(accepted,requiresExactArrival?30000:18000,settleTolerance,["x","y","z"],interruptWhen);
     if(!arrived.ok&&requiresTransportArrival){
       const firstDetail=poseErrorText(arrived.error);
       log(`${label}: first settle check missed${firstDetail?` (${firstDetail})`:""}; retrying with a longer transport tolerance`,"log-info");
@@ -3145,19 +3299,23 @@ async function moveToPose(pose, label, wait = true) {
       await waitForCal2BaseGuard(`${label} retry`);
       cal2MotionGeneration+=1;
       const retryStatus=await api("/api/status",null,"GET");
+      throwIfMotionInterrupted(interruptWhen);
       let livePose=Array.isArray(retryStatus.pose)&&retryStatus.pose.length>=3
         ? {x:Number(retryStatus.pose[0]),y:Number(retryStatus.pose[1]),z:Number(retryStatus.pose[2])}
         : null;
       if(!livePose||!Object.values(livePose).every(Number.isFinite))throw new Error(`${label} retry has no valid live arm position`);
       livePose=await ensureSafePlanningStart(livePose,accepted,retryStatus);
+      throwIfMotionInterrupted(interruptWhen);
       const retryPlan=planCal2Movement(livePose,accepted,`${label} retry`);
-      if(retryPlan.length>1)await executeCal2Plan(retryPlan,`${label} retry`);
+      if(retryPlan.length>1)await executeCal2Plan(retryPlan,`${label} retry`,interruptWhen);
       else{
+        throwIfMotionInterrupted(interruptWhen);
         const retry=await api("/api/move",accepted);
+        throwIfMotionInterrupted(interruptWhen);
         if(!retry.ok)throw new Error(retry.error||`${label} retry failed`);
         showZFloor(retry.z_floor);
       }
-      const retryArrival=await waitForPose(accepted,AUTO_PP_TRANSPORT_TIMEOUT_MS,AUTO_PP_TRANSPORT_TOLERANCE_MM);
+      const retryArrival=await waitForPose(accepted,AUTO_PP_TRANSPORT_TIMEOUT_MS,AUTO_PP_TRANSPORT_TOLERANCE_MM,["x","y","z"],interruptWhen);
       if(retryArrival.ok){
         arrived.ok=true;
         arrived.pose=retryArrival.pose;
@@ -3175,17 +3333,21 @@ async function moveToPose(pose, label, wait = true) {
         cal2MotionGeneration+=1;
         log("target drop: XY is correct; retrying the vertical descent before release","log-info");
         const retryStatus=await api("/api/status",null,"GET");
+        throwIfMotionInterrupted(interruptWhen);
         if(!Array.isArray(retryStatus.pose)||retryStatus.pose.length<3)throw new Error("target drop retry has no live arm position");
         let retryStart={x:Number(retryStatus.pose[0]),y:Number(retryStatus.pose[1]),z:Number(retryStatus.pose[2])};
         retryStart=await ensureSafePlanningStart(retryStart,accepted,retryStatus);
+        throwIfMotionInterrupted(interruptWhen);
         const dropRetryPlan=planCal2Movement(retryStart,accepted,"target drop retry");
-        if(dropRetryPlan.length>1)await executeCal2Plan(dropRetryPlan,"target drop retry");
+        if(dropRetryPlan.length>1)await executeCal2Plan(dropRetryPlan,"target drop retry",interruptWhen);
         else{
+          throwIfMotionInterrupted(interruptWhen);
           const retry=await api("/api/move",accepted);
+          throwIfMotionInterrupted(interruptWhen);
           if(!retry.ok)throw new Error(retry.error||"target drop descent retry failed");
           showZFloor(retry.z_floor);
         }
-        const retryArrival=await waitForPose(accepted,20000,AUTO_PP_DROP_TOLERANCE_MM);
+        const retryArrival=await waitForPose(accepted,20000,AUTO_PP_DROP_TOLERANCE_MM,["x","y","z"],interruptWhen);
         if(retryArrival.ok){
           log("target drop: vertical descent confirmed on retry","log-ok");
           return accepted;
@@ -3219,6 +3381,24 @@ async function ensureAutoPpxPickupReady(pose,marker,label){
   const transportZ=autoPpxTransportZ();
   if(Math.abs(Number(pose.z)-transportZ)<15)throw new Error(`vacuum blocked: ArUco ${marker} pickup height is too close to transport height`);
   log(`ArUco ${marker}: pickup pose confirmed before vacuum`,"log-ok");
+}
+
+async function ensureAutoPpxCuePoseReady(pose,label,tolerance){
+  const verify=async()=>{
+    const status=await api("/api/status",null,"GET");
+    if(!Array.isArray(status.pose)||status.pose.length<3)return null;
+    return poseError(status.pose,pose,["x","y","z"]);
+  };
+  let error=await verify();
+  if(!error||!poseWithinTolerance(error,tolerance,["x","y","z"])){
+    log(`${label}: restoring the cue pose after a temporary override`,"log-info");
+    await moveToPose(pose,label);
+    error=await verify();
+  }
+  if(!error||!poseWithinTolerance(error,tolerance,["x","y","z"])){
+    const detail=poseErrorText(error);
+    throw new Error(`${label} could not be restored before the cue action${detail?` (${detail})`:""}`);
+  }
 }
 
 function requireScopedPumpReceipt(res, operationId, label) {
@@ -3777,7 +3957,10 @@ async function runAutoPpx() {
   if (autoPpxRunning) return;
   autoPpxRunning = true;
   autoPpxAbort = false;
+  cancelAutoPpxClickOverride();
   autoPpxCueRunning = true;
+  autoPpxCueAtomicDepth = 0;
+  autoPpxCueAtomicLabel = "";
   autoPpxPaused = false;
   autoPpxPauseWaiting = false;
   gid("autoPpxGo").disabled = true;
@@ -3805,7 +3988,7 @@ async function runAutoPpx() {
     autoPpxLastPumpCommandSeq = null;
     const receiptProbeId = `pump-receipt-probe-${crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`}`;
     setAutoPpxStatus("Verifying operation-scoped pump receipts...");
-    await setPumpMode("off", "pump receipt preflight", receiptProbeId);
+    await runAutoPpxCueAtomic("pump receipt preflight", () => setPumpMode("off", "pump receipt preflight", receiptProbeId));
     setAutoPpxStatus("Saving queue positions from visible ArUco tags...");
     const queue = await captureAutoPpxQueuePoses();
     await recoverTrustedPhysicalPlacements(queue, trustedPhysicalPlacements);
@@ -3847,11 +4030,13 @@ async function runAutoPpx() {
           await laserIntent("source_pickup", eventBase);
           await moveToPose(sourcePickup, "source pickup");
           await waitForAutoPpxResume("pickup confirmation");
-          await ensureAutoPpxPickupReady(sourcePickup,saved.sourceTag.id,progress);
           await waitForAutoPpxResume("vacuum start");
-          await laserIntent("suction_start", eventBase);
-          const suctionResult = await setPumpMode("suck", "vacuum on", eventBase.operation_id);
-          await laserIntent("suction_completed", {...eventBase, pump_command_seq:suctionResult.command_seq}, "command");
+          await ensureAutoPpxPickupReady(sourcePickup,saved.sourceTag.id,progress);
+          await runAutoPpxCueAtomic("vacuum start", async () => {
+            await laserIntent("suction_start", eventBase);
+            const result = await setPumpMode("suck", "vacuum on", eventBase.operation_id);
+            await laserIntent("suction_completed", {...eventBase, pump_command_seq:result.command_seq}, "command");
+          });
           await delay(250);
           await waitForAutoPpxResume("lift to moving height");
           await laserIntent("lift", eventBase);
@@ -3863,7 +4048,7 @@ async function runAutoPpx() {
           if (!(await autoPpxPhysicalTagIsVisible(saved.sourceTag))) break;
           setAutoPpxStatus(`${progress}: pickup failed — remapping ArUco ${saved.sourceTag.id} and retrying.`, "err");
           log(`pickup ArUco ${saved.sourceTag.id} still visible; remapping and retrying`, "log-info");
-          await setPumpMode("off", "vacuum off after failed pickup");
+          await runAutoPpxCueAtomic("vacuum off after failed pickup", () => setPumpMode("off", "vacuum off after failed pickup"));
           await laserIntent("operation_failed", {...eventBase, reason:"pickup remained visible"}, "lifecycle");
           await delay(250);
         } while (true);
@@ -3879,18 +4064,21 @@ async function runAutoPpx() {
         await laserIntent("target_descent_started", eventBase);
         const acceptedDrop = await moveToPose(targetDrop, "target drop");
         await waitForAutoPpxResume("release");
-        await laserIntent("target_pose_reached", {...eventBase, release_pose:acceptedDrop}, "command");
-        await laserIntent("release_started", {...eventBase, release_pose:acceptedDrop}, "command");
-        const releaseResult = await setPumpMode("off", "vacuum off", eventBase.operation_id);
-        const releasePose = Array.isArray(releaseResult.pose) && releaseResult.pose.length >= 3
-          ? {x:Number(releaseResult.pose[0]), y:Number(releaseResult.pose[1]), z:Number(releaseResult.pose[2])}
-          : acceptedDrop;
-        await laserIntent("release_completed", {...eventBase, release_pose:releasePose, pump_command_seq:releaseResult.command_seq}, "command");
-        await laserIntent("blow_started", eventBase, "command");
-        const blowResult = await setPumpMode("blow", "brief blow", eventBase.operation_id);
-        await laserIntent("blow_completed", {...eventBase, pump_command_seq:blowResult.command_seq}, "command");
-        await delay(450);
-        await setPumpMode("off", "pump off");
+        await ensureAutoPpxCuePoseReady(targetDrop,"target drop",AUTO_PP_DROP_TOLERANCE_MM);
+        await runAutoPpxCueAtomic("release and blow", async () => {
+          await laserIntent("target_pose_reached", {...eventBase, release_pose:acceptedDrop}, "command");
+          await laserIntent("release_started", {...eventBase, release_pose:acceptedDrop}, "command");
+          const releaseResult = await setPumpMode("off", "vacuum off", eventBase.operation_id);
+          const releasePose = Array.isArray(releaseResult.pose) && releaseResult.pose.length >= 3
+            ? {x:Number(releaseResult.pose[0]), y:Number(releaseResult.pose[1]), z:Number(releaseResult.pose[2])}
+            : acceptedDrop;
+          await laserIntent("release_completed", {...eventBase, release_pose:releasePose, pump_command_seq:releaseResult.command_seq}, "command");
+          await laserIntent("blow_started", eventBase, "command");
+          const blowResult = await setPumpMode("blow", "brief blow", eventBase.operation_id);
+          await laserIntent("blow_completed", {...eventBase, pump_command_seq:blowResult.command_seq}, "command");
+          await delay(450);
+          await setPumpMode("off", "pump off");
+        });
         await waitForAutoPpxResume("return to moving height");
         await laserIntent("return_hover", eventBase);
         await moveToPose(targetHover, "return to moving height");
@@ -3913,6 +4101,8 @@ async function runAutoPpx() {
     setAutoPpxStatus(`Auto PP X queue complete (${queue.length} move${queue.length === 1 ? "" : "s"}).`, "ok");
     await laserIntent("script_completed", {queue_length:queue.length, loops:pass}, "lifecycle");
   } catch (e) {
+    autoPpxAbort = true;
+    cancelAutoPpxClickOverride();
     if(activeOperation)await laserIntent("operation_failed", {...activeOperation, reason:e.message}, "lifecycle");
     await laserIntent(e.message === "stopped" ? "script_stopped" : "script_failed", {error:e.message}, "lifecycle");
     // A rejected receipt means the last physical pump state cannot be trusted.
@@ -3926,10 +4116,13 @@ async function runAutoPpx() {
     activeOperation = null;
     ltxHeldTagId = null;
     autoPpxRunning = false;
-    autoPpxAbort = false;
     autoPpxCueRunning = false;
+    cancelAutoPpxClickOverride();
+    autoPpxAbort = false;
     autoPpxPaused = false;
     autoPpxPauseWaiting = false;
+    autoPpxCueAtomicDepth = 0;
+    autoPpxCueAtomicLabel = "";
     gid("autoPpxStop").disabled = true;
     updateAutoPpxPauseControl();
     await refreshAutoPpxTags();
@@ -3940,6 +4133,7 @@ async function runAutoPpx() {
 async function stopAutoPpx() {
   autoPpxAbort = true;
   autoPpxCueRunning = false;
+  cancelAutoPpxClickOverride();
   autoPpxPaused = false;
   autoPpxPauseWaiting = false;
   updateAutoPpxPauseControl();
@@ -3961,11 +4155,12 @@ function buildAxes() {
   AXIS_DEFS.forEach(def => {
     const [lo, hi] = ws[def.id];
     const reverseForLtx = LTX && def.id === "y";
+    const axisName = LTX && def.id === "z" ? "Z- Down / UP" : def.name;
     const div = document.createElement("div");
     div.className = "axis";
     div.innerHTML = `
       <div class="label">
-        <span class="name">${def.name}</span>
+        <span class="name">${axisName}</span>
         <span class="readout">
           <input type="number" class="valnum" id="${def.id}Num" step="${def.step}"
             min="${lo}" max="${hi}" value="0" disabled />
@@ -4159,10 +4354,10 @@ function cancelQueuedMove() {
   pending = null;
   if (timer) { clearTimeout(timer); timer = null; }
 }
-function pauseUserMoves() {
+function pauseUserMoves({preserveVideoClick = false} = {}) {
   draggingId = null;
   jointDraggingId = null;
-  invalidateVideoClicks();
+  if (!preserveVideoClick) invalidateVideoClicks();
   cancelQueuedMove();
   cancelQueuedJointMove();
 }
