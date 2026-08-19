@@ -303,9 +303,10 @@ The state pill is:
 - `No active run` when no current run exists;
 - `Paths aligned` for a current active run with no detected divergence;
 - `Run ended · paths aligned` for an ended current run; or
+- `Board truth confirmed · operation unattributed` when a physical result was accepted but no unique released LTX operation could be associated; or
 - `DIVERGED · <reason>` in red.
 
-Once that side has emitted `script_started`, divergence detection independently examines its Laser Tag X `verify` and `target_activated` events. Each must have an earlier-or-equal matching-side LTX `release_completed` event with the same operation ID, physical tag, and target marker. The first mismatch produces `<event> lacks matching released operation`.
+Once that side has emitted `script_started`, new terminal board decisions carry an `operation_attribution` status. Only `true_sequence_divergence`, produced after a stable board result contradicts one uniquely correlated released operation, turns the state pill red. `matched_sequence`, `matched_sequence_late`, and `board_truth_unattributed` do not. Legacy events without attribution retain the earlier matching-release diagnostic check.
 
 The bottom log is a 150 px high, scrollable, monospace, live region. Lines are prefixed with the browser’s local time. If a diagnostic run is active, every log message is also submitted as a diagnostic `log` event.
 
@@ -877,9 +878,9 @@ Use marker number as the final tie-breaker only after the uniqueness margins hav
 
 ### 14.4 Success and contradiction handling
 
-The same visual candidate must remain coherent for at least five observed frames spanning at least 400 ms for both manual and scripted control. A changed or missing candidate resets confirmation. A missing physical tag waits and does not count as contradiction evidence.
+The same visual candidate must appear in at least three of the latest five observed frames spanning at least 400 ms for both manual and scripted control, with normalized position jitter no greater than 0.008. A changed or missing candidate resets confirmation. A missing physical tag waits and does not count as contradiction evidence.
 
-For a scripted placement, the sustained camera-selected marker and physical tag must also match the released operation. For a manually controlled arm, no intended target or operation ID is required.
+The sustained camera-selected marker and physical tag remain authoritative for both scripted and manual placement. Scripted operation data is correlated after the visual result is stable; it provides transaction attribution and divergence diagnostics but cannot substitute a future active cue for the released operation that caused the placement.
 
 On success:
 
@@ -890,20 +891,20 @@ On success:
 
 When a live released tag does not uniquely overlap a target hidden during its placement, manual control requires the contradiction continuously for 2000 ms. Scripted control requires at least five contradictory live-tag polls spanning at least 2000 ms. Then emit `activation_blocked` and restart the tag flow. Release-pose disagreement is logged but is not a contradiction category.
 
-### 14.5 Team LTX safety gate
+### 14.5 Released-operation attribution
 
-This gate becomes active independently for each team once the current diagnostic run contains a matching `green_ltx` or `purple_ltx` `script_started` event.
+At board-truth confirmation, inspect all unsettled matching-side operations for the observed physical tag. An operation is eligible only when it:
 
-At verification, find the newest matching-side LTX operation for the physical tag that:
-
-- has `operation_started`;
-- has `release_completed`;
+- has `operation_started`, `suction_completed`, `release_completed`, and `blow_completed`;
+- has strictly ordered positive pump command sequences;
 - has no `operation_failed`; and
 - has not been settled by a Laser Tag X `target_activated`, `activation_blocked`, or `operation_protocol_error` event with the same operation ID. Treat legacy `release_pose_target_unresolved` events as terminal when replaying an older run.
 
-Without such an operation, keep waiting and emit/log `activation_pending` once per release-wait episode. Do not settle the operation merely because its receipt has not arrived yet. With one, associate its operation ID with the Laser Tag X verification.
+Never compare a stable board result with an operation that has only started or is merely the newest active cue. Rank eligible released operations by exact physical tag and typed destination, using the target-hidden interval and release time to break ties. An exact match produces `matched_sequence` when it is still the flow's current operation or `matched_sequence_late` after the queue has advanced.
 
-For scripted control, require the operation's intended target marker and physical tag to match the sustained camera-selected placement before activation. For manual control, the placement ID supplies transaction identity and no intended marker or operation receipt is required.
+When there is no destination match, emit `true_sequence_divergence` only if one released operation is uniquely correlated by physical tag and timing. If correlation is ambiguous or unavailable, preserve the board decision with `board_truth_unattributed` and do not emit a divergence. `target_activated`, `center_first_covered`, and `center_second_covered` carry the chosen operation ID when available plus `decision_source: visual_board_truth`, the typed observed destination, and the full attribution record.
+
+Typed destinations distinguish `{"kind":"board_marker","id":38}` from `{"kind":"physical_tag","id":102,"board_marker":38}`. `target_marker` remains in the event envelope for backward compatibility.
 
 ## 15. Outer completion and beam semantics
 
@@ -934,7 +935,9 @@ The first physical tag already covering center is excluded from eligibility for 
 
 A tag becomes a center-pickup candidate after the flow is considered previously seen and the tag becomes non-live. At the outer-to-center transition, “previously seen” is initialized from the flow’s entire outer-stage history, not only from visibility in the transition frame; subsequent live frames also set it. Store the tag’s last camera position and arm-match evidence.
 
-A manual transition into pump mode `suck` opens one center pickup transaction. For either LTX player, only a valid matching-side `suction_completed` receipt opens the transaction, and its operation ID, physical tag, and relay command sequence are retained. Scripted candidates are restricted to the receipt's physical tag. Candidates already hidden are latched, and eligible tags that become hidden while suction remains active are added.
+A manual transition into pump mode `suck` opens one center pickup transaction. For either LTX player, only a valid matching-side `suction_completed` receipt opens the transaction, and its operation ID, physical tag, typed destination, and relay command sequence are retained. While an LTX script is active, a sampled pump edge never opens an unscoped manual fallback; the center detector waits for the operation receipt. Scripted candidates are restricted to the receipt's physical tag. Candidates already hidden are latched, and eligible tags that become hidden while suction remains active are added.
+
+Each scripted operation ID may open at most one center-pickup transaction during a run. Once that transaction binds or closes unresolved, later camera polls must not reopen it from the same retained suction/release receipts. This keeps `center_pickup_release_pending` and `center_pickup_unresolved` transition-based: each may occur at most once for that operation. Independent board-truth voting remains active after an unresolved transaction and may still confirm the physical placement.
 
 - No candidates: wait and log once that suction is active.
 - One candidate: bind it to the arm and begin its center sequence.
@@ -1230,8 +1233,9 @@ Laser Tag X emits at least these event names:
 
 - lifecycle/log: `run_started`, `run_ended`, `placement_started`, `log`
 - sequence observations: `pickup`, `suction_start`, `pickup_impact`, `target_hidden`, `blow`, `drop`
-- target evidence: `target_occlusion_candidate`, `release_pose_diagnostic`, `verify`, `activation_blocked`
+- target evidence: `target_occlusion_candidate`, `release_pose_diagnostic`, `verify`, `activation_blocked`, `pickup_prior_mismatch`, `center_pickup_prior_mismatch`
 - board decisions: `target_activated`, `target_recovered`
+- attribution decisions: `board_truth_unattributed`, `ltx_prior_divergence`
 - center decisions: `center_pickup_candidate`, `center_pickup_waiting`, `center_pickup_ambiguous`, `center_pickup_candidate_eliminated`, `center_pickup_release_pending`, `center_pickup_resolved_at_release`, `center_pickup_unresolved`, `center_pickup_bound`, `center_first_covered`, `center_second_covered`
 
 Green and Purple LTX may emit:
@@ -1242,7 +1246,7 @@ Green and Purple LTX may emit:
 - `target_hover`, `target_descent_started`, `target_pose_reached`
 - `release_started`, `release_completed`, `blow_started`, `blow_completed`, `return_hover`
 
-Operation events carry `operation_id`, one-based `queue_index`, queue length, loop number, pickup attempt, physical tag, and intended target marker.
+Operation events carry `operation_id`, one-based `queue_index`, queue length, loop number, pickup attempt, physical tag, legacy intended target marker, and a typed `destination`. Targets below 100 use `board_marker`; a physical-tag destination uses `physical_tag` and includes center board marker 38 as context.
 
 Browser-originated Laser Tag X event submission is best-effort and must not block game progression when the event request fails.
 

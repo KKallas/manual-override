@@ -4014,7 +4014,9 @@ async function runAutoPpx() {
           await waitForAutoPpxResume(`${progress}: pickup attempt ${pickupAttempt + 1}`);
           pickupAttempt += 1;
           const operationId = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
-          eventBase = activeOperation = {operation_id:operationId, queue_index:index + 1, queue_length:queue.length, loop:pass, attempt:pickupAttempt, physical_tag:Number(saved.sourceTag.id), target_marker:Number(saved.targetTag.id)};
+          const targetId = Number(saved.targetTag.id);
+          const destination = targetId >= 100 ? {kind:"physical_tag", id:targetId, board_marker:38} : {kind:"board_marker", id:targetId};
+          eventBase = activeOperation = {operation_id:operationId, queue_index:index + 1, queue_length:queue.length, loop:pass, attempt:pickupAttempt, physical_tag:Number(saved.sourceTag.id), target_marker:targetId, destination};
           await laserIntent("operation_started", eventBase, "lifecycle");
           if (autoPpxAbort) throw new Error("stopped");
           await confirmTrustedPhysicalPlacements(trustedPhysicalPlacements);
