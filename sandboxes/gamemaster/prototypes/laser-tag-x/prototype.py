@@ -402,6 +402,44 @@ def ltx_player_state_snapshot():
         return _snapshot_locked()
 
 
+def _public_pose(value):
+    if not isinstance(value, (list, tuple)) or len(value) < 3:
+        return None
+    try:
+        pose = [float(item) for item in value[:4]]
+    except (TypeError, ValueError):
+        return None
+    return pose if all(math.isfinite(item) for item in pose) else None
+
+
+def _public_arm_state(raw):
+    """Limit player arm tracking to live motion fields, never relay logs."""
+    raw = raw if isinstance(raw, dict) else {}
+    pump_mode = str(raw.get("pump_mode") or "off")
+    return {
+        "connected": bool(raw.get("connected")),
+        "enabled": bool(raw.get("enabled")),
+        "mode_name": str(raw.get("mode_name") or "")[:80],
+        "pose": _public_pose(raw.get("pose")),
+        "target": _public_pose(raw.get("target")),
+        "pump_mode": pump_mode if pump_mode in {"suck", "blow", "off", "conflict"} else "off",
+    }
+
+
+def ltx_player_arms_snapshot():
+    """The same compact relay poses used by the gamemaster's LTX game loop."""
+    relay = _hub_ctx.get_prototype("dobot-mg400-relay") if _hub_ctx is not None else None
+    if relay is None or not hasattr(relay, "arm_state"):
+        return {"arms": {}, "server_time": time.time()}
+    return {
+        "arms": {
+            "green": _public_arm_state(relay.arm_state("green")),
+            "purple": _public_arm_state(relay.arm_state("purple")),
+        },
+        "server_time": time.time(),
+    }
+
+
 @bp.route("/")
 @bp.route("/game")
 def game():

@@ -154,7 +154,7 @@
   }
 
   .playArea { flex:1 1 auto; display:flex; min-height:0; }
-  .videoPane { position:relative; background:#030405; min-height:0; min-width:0; }
+  .videoPane { position:relative; display:flex; flex-direction:column; background:#030405; min-height:0; min-width:0; }
   .controlsPane { min-height:0; min-width:0; overflow-y:auto; -webkit-overflow-scrolling:touch; }
   .controlsPane main { max-width:none; margin:0; padding:16px; }
   /* Portrait: video on the top half, controls scroll in the bottom half. */
@@ -170,7 +170,7 @@
     .videoPane { flex:0 0 46%; order:1; border-left:1px solid var(--line); }
   }
 
-  .feedWrap { position:relative; overflow:hidden; width:100%; height:100%;
+  .feedWrap { position:relative; flex:1 1 auto; overflow:hidden; width:100%; min-height:0;
     background:#030405;
     --feedImageTransform:translate(0,0) scale(1);
     --feedOverlayTransform:translate(0,0) scale(1); }
@@ -198,6 +198,17 @@
   .baseNoGoShape { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
   .baseNoGoShape polygon { fill:rgba(255,59,77,.34); stroke:#ff3b4d; stroke-width:.25; vector-effect:non-scaling-stroke; }
   .moveZoneLayer[hidden] { display:none; }
+  .ltxArmLayer { position:absolute; inset:0; z-index:6; overflow:hidden; pointer-events:none; }
+  .ltxArmLayer[hidden] { display:none; }
+  .ltxArmSquare { position:absolute; width:clamp(7px,.62vw,10px); aspect-ratio:1;
+    border:1px solid #ff3b4d; background:rgba(255,59,77,.48); box-shadow:0 0 5px rgba(255,59,77,.48);
+    transform:translate(-50%,-50%); }
+  .ltxArmSquare.other { border-color:#ff7c89; background:rgba(176,0,32,.32); box-shadow:none; }
+  .ltxArmLabel { position:absolute; max-width:150px; padding:3px 6px; border:1px solid #ff3b4d;
+    border-radius:5px; background:rgba(76,0,12,.9); color:#fff; font-size:9px; font-weight:950;
+    letter-spacing:.06em; line-height:1; text-align:center; text-shadow:0 1px 2px #000;
+    transform:translate(-50%,-145%); white-space:nowrap; }
+  .ltxArmLabel.other { border-color:#ff7c89; background:rgba(39,4,10,.88); }
   .clickDot { position:absolute; width:16px; height:16px; border:3px solid var(--accent); border-radius:50%; transform:translate(-50%, -50%); z-index:5; box-shadow:0 0 0 9999px rgba(79,157,255,.04); pointer-events:none; }
   .clickDot[hidden] { display:none; }
   .armTrail { position:absolute; inset:0; width:100%; height:100%; z-index:5; pointer-events:none; overflow:visible; }
@@ -219,9 +230,9 @@
     font-size:clamp(22px,4vw,48px); font-weight:950; line-height:1.1; text-align:center;
     text-shadow:0 2px 3px #000,0 0 16px rgba(54,224,124,.7); pointer-events:none; }
   .centerOverlay[hidden] { display:none; }
-  .ltxInstructions { position:absolute; left:12px; right:12px; bottom:12px; z-index:7;
+  .ltxInstructions { position:static; flex:0 0 auto;
     display:grid; gap:3px; padding:9px 12px; border:1px solid rgba(255,255,255,.2);
-    border-radius:8px; background:rgba(3,4,5,.86); color:var(--txt); font-size:clamp(11px,1.35vw,14px);
+    border-radius:0; background:#090b0e; color:var(--txt); font-size:clamp(11px,1.35vw,14px);
     font-weight:700; line-height:1.3; text-align:center; text-shadow:0 1px 2px #000;
     pointer-events:none; }
   .ltxInstructions[hidden] { display:none; }
@@ -251,6 +262,48 @@
   .ltxDistanceMeter.ready .ltxDistanceSegment { background:rgba(84,230,142,.1); }
   .ltxDistanceMeter.ready .ltxDistanceSegment.lit { background:#36e07c;
     box-shadow:0 0 5px rgba(54,224,124,.72),inset 0 1px rgba(218,255,232,.65); }
+  .craneControls { position:absolute; left:50%; bottom:clamp(6px,1.4vh,16px); z-index:7;
+    width:min(96%,1000px); aspect-ratio:10/3; transform:translateX(-50%);
+    border-radius:18px; background:transparent;
+    user-select:none; -webkit-user-select:none; touch-action:none; }
+  .craneControls[hidden] { display:none; }
+  .craneFrame { position:absolute; inset:0; width:100%; height:100%; object-fit:fill;
+    opacity:1; pointer-events:none; }
+  .craneHandle { position:absolute; z-index:2; display:block; min-width:0; min-height:0;
+    margin:0; padding:0; border:0; border-radius:0; background:transparent; color:#fff;
+    transform:translate(-50%,-50%); cursor:grab; touch-action:none;
+    filter:none; transition:outline-color .12s ease; }
+  .craneHandle[data-axis="z"], .craneHandle[data-axis="x"] { width:12%; height:29.333%; }
+  .craneHandle[data-axis="y"] { width:7.2%; height:30%; }
+  .craneHandle:hover:not(:disabled), .craneHandle:focus-visible { border:0; outline:2px solid #fff;
+    outline-offset:3px; filter:none; }
+  .craneHandle.dragging { cursor:grabbing; filter:none; }
+  .craneHandle:disabled { border:0; background:transparent; color:#fff; opacity:1; cursor:not-allowed; filter:none; }
+  .craneHandle img { display:block; width:100%; height:100%; object-fit:contain; pointer-events:none; }
+  .craneReadout { position:absolute; left:50%; top:94%; min-width:max-content; padding:2px 6px;
+    border:1px solid rgba(95,205,255,.75); border-radius:999px; background:rgba(1,6,16,.84);
+    color:#e9f8ff; font-size:clamp(7px,.9vw,11px); font-weight:950; letter-spacing:.04em;
+    line-height:1.1; text-shadow:0 0 7px #118dff; transform:translate(-50%,0); pointer-events:none; }
+  .craneHandle[data-axis="y"] .craneReadout { top:auto; bottom:91%; }
+  .craneDirection { position:absolute; z-index:1; color:rgba(218,244,255,.88);
+    font-size:clamp(7px,.85vw,10px); font-weight:950; letter-spacing:.08em; line-height:1;
+    text-shadow:0 0 5px #087cff,0 1px 2px #000; pointer-events:none; }
+  .craneDirection.up { right:52%; top:13%; text-align:right; }
+  .craneDirection.down { left:20%; top:74%; }
+  .craneDirection.forward { left:52%; top:13%; text-align:left; }
+  .craneDirection.back { right:19%; top:74%; }
+  .craneDirection.left { left:18%; bottom:6%; }
+  .craneDirection.right { right:17%; bottom:6%; }
+  .craneHelp { position:absolute; left:50%; top:55%; z-index:1; padding:3px 8px;
+    border-radius:999px; background:rgba(1,5,13,.58); color:rgba(216,242,255,.9);
+    font-size:clamp(7px,.9vw,11px); font-weight:900; letter-spacing:.09em; line-height:1;
+    text-shadow:0 0 7px #087cff; transform:translate(-50%,-50%); pointer-events:none; white-space:nowrap; }
+  @media (max-width:620px) {
+    .craneControls { width:100%; bottom:3px; }
+    .craneDirection { display:none; }
+    .craneReadout { padding:1px 4px; }
+  }
+  @media (prefers-reduced-motion:reduce) { .craneHandle { transition:none; } }
   .feedTools { position:absolute; top:10px; right:10px; z-index:7; display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
   .feedTools button, .flipBtn { display:inline-flex; align-items:center;
     gap:7px; padding:7px 11px; border:1px solid var(--line); border-radius:7px; cursor:pointer;
@@ -315,26 +368,52 @@
       <img id="webcamFeed" alt="live game camera feed" />
       <div id="calOverlay" class="calOverlay" hidden></div>
       <div id="moveZoneLayer" class="moveZoneLayer" hidden></div>
+      <div id="ltxArmLayer" class="ltxArmLayer" aria-hidden="true" hidden></div>
       <div id="clickDot" class="clickDot" hidden></div>
       <svg id="armTrail" class="armTrail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" hidden></svg>
       <div id="armPoseMarker" class="armPoseMarker" hidden></div>
       <div id="markerStamp" class="markerStamp" hidden></div>
       <div id="feedBanner" class="feedBanner" hidden></div>
-      <div id="ltxInstructions" class="ltxInstructions" hidden>
-        <span>Move the physical tags over the 4 <span id="ltxInstructionTeam" class="ltxInstructionTeam"></span> markers on the outer ring to activate the center marker.</span>
-        <span>After each move, clear the arm for visual camera confirmation and activation.</span>
-      </div>
       <div id="ltxDistanceMeters" class="ltxDistanceMeters" aria-live="polite" hidden></div>
+      <div id="craneControls" class="craneControls" aria-label="Game 2 XYZ controls" hidden>
+        <img class="craneFrame" src="assets/crane-controls/crane-controls-v6-empty-triangle-1000x300-transparent.png" alt="" aria-hidden="true" draggable="false" />
+        <span class="craneDirection up">UP</span>
+        <span class="craneDirection down">DOWN</span>
+        <span class="craneDirection forward">FORWARD</span>
+        <span class="craneDirection back">BACK</span>
+        <span class="craneDirection left">LEFT</span>
+        <span class="craneDirection right">RIGHT</span>
+        <span class="craneHelp">GAME 2 · DRAG LEVERS</span>
+        <button class="craneHandle" type="button" data-axis="z" role="slider" aria-label="Z up and down" disabled>
+          <img src="assets/crane-controls/crane-control-button-left-diagonal-v3.png" alt="" draggable="false" />
+          <span class="craneReadout">Z —</span>
+        </button>
+        <button class="craneHandle" type="button" data-axis="x" role="slider" aria-label="Forward and back" disabled>
+          <img src="assets/crane-controls/crane-control-button-right-diagonal-v3.png" alt="" draggable="false" />
+          <span class="craneReadout">X —</span>
+        </button>
+        <button class="craneHandle" type="button" data-axis="y" role="slider" aria-label="Left and right" disabled>
+          <img src="assets/crane-controls/crane-control-button-bottom-horizontal-v3.png" alt="" draggable="false" />
+          <span class="craneReadout">Y —</span>
+        </button>
+      </div>
       <div id="centerOverlay" class="centerOverlay" hidden></div>
       <div class="feedTools">
         <button id="btnLoadPlayfield" type="button">Load playfield</button>
         <label class="flipBtn" title="Show calibration tag number labels on the video">
           <input type="checkbox" id="tagOverlayToggle" /> Tags
         </label>
+        <label id="armOverlayControl" class="flipBtn" title="Show both live robot arms as red square lines" hidden>
+          <input type="checkbox" id="armOverlayToggle" /> Arm
+        </label>
         <label class="flipBtn" title="Flip if your robot faces you from the far side">
           <input type="checkbox" id="flipToggle" /> Flip 180°
         </label>
       </div>
+    </div>
+    <div id="ltxInstructions" class="ltxInstructions" hidden>
+      <span>Move the physical tags over the 4 <span id="ltxInstructionTeam" class="ltxInstructionTeam"></span> markers on the outer ring to activate the center marker.</span>
+      <span>After each move, clear the arm for visual camera confirmation and activation.</span>
     </div>
   </section>
   <div class="controlsPane">
@@ -532,6 +611,7 @@ const AUTO_PPX = LTX || /\/p\/auto-pp-x(?:\/|$)/.test(location.pathname);
 const AUTO_PPX_STORAGE_PREFIX = LTX ? "ltx" : "auto-pp-x";
 const FLIP_KEY = `auto-pickup-game-flip-${TEAM}`;
 const TAG_OVERLAY_KEY = `auto-pickup-game-tags-${TEAM}`;
+const LTX_ARM_OVERLAY_KEY = `ltx-arm-overlay-${TEAM}`;
 const PLAYER_NAME_KEY = `auto-pickup-game-player-name-${TEAM}`;
 const NAME_HISTORY_KEY = "auto-pickup-game-player-names";
 const FINE_CAL_KEY = `${AUTO_PPX_STORAGE_PREFIX}-fine-cal-${TEAM}`;
@@ -597,8 +677,13 @@ let ltxHeldTagId = null;
 let activeOperation = null;
 const ARM_TRAIL_LIFETIME_MS = 10000;
 const ARM_TRAIL_MIN_MOVE_MM = 0.5;
+const LTX_ARM_POLL_MS = 200;
+const LTX_ARM_STALE_MS = 1500;
 let armTrailPoints = [];
 let armTrailAnimation = 0;
+let ltxArmStates = {};
+let ltxArmSnapshotAt = 0;
+let ltxArmPollBusy = false;
 let cal2BaseGuardBusy = false;
 let cal2RecoveryBusy = false;
 let cal2MotionGeneration = 0;
@@ -729,6 +814,7 @@ function laserIntent(kind, detail = {}, category = "intent") {
 
 let ltxConfigPollBusy = false;
 let ltxVideoClickEnabled = !LTX;
+let ltxGameMode = null;
 function applyLtxConfig(config = {}) {
   if (!LTX) return;
   const visibility = config.visibility || {};
@@ -746,6 +832,11 @@ function applyLtxConfig(config = {}) {
   if (jointAnglesPanel) jointAnglesPanel.hidden = visibility.joint_angles !== true;
   if (tcpPanel) tcpPanel.hidden = visibility.tcp_pose !== true;
   if (autoPickPlacePanel) autoPickPlacePanel.hidden = visibility.auto_pick_place !== true;
+  ltxGameMode = typeof config.game_mode === "string" ? config.game_mode : null;
+  const craneControls = gid("craneControls");
+  const craneVisible = ltxGameMode === "game_2";
+  if (craneControls) craneControls.hidden = !craneVisible;
+  if (craneVisible) requestAnimationFrame(renderCraneControls);
   const labels = {
     game_1:"Joint Angles",
     game_2:"X/Y/Z Controls",
@@ -797,6 +888,7 @@ function applyFlip(userInitiated = true) {
   autoPpxRememberedTags.clear();
   latestVisibleArucoTags = [];
   clearArmTrail();
+  clearLtxArmOverlay();
   setMarkerStamp(null);
   (AUTO_PPX ? loadGameCalibration2({ syncCameraView:false }) : loadGameCalibration({ syncCameraView:false }))
     .then(refreshGameField).catch(() => refreshGameField());
@@ -812,6 +904,42 @@ function applyTagOverlayToggle() {
   refreshGameField();
 }
 
+function ltxArmOverlayVisible() {
+  const toggle = gid("armOverlayToggle");
+  return !!(LTX && toggle && toggle.checked);
+}
+function clearLtxArmOverlay({ clearState = false } = {}) {
+  const layer = gid("ltxArmLayer");
+  if (layer) { layer.hidden = true; layer.replaceChildren(); }
+  if (clearState) { ltxArmStates = {}; ltxArmSnapshotAt = 0; }
+}
+function applyLtxArmOverlayToggle() {
+  if (!LTX) return;
+  localStorage.setItem(LTX_ARM_OVERLAY_KEY, ltxArmOverlayVisible() ? "1" : "0");
+  if (!ltxArmOverlayVisible()) {
+    clearLtxArmOverlay({ clearState:true });
+    return;
+  }
+  refreshLtxArmOverlay();
+}
+async function refreshLtxArmOverlay() {
+  if (!ltxArmOverlayVisible()) { clearLtxArmOverlay(); return; }
+  if (ltxArmPollBusy) return;
+  ltxArmPollBusy = true;
+  try {
+    const data = await gmFetch("/api/ltx-arms");
+    ltxArmStates = data.arms && typeof data.arms === "object" ? data.arms : {};
+    ltxArmSnapshotAt = performance.now();
+    renderLtxArmOverlay();
+  } catch (_) {
+    if (!ltxArmSnapshotAt || performance.now() - ltxArmSnapshotAt > LTX_ARM_STALE_MS) {
+      clearLtxArmOverlay({ clearState:true });
+    }
+  } finally {
+    ltxArmPollBusy = false;
+  }
+}
+
 function fmtNum(v) { return (v == null || !Number.isFinite(Number(v))) ? "--" : Number(v).toFixed(1); }
 function cleanActiveArea(value) {
   const fallback = { sMin:0, sMax:1, tMin:0, tMax:1 };
@@ -825,7 +953,7 @@ function cleanActiveArea(value) {
   return out;
 }
 function gameArmCal() { return (gameCalibration.arms && gameCalibration.arms[TEAM]) || {}; }
-function gameArmCal2() { return (gameCalibration2.arms && gameCalibration2.arms[TEAM]) || {}; }
+function gameArmCal2(side = TEAM) { return (gameCalibration2.arms && gameCalibration2.arms[side]) || {}; }
 function selectedAutoPpxCalibration() {
   return AUTO_PPX ? "cal2" : "auto-pp";
 }
@@ -1012,6 +1140,7 @@ async function loadGameCalibration2({ syncCameraView = true } = {}) {
   if (syncCameraView) applyStoredCal2CameraView();
   cal2JointGuardCache = null;
   updateAutoZReadout();
+  renderLtxArmOverlay();
   return gameCalibration2;
 }
 function escapeHtml(s) {
@@ -1630,6 +1759,7 @@ function renderGameField(tags) {
   latestGameTags = tags;
   renderLtxDistanceMeters();
   setFeedZoom(tags);
+  renderLtxArmOverlay();
   if (lastVideoTargetPoint) showClickDot(lastVideoTargetPoint.u, lastVideoTargetPoint.v);
   const overlay = gid("calOverlay");
   const layer = gid("moveZoneLayer");
@@ -1806,8 +1936,8 @@ function calibrationConvexHull(points) {
   lower.pop(); upper.pop();
   return lower.concat(upper);
 }
-function cal2CalibrationSamples() {
-  return Object.values(gameArmCal2().points || {}).filter(p =>
+function cal2CalibrationSamples(side = TEAM) {
+  return Object.values(gameArmCal2(side).points || {}).filter(p =>
     p.camera && p.pose && p.pose.set).map(p => {
       // Cal 2 captures raw camera coordinates. Work in displayed coordinates
       // so its boundary, base restriction, tag targets, and video clicks all
@@ -1841,6 +1971,84 @@ function cal2CameraForRobotPose(samples,pose){
     v:evalTps(reverse,fitTps(reverse,"cameraV"),pose.x/500,pose.y/500),
   };
 }
+function clipLtxArmSegment(start, end, margin = -3) {
+  const maximum = 100 - margin;
+  const dx = end.x - start.x, dy = end.y - start.y;
+  let enter = 0, leave = 1;
+  const boundaries = [
+    [-dx, start.x - margin],
+    [dx, maximum - start.x],
+    [-dy, start.y - margin],
+    [dy, maximum - start.y],
+  ];
+  for (const [direction, distance] of boundaries) {
+    if (!direction) { if (distance < 0) return null; continue; }
+    const amount = distance / direction;
+    if (direction < 0) enter = Math.max(enter, amount);
+    else leave = Math.min(leave, amount);
+    if (enter > leave) return null;
+  }
+  return {
+    start:{ x:start.x + dx*enter, y:start.y + dy*enter },
+    end:{ x:start.x + dx*leave, y:start.y + dy*leave },
+  };
+}
+function ltxArmPose(state) {
+  if (!state || state.connected !== true || !Array.isArray(state.pose) || state.pose.length < 3) return null;
+  const pose = { x:Number(state.pose[0]), y:Number(state.pose[1]), z:Number(state.pose[2]) };
+  return Object.values(pose).every(Number.isFinite) ? pose : null;
+}
+function ltxArmLineNodes(side, state, layer) {
+  const pose = ltxArmPose(state), samples = cal2CalibrationSamples(side);
+  if (!pose || samples.length < 6) return [];
+  try {
+    const baseCamera = cal2CameraForRobotPose(samples, {x:0,y:0});
+    const tipCamera = cal2CameraForRobotPose(samples, pose);
+    if (![baseCamera.u,baseCamera.v,tipCamera.u,tipCamera.v].every(Number.isFinite)) return [];
+    const base = visibleFeedPointFromCamera(baseCamera.u, baseCamera.v);
+    const tip = visibleFeedPointFromCamera(tipCamera.u, tipCamera.v);
+    const clipped = clipLtxArmSegment(base, tip);
+    if (!clipped) return [];
+    const bounds = layer.getBoundingClientRect();
+    const distancePx = Math.hypot(
+      (clipped.end.x-clipped.start.x)*bounds.width/100,
+      (clipped.end.y-clipped.start.y)*bounds.height/100
+    );
+    const squareCount = Math.max(1, Math.min(120, Math.ceil(distancePx/9)));
+    const own = side === TEAM, nodes = [];
+    for (let index=0; index<=squareCount; index+=1) {
+      const amount = index/squareCount, square = document.createElement("span");
+      square.className = `ltxArmSquare ${own?"own":"other"}`;
+      square.style.left = `${clipped.start.x+(clipped.end.x-clipped.start.x)*amount}%`;
+      square.style.top = `${clipped.start.y+(clipped.end.y-clipped.start.y)*amount}%`;
+      nodes.push(square);
+    }
+    if (tip.x >= -8 && tip.x <= 108 && tip.y >= -8 && tip.y <= 108) {
+      const label = document.createElement("span");
+      label.className = `ltxArmLabel ${own?"own":"other"}`;
+      label.style.left = `${Math.max(7,Math.min(93,tip.x))}%`;
+      label.style.top = `${Math.max(7,Math.min(96,tip.y))}%`;
+      label.textContent = `${own?"YOUR":"OTHER"} ARM · ${side.toUpperCase()}`;
+      nodes.push(label);
+    }
+    return nodes;
+  } catch (_) {
+    return [];
+  }
+}
+function renderLtxArmOverlay() {
+  const layer = gid("ltxArmLayer");
+  if (!layer || !ltxArmOverlayVisible() || selectedAutoPpxCalibration() !== "cal2"
+      || !ltxArmSnapshotAt || performance.now()-ltxArmSnapshotAt > LTX_ARM_STALE_MS) {
+    if (layer) { layer.hidden = true; layer.replaceChildren(); }
+    return;
+  }
+  const other = TEAM === "green" ? "purple" : "green";
+  layer.hidden = false;
+  const nodes = [other, TEAM].flatMap(side => ltxArmLineNodes(side, ltxArmStates[side], layer));
+  layer.replaceChildren(...nodes);
+  layer.hidden = !nodes.length;
+}
 function clearArmTrail(){
   armTrailPoints=[];
   if(armTrailAnimation)cancelAnimationFrame(armTrailAnimation);
@@ -1852,7 +2060,7 @@ function drawArmTrail(){
   armTrailAnimation=0;
   const trail=gid("armTrail"),now=performance.now();
   armTrailPoints=armTrailPoints.filter(point=>now-point.time<ARM_TRAIL_LIFETIME_MS);
-  if(!trail||!AUTO_PPX||!tagOverlayVisible()||selectedAutoPpxCalibration()!=="cal2"||armTrailPoints.length<2){
+  if(!trail||!AUTO_PPX||LTX||!tagOverlayVisible()||selectedAutoPpxCalibration()!=="cal2"||armTrailPoints.length<2){
     if(trail){trail.hidden=true;trail.replaceChildren();}
   }else{
     const segments=[];
@@ -1877,7 +2085,7 @@ function addArmTrailPoint(point,pose){
 }
 function renderCurrentArmPose(){
   const marker=gid("armPoseMarker");
-  if(!marker||!AUTO_PPX||!tagOverlayVisible()||selectedAutoPpxCalibration()!=="cal2"||!currentArmPose){
+  if(!marker||!AUTO_PPX||LTX||!tagOverlayVisible()||selectedAutoPpxCalibration()!=="cal2"||!currentArmPose){
     if(marker)marker.hidden=true;
     return;
   }
@@ -2066,6 +2274,7 @@ function syncTargetSliders(pose, axes = ["x", "y"]) {
     slider.value = v;
     showAxis(def, v);
   }
+  renderCraneControls();
 }
 function autoPpxClickOverrideWasSuperseded(override) {
   return !override
@@ -2643,11 +2852,17 @@ function gameInit() {
     ? localStorage.getItem(AUTO_PPX_TAG_LABELS_KEY) === '1'
     : localStorage.getItem(TAG_OVERLAY_KEY) !== '0';
   if (AUTO_PPX) {
-    gid('tagOverlayToggle').parentElement.title = 'Show tag numbers, the orange calibration outline, and the arm location';
+    gid('tagOverlayToggle').parentElement.title = LTX
+      ? 'Show tag numbers and the camera calibration outline'
+      : 'Show tag numbers, the orange calibration outline, and the arm location';
   }
   gid('tagOverlayToggle').addEventListener('change', applyTagOverlayToggle);
+  gid('armOverlayControl').hidden = !LTX;
+  gid('armOverlayToggle').checked = LTX && localStorage.getItem(LTX_ARM_OVERLAY_KEY) === '1';
+  gid('armOverlayToggle').addEventListener('change', applyLtxArmOverlayToggle);
   gid('flipToggle').checked = localStorage.getItem(FLIP_KEY) === '1';
   gid('flipToggle').addEventListener('change', () => applyFlip(true));
+  window.addEventListener('resize', renderLtxArmOverlay);
   applyFlip(false);
   loadPlayfield().catch(() => startWebcam());
   gid('webcamFeed').onerror = () => setTimeout(startWebcam, 1000);
@@ -2662,6 +2877,8 @@ function gameInit() {
     pollLtxConfig();
     setInterval(pollLtxConfig, 700);
     watchLtxGameState();
+    refreshLtxArmOverlay();
+    setInterval(refreshLtxArmOverlay, LTX_ARM_POLL_MS);
   }
   setInterval(refreshGameField, 1500);
   setInterval(refreshPlayerScores, 5000);
@@ -2715,6 +2932,146 @@ let armPollBusy = false;
 let armConnectBusy = false;
 window.addEventListener("pointerup", () => { draggingId = null; jointDraggingId = null; });
 window.addEventListener("keyup", () => { draggingId = null; jointDraggingId = null; });
+
+const CRANE_CANVAS = { width:1000, height:300 };
+const CRANE_CONTROL_LAYOUT = {
+  z:{ start:[250,230], end:[464,50], label:"Z" },
+  x:{ start:[757,230], end:[535,50], label:"X" },
+  y:{ start:[769,255], end:[235,255], label:"Y" },
+};
+let craneResizeObserver = null;
+
+function craneClamp(value, low, high) {
+  return Math.max(low, Math.min(high, value));
+}
+
+function craneAxisValue(axis) {
+  const slider = sliderEls[axis];
+  const range = ws[axis];
+  if (!slider || !range) return range ? (range[0] + range[1]) / 2 : 0;
+  const value = Number(slider.value);
+  return Number.isFinite(value) ? value : (range[0] + range[1]) / 2;
+}
+
+function renderCraneControl(axis) {
+  const handle = document.querySelector(`.craneHandle[data-axis="${axis}"]`);
+  const layout = CRANE_CONTROL_LAYOUT[axis];
+  const range = ws[axis];
+  if (!handle || !layout || !range) return;
+  const value = craneClamp(craneAxisValue(axis), range[0], range[1]);
+  const span = range[1] - range[0];
+  const amount = span ? (value - range[0]) / span : .5;
+  const x = layout.start[0] + (layout.end[0] - layout.start[0]) * amount;
+  const y = layout.start[1] + (layout.end[1] - layout.start[1]) * amount;
+  handle.style.left = `${x / CRANE_CANVAS.width * 100}%`;
+  handle.style.top = `${y / CRANE_CANVAS.height * 100}%`;
+  handle.setAttribute("aria-valuemin", String(range[0]));
+  handle.setAttribute("aria-valuemax", String(range[1]));
+  handle.setAttribute("aria-valuenow", String(Math.round(value)));
+  handle.setAttribute("aria-valuetext", `${layout.label} ${Math.round(value)} millimetres`);
+  const readout = handle.querySelector(".craneReadout");
+  if (readout) readout.textContent = `${layout.label} ${Math.round(value)} mm`;
+}
+
+function renderCraneControls() {
+  const overlay = gid("craneControls");
+  if (!overlay || overlay.hidden) return;
+  Object.keys(CRANE_CONTROL_LAYOUT).forEach(renderCraneControl);
+}
+
+function setCraneAxisValue(axis, value) {
+  const slider = sliderEls[axis];
+  const def = AXIS_DEFS.find(candidate => candidate.id === axis);
+  const range = ws[axis];
+  if (!slider || !def || !range || slider.disabled) return;
+  const step = Number(def.step) || 1;
+  const clamped = craneClamp(Math.round(Number(value) / step) * step, range[0], range[1]);
+  slider.value = clamped;
+  draggingId = axis;
+  showAxis(def, clamped);
+  slider.dispatchEvent(new Event("input", { bubbles:true }));
+  renderCraneControl(axis);
+}
+
+function setCraneAxisFromPointer(handle, event) {
+  const overlay = gid("craneControls");
+  const axis = handle.dataset.axis;
+  const layout = CRANE_CONTROL_LAYOUT[axis];
+  const range = ws[axis];
+  if (!overlay || !layout || !range || handle.disabled) return;
+  const rect = overlay.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const point = [
+    (event.clientX - rect.left) / rect.width * CRANE_CANVAS.width,
+    (event.clientY - rect.top) / rect.height * CRANE_CANVAS.height,
+  ];
+  const dx = layout.end[0] - layout.start[0];
+  const dy = layout.end[1] - layout.start[1];
+  const amount = craneClamp(((point[0]-layout.start[0])*dx + (point[1]-layout.start[1])*dy) / (dx*dx + dy*dy), 0, 1);
+  setCraneAxisValue(axis, range[0] + (range[1] - range[0]) * amount);
+}
+
+function setCraneControlsEnabled(on) {
+  document.querySelectorAll(".craneHandle").forEach(handle => {
+    handle.disabled = !on;
+    handle.setAttribute("aria-disabled", on ? "false" : "true");
+  });
+}
+
+function wireCraneControls() {
+  document.querySelectorAll(".craneHandle").forEach(handle => {
+    handle.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); });
+    handle.addEventListener("pointerdown", event => {
+      if (handle.disabled) return;
+      event.preventDefault();
+      event.stopPropagation();
+      handle.setPointerCapture(event.pointerId);
+      handle.classList.add("dragging");
+      setCraneAxisFromPointer(handle, event);
+    });
+    handle.addEventListener("pointermove", event => {
+      if (!handle.hasPointerCapture(event.pointerId)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setCraneAxisFromPointer(handle, event);
+    });
+    const finishPointer = event => {
+      event.stopPropagation();
+      handle.classList.remove("dragging");
+      if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+      draggingId = null;
+    };
+    handle.addEventListener("pointerup", finishPointer);
+    handle.addEventListener("pointercancel", finishPointer);
+    handle.addEventListener("keydown", event => {
+      if (handle.disabled) return;
+      const axis = handle.dataset.axis;
+      const def = AXIS_DEFS.find(candidate => candidate.id === axis);
+      const range = ws[axis];
+      if (!def || !range) return;
+      const step = Number(def.step) || 1;
+      let next = craneAxisValue(axis);
+      if (event.key === "Home") next = range[0];
+      else if (event.key === "End") next = range[1];
+      else if (event.key === "PageUp") next += step * 10;
+      else if (event.key === "PageDown") next -= step * 10;
+      else if (axis === "y" && event.key === "ArrowLeft") next += step;
+      else if (axis === "y" && event.key === "ArrowRight") next -= step;
+      else if (event.key === "ArrowUp" || event.key === "ArrowRight") next += step;
+      else if (event.key === "ArrowDown" || event.key === "ArrowLeft") next -= step;
+      else return;
+      event.preventDefault();
+      event.stopPropagation();
+      setCraneAxisValue(axis, next);
+    });
+  });
+  const overlay = gid("craneControls");
+  if (overlay && typeof ResizeObserver === "function") {
+    craneResizeObserver = new ResizeObserver(renderCraneControls);
+    craneResizeObserver.observe(overlay);
+  }
+  renderCraneControls();
+}
 
 function log(msg, cls="log-info") {
   const el = document.getElementById("log");
@@ -4179,7 +4536,7 @@ function buildAxes() {
     const num = document.getElementById(def.id + "Num");
     sliderEls[def.id] = el;
     numEls[def.id] = num;
-    el.addEventListener("input", () => { showAxis(def, el.value); queueMove(); });
+    el.addEventListener("input", () => { showAxis(def, el.value); renderCraneControl(def.id); queueMove(); });
     el.addEventListener("pointerdown", () => draggingId = def.id);
     el.addEventListener("keydown", () => draggingId = def.id);
     num.addEventListener("focus", () => draggingId = def.id);
@@ -4191,6 +4548,7 @@ function buildAxes() {
       v = Math.max(lo, Math.min(hi, v));
       num.value = fmtAxis(def, v);
       el.value = v;
+      renderCraneControl(def.id);
       queueMove();
     });
   });
@@ -4420,6 +4778,7 @@ function setControlsEnabled(on) {
   Object.values(numEls).forEach(el => el.disabled = !on);
   Object.values(jointSliderEls).forEach(el => el.disabled = !on);
   Object.values(jointNumEls).forEach(el => el.disabled = !on);
+  setCraneControlsEnabled(on);
   document.getElementById("btnConnect").disabled = on;
   updateAutoPpxControls();
   updateAutoZReadout();
@@ -4567,6 +4926,7 @@ function applyStatus(s) {
   }
 
   applySlots([]);
+  renderCraneControls();
 
   // Let the game layer know the arm's connection state (auto-starts the timer).
   if (typeof onArmStatus === "function") onArmStatus(s);
@@ -4587,6 +4947,7 @@ function syncSliders() {
       el.value = v;
       showAxis(def, v);
     });
+    renderCraneControls();
     log("Sliders synced to current TCP pose", "log-info");
   });
 }
@@ -4738,6 +5099,7 @@ async function init() {
   if (cfg.relay_host_default) document.getElementById("relayHost").value = cfg.relay_host_default;
   buildAxes();
   buildJointAxes();
+  wireCraneControls();
   buildSlots();
   wire();
   setLinkMode("direct");

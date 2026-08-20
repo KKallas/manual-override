@@ -329,6 +329,17 @@ def api_ltx_state():
     return jsonify({"ok": True, "state": laser.ltx_player_state_snapshot()})
 
 
+@bp.route("/api/ltx-arms")
+def api_ltx_arms():
+    """Expose both compact live LTX arm poses to authenticated players."""
+    if not ({"green", "purple", "gamemaster"} & _roles()):
+        return jsonify({"ok": False, "error": "player or gamemaster required"}), 403
+    laser = _hub_ctx.get_prototype("laser-tag-x") if _hub_ctx is not None else None
+    if laser is None or not hasattr(laser, "ltx_player_arms_snapshot"):
+        return jsonify({"ok": False, "error": "Laser Tag X arm tracking unavailable"}), 503
+    return jsonify({"ok": True, **laser.ltx_player_arms_snapshot()})
+
+
 def _is_operator():
     return "gamemaster" in _roles()
 

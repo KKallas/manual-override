@@ -1,0 +1,48 @@
+{
+  "canvas": {
+    "width": 1000,
+    "height": 300
+  },
+  "background": "crane-controls-v6-empty-triangle-1000x300-transparent.png",
+  "sprites": {
+    "left-diagonal": {
+      "file": "crane-control-button-left-diagonal-v3.png",
+      "initialTopLeft": [
+        297,
+        96
+      ],
+      "width": 120,
+      "height": 88,
+      "center": [
+        357,
+        140
+      ]
+    },
+    "right-diagonal": {
+      "file": "crane-control-button-right-diagonal-v3.png",
+      "initialTopLeft": [
+        586,
+        96
+      ],
+      "width": 120,
+      "height": 88,
+      "center": [
+        646,
+        140
+      ]
+    },
+    "bottom-horizontal": {
+      "file": "crane-control-button-bottom-horizontal-v3.png",
+      "initialTopLeft": [
+        466,
+        210
+      ],
+      "width": 72,
+      "height": 90,
+      "center": [
+        502,
+        255
+      ]
+    }
+  }
+}

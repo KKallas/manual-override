@@ -2,6 +2,8 @@
 
 Status: specification of the currently implemented behavior, including operator UI, game rules, sensor fusion, backend routes, recovery behavior, and diagnostic integration.
 
+For the chronology, trade-offs, lessons, and human/AI attribution behind these requirements, consult the [development journal](../../../../DEVELOPMENT_JOURNAL.md). This specification remains authoritative for current behavior; the journal provides the reasoning and historical context.
+
 This document is intended to be sufficient to rebuild the Laser Tag X tab without consulting its original implementation. Where the product wording and the actual acceptance rule differ, this document gives the actual rule. “Must” describes behavior required for compatibility; “should” describes behavior that is desirable but not required by an existing integration.
 
 ## 1. Product definition
@@ -1307,11 +1309,27 @@ Optional but integrated route:
 
 - `POST /api/laser-tag-x-intent`, forwarding authenticated Green or Purple LTX events into the active Laser Tag X run.
 
+Player arm-visibility route:
+
+- `GET /api/ltx-arms`, returning compact Green and Purple relay snapshots with `connected`, `enabled`, `mode_name`, `pose`, `target`, and `pump_mode`, plus `server_time`. This is the player-safe view of the same relay state consumed by the gamemaster Laser Tag X loop; it must never include the relay command log.
+
 Neither LTX player waits for, polls for, or stops because of Laser Tag X verification or `target_activated` feedback. All Laser Tag X intention/receipt writes are fire-and-forget diagnostics from the player's perspective: success, rejection, delay, or unavailability must not gate the current robot operation or the next queue operation. After `operation_completed`, LTX immediately continues its own queue. Laser Tag X retains the released operation as a background-verification flow and verifies it when the arm naturally leaves the target and exposes the physical tag to the camera.
 
 The LTX Cue Builder exposes `Go`, a `Pause`/`Resume` toggle, and `Stop`. Pause is cooperative and preserves the current queue index, pickup attempt, operation identity, pump receipts, and trusted tag placements. A pause request lets the current planned movement or atomic release/blow sequence reach its safe checkpoint, then prevents the next robot action. Resume continues the same cue from that checkpoint without emitting a replacement operation. Stop remains distinct: it aborts the cue, clears any paused state, and commands the arm to hold.
 
 While a Cue Builder cue is running, a video click is a temporary motion override rather than a cue cancellation. The latest click supersedes any earlier click, waits for an in-flight pump or release/blow action to finish, lifts the arm vertically to the calibrated transport height, moves to the clicked X/Y position, and waits for arrival. The cue then retries the interrupted movement at the same queue index and operation identity. If the interrupted target is at pickup or drop height, the arm returns through that target's transport-height hover before descending. A click during a manually paused cue performs the override but leaves the cue paused afterward. Stop cancels both the cue and any pending click override.
+
+When the gamemaster selects `game_2`, each Green and Purple LTX player video shows the crane-control overlay at the bottom of the camera image. The overlay uses the supplied `crane-controls-v8-manifest.json` handle assets and an alpha-extracted copy of its frame. The frame's black pixels must be genuinely transparent rather than simulated with a blend mode, while the original neon rail appearance remains visible. Hide the overlay in every other game mode. Render the existing game instruction panel in normal layout below the video window so it never covers the camera or crane controls.
+
+The three image handles are direct-manipulation views of the existing Cartesian sliders, not a second motion API:
+
+- the left diagonal handle controls Z, from **down** at its lower-left end to **up** at its upper-right end;
+- the right diagonal handle controls X, from **back** at its lower-right end to **forward** at its upper-left end; and
+- the bottom horizontal handle controls Y, from **right** at its right end to **left** at its left end.
+
+Dragging projects the pointer onto the handle's rail, clamps the result to that axis range, updates the corresponding native X/Y/Z slider, and dispatches its normal input path so the existing move queue, relay ownership, workspace limits, and safety behavior remain authoritative. Robot status and changes made with the native sliders must move the image handles in return. The handles are disabled whenever Cartesian movement is disconnected. Each handle exposes slider semantics and supports Home, End, Page Up, Page Down, and directional arrow keys.
+
+Every LTX player video also provides an `Arm` checkbox beside the existing video overlay controls. It is unchecked by default and remembers the preference separately for Green and Purple. While checked, poll `GET /api/ltx-arms` approximately every 200 ms and show both connected arms; while unchecked, do not request arm snapshots. Project each arm's live relay TCP pose through that arm's own six-point Auto PP Cal 2 model and then through the viewing player's current normal/180-degree presentation transform. Draw each physical arm as a clipped straight line of red square cells from its calibrated base direction to its TCP position, using the same red fill and border language as the base-center exclusion grid. Label the endpoints `YOUR ARM · <SIDE>` and `OTHER ARM · <SIDE>` so the two red lines remain distinguishable. Remove disconnected, invalid, or more-than-1.5-second-stale poses rather than freezing a misleading arm position. This overlay is read-only and must not issue or gate robot commands.
 
 Each Green and Purple LTX video shows distance meters during a running game:
 
