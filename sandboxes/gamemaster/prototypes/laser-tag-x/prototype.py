@@ -60,7 +60,10 @@ MANIFEST = {
     "name": "Laser Tag X",
     "description": "Two-player cooperative placement puzzle with crossing playfield beams.",
     "default_page": "game",
-    "pages": [{"path": "game", "label": "Laser Tag X"}],
+    "pages": [
+        {"path": "game", "label": "Laser Tag X"},
+        {"path": "stats", "label": "Score history"},
+    ],
 }
 
 bp = Blueprint("laser_tag_x", __name__)
@@ -448,6 +451,13 @@ def game():
     return response
 
 
+@bp.route("/stats")
+def stats():
+    response = send_from_directory(HERE, "stats.html")
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
+
+
 @bp.route("/api/state")
 def state():
     with _lock:
@@ -578,6 +588,17 @@ def reset_scores():
         "log_preserved": True,
         "log_file": os.path.basename(SCORE_LOG_PATH),
     })
+
+
+@bp.route("/api/scores/history")
+def score_history():
+    """Full chronological score log for the history page, unaffected by
+    scoring-table resets."""
+    if "gamemaster" not in _roles():
+        return jsonify({"ok": False, "error": "gamemaster required"}), 403
+    with _lock:
+        rows = sorted(_read_score_log(), key=lambda score: score["recorded_at"])
+    return jsonify({"ok": True, "scores": rows})
 
 
 @bp.route("/api/scores/log")

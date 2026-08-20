@@ -47,7 +47,7 @@ button.primary{background:#d9243d;border-color:#ff5367}button:disabled{opacity:.
   <div id="activatedStatus" class="sub">Activated outer targets: none (0/8)</div>
  </section>
  <section class="scores" aria-labelledby="scoreTitle">
-  <div class="score-head"><div><b id="scoreTitle">Scoring table</b><div id="scoreStatus" class="score-status" aria-live="polite">Green and Purple receive one shared winning time.</div></div><div class="score-actions"><a id="scoreLogLink" class="button" download="laser-tag-x-score-log.txt">Download score log</a><button id="resetScores" type="button">Reset scoring table</button></div></div>
+  <div class="score-head"><div><b id="scoreTitle">Scoring table</b><div id="scoreStatus" class="score-status" aria-live="polite">Green and Purple receive one shared winning time.</div></div><div class="score-actions"><a id="scoreHistoryLink" class="button">Score history graph</a><a id="scoreLogLink" class="button" download="laser-tag-x-score-log.txt">Download score log</a><button id="resetScores" type="button">Reset scoring table</button></div></div>
   <div class="score-table-wrap"><table class="score-table"><thead><tr><th scope="col">Rank</th><th scope="col">Players</th><th scope="col">Game type</th><th scope="col">Winning time</th><th scope="col">Next faster</th><th scope="col">Completed</th></tr></thead><tbody id="scoreRows"><tr><td class="score-empty" colspan="6">No winning scores yet.</td></tr></tbody></table></div>
  </section>
  <section class="progress"><div class="step"><b>1 · Pick up</b><span id="step0">Wait for start.</span></div><div class="step"><b>2 · Drop</b><span id="step1">Accelerometer confirms placement.</span></div><div class="step"><b>3 · Verify</b><span id="step2">Camera confirms target coverage.</span></div><div class="step"><b>4 · Cross</b><span id="step3">Create two crossing beams.</span></div></section>
@@ -110,6 +110,7 @@ let scores=[],scoreResetBusy=false;
 function newCenterPickupState(){return{pumpMode:null,active:false,released:false,resolved:false,candidates:new Map,waitingLogged:false,ambiguityKey:null,releasePose:null,operationId:null,physicalTag:null,targetMarker:null,destination:null,suctionPumpCommandSeq:null,releasePumpCommandSeq:null}}
 $('screenLink').href=`${U.play}/screen`;
 $('scoreLogLink').href=`${U.self}/api/scores/log`;
+$('scoreHistoryLink').href=`${U.self}/stats`;
 async function json(url,opts={}){const r=await fetch(url,opts),t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(_){}if(!r.ok)throw Error(d.error||t||`HTTP ${r.status}`);return d}
 async function jsonTimed(url,opts={},timeoutMs=10000){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeoutMs);try{return await json(url,{...opts,signal:ctrl.signal})}catch(e){if(e.name==='AbortError')throw Error('request timed out');throw e}finally{clearTimeout(timer)}}
 async function startCameraFeed(){
