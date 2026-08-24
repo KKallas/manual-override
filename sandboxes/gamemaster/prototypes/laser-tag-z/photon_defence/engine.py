@@ -17,15 +17,16 @@ MAX_ACTIVE_ENEMIES = 1000
 COLLISION_PADDING = 2.0
 COLLISION_STEP = 6.0
 COLLISION_CELL_SIZE = 64.0
-JUNCTION_CLEARANCE = 64.0
+JUNCTION_CLEARANCE = 24.0
+TRACK_OFFSETS = (-21.0, 0.0, 21.0)
 ATOM_OWNERS = {100: "green", 101: "green", 102: "purple", 103: "purple"}
 TOWER_TYPES = {"machine_gun", "flamethrower", "mortar"}
 DEFAULT_LOADOUT = {100: "machine_gun", 101: "flamethrower", 102: "machine_gun", 103: "mortar"}
 ENEMY_STATS = {
-    "grunt": {"hp": 70.0, "speed": 62.0, "core_dps": 6.0, "collision_radius": 22.0},
-    "runner": {"hp": 46.0, "speed": 104.0, "core_dps": 4.0, "collision_radius": 22.0},
-    "breaker": {"hp": 130.0, "speed": 50.0, "core_dps": 10.0, "collision_radius": 22.0},
-    "brute": {"hp": 240.0, "speed": 34.0, "core_dps": 16.0, "collision_radius": 28.0},
+    "grunt": {"hp": 70.0, "speed": 62.0, "core_dps": 6.0, "collision_radius": 22.0 / 3.0},
+    "runner": {"hp": 46.0, "speed": 104.0, "core_dps": 4.0, "collision_radius": 22.0 / 3.0},
+    "breaker": {"hp": 130.0, "speed": 50.0, "core_dps": 10.0, "collision_radius": 22.0 / 3.0},
+    "brute": {"hp": 240.0, "speed": 34.0, "core_dps": 16.0, "collision_radius": 28.0 / 3.0},
 }
 TOWER_STATS = {
     "machine_gun": {"range": 285.0, "rate": 6.0, "damage": 13.0},
@@ -64,6 +65,46 @@ def _tile_draw_offset(alignment: str, width: float, height: float) -> tuple[floa
     dx = 0.0 if "left" in value else -width if "right" in value else -width / 2.0
     dy = 0.0 if value.startswith("top") else -height if value.startswith("bottom") else -height / 2.0
     return dx, dy
+
+
+def _offset_polyline(
+    points: list[tuple[float, float]], offset: float
+) -> list[tuple[float, float]]:
+    """Return a parallel polyline, using mitered corners for orthogonal paths."""
+    if not points or abs(offset) <= 1e-9:
+        return list(points)
+    if len(points) == 1:
+        return list(points)
+
+    normals: list[tuple[float, float]] = []
+    for start, end in zip(points, points[1:]):
+        dx, dy = end[0] - start[0], end[1] - start[1]
+        length = math.hypot(dx, dy)
+        normals.append((-dy / length, dx / length) if length > 1e-9 else (0.0, 0.0))
+
+    shifted: list[tuple[float, float]] = []
+    for index, point in enumerate(points):
+        if index == 0:
+            normal = normals[0]
+            scale = offset
+        elif index == len(points) - 1:
+            normal = normals[-1]
+            scale = offset
+        else:
+            previous_normal, next_normal = normals[index - 1], normals[index]
+            sum_x = previous_normal[0] + next_normal[0]
+            sum_y = previous_normal[1] + next_normal[1]
+            denominator = 1.0 + (
+                previous_normal[0] * next_normal[0] + previous_normal[1] * next_normal[1]
+            )
+            if abs(denominator) <= 1e-9:
+                normal = next_normal
+                scale = offset
+            else:
+                normal = (sum_x, sum_y)
+                scale = offset / denominator
+        shifted.append((point[0] + normal[0] * scale, point[1] + normal[1] * scale))
+    return shifted
 
 
 class _CollisionGrid:
@@ -234,6 +275,7 @@ class DefenseEngine:
             self.enemies: dict[int, dict[str, Any]] = {}
             self.next_enemy_id = 1
             self.attack_slot_cursor: dict[tuple[str, str], int] = defaultdict(int)
+            self.track_cursor: dict[str, int] = defaultdict(int)
             self.junction_reservations: dict[tuple[float, float], int] = {}
             self.pressure_bank = 0
             self.pressure_queue: list[dict[str, Any]] = []
@@ -468,28 +510,40 @@ class DefenseEngine:
         radius = float(stats["collision_radius"])
         remaining_lanes = list(lanes)
         lane = None
+        track_index = 0
         while remaining_lanes:
             values = [float(weights.get(candidate, 1.0)) for candidate in remaining_lanes]
             candidate = self._rng.choices(remaining_lanes, weights=values, k=1)[0]
-            spawn_x, spawn_y = self.level.paths[candidate][0]
-            if all(
-                math.hypot(spawn_x - other["x"], spawn_y - other["y"])
-                >= radius + other["collision_radius"] + COLLISION_PADDING
-                for other in self.enemies.values()
-            ):
-                lane = candidate
+            first_track = self.track_cursor[candidate] % len(TRACK_OFFSETS)
+            for track_attempt in range(len(TRACK_OFFSETS)):
+                candidate_track = (first_track + track_attempt) % len(TRACK_OFFSETS)
+                spawn_x, spawn_y = _offset_polyline(
+                    self.level.paths[candidate], TRACK_OFFSETS[candidate_track]
+                )[0]
+                if all(
+                    math.hypot(spawn_x - other["x"], spawn_y - other["y"])
+                    >= radius + other["collision_radius"] + COLLISION_PADDING
+                    for other in self.enemies.values()
+                ):
+                    lane = candidate
+                    track_index = candidate_track
+                    break
+            if lane is not None:
                 break
             remaining_lanes.remove(candidate)
         if lane is None:
             return False
+        self.track_cursor[lane] = track_index + 1
         hp = stats["hp"] * float(self.settings["enemy_health_multiplier"])
-        path = self._path_to_attack_slot(lane)
+        path = self._path_to_attack_slot(lane, TRACK_OFFSETS[track_index])
+        initial_dx, initial_dy = path[1][0] - path[0][0], path[1][1] - path[0][1]
+        initial_length = math.hypot(initial_dx, initial_dy)
         enemy_id = self.next_enemy_id
         self.next_enemy_id += 1
-        self.enemies[enemy_id] = {"id": enemy_id, "enemy_type": enemy_type, "lane": lane, "x": path[0][0], "y": path[0][1], "hp": hp, "max_hp": hp, "speed": stats["speed"] * float(self.settings["enemy_speed_multiplier"]), "core_dps": stats["core_dps"] * float(self.settings["enemy_core_damage_multiplier"]), "collision_radius": radius, "path": path, "segment": 0, "attacking": False, "progress": 0.0}
+        self.enemies[enemy_id] = {"id": enemy_id, "enemy_type": enemy_type, "lane": lane, "track": track_index - 1, "x": path[0][0], "y": path[0][1], "hp": hp, "max_hp": hp, "speed": stats["speed"] * float(self.settings["enemy_speed_multiplier"]), "core_dps": stats["core_dps"] * float(self.settings["enemy_core_damage_multiplier"]), "collision_radius": radius, "facing_x": initial_dx / initial_length, "facing_y": initial_dy / initial_length, "path": path, "segment": 0, "attacking": False, "progress": 0.0}
         return True
 
-    def _path_to_attack_slot(self, lane: str) -> list[tuple[float, float]]:
+    def _path_to_attack_slot(self, lane: str, track_offset: float = 0.0) -> list[tuple[float, float]]:
         side = "top" if lane.startswith("top") else "bottom"
         base_path = [tuple(point) for point in self.level.paths[lane][:-1]]
         arrival_x = base_path[-1][0]
@@ -507,7 +561,7 @@ class DefenseEngine:
         else:
             offset = 104.0 if direction == "right" else -104.0
             approach = [(core_x + offset, ring_y), (core_x + offset, side_y)]
-        return base_path + approach
+        return _offset_polyline(base_path + approach, track_offset)
 
     def _release_cleared_junctions(self) -> None:
         for junction, owner_id in list(self.junction_reservations.items()):
@@ -515,14 +569,9 @@ class DefenseEngine:
             if owner is None or owner["hp"] <= 0:
                 self.junction_reservations.pop(junction, None)
                 continue
-            occurrences = [index for index, point in enumerate(owner["path"]) if point == junction]
-            if not occurrences:
-                self.junction_reservations.pop(junction, None)
-                continue
-            passed = owner["segment"] >= max(occurrences)
-            if owner["attacking"] or (
-                passed and math.hypot(owner["x"] - junction[0], owner["y"] - junction[1]) >= JUNCTION_CLEARANCE
-            ):
+            if owner["attacking"] or math.hypot(
+                owner["x"] - junction[0], owner["y"] - junction[1]
+            ) >= JUNCTION_CLEARANCE:
                 self.junction_reservations.pop(junction, None)
 
     def _junction_blocks(self, enemy: dict[str, Any], candidate_x: float, candidate_y: float) -> bool:
@@ -549,6 +598,7 @@ class DefenseEngine:
                 enemy["x"], enemy["y"] = target_x, target_y
                 enemy["segment"] += 1
                 continue
+            enemy["facing_x"], enemy["facing_y"] = dx / distance, dy / distance
             step = min(remaining, distance, COLLISION_STEP)
             ratio = step / distance
             candidate_x = enemy["x"] + dx * ratio
@@ -668,7 +718,7 @@ class DefenseEngine:
 
     def snapshot(self) -> dict[str, Any]:
         with self.lock:
-            enemies = [{key: enemy[key] for key in ("id", "enemy_type", "lane", "x", "y", "hp", "max_hp", "collision_radius", "attacking", "progress")} for enemy in self.enemies.values()]
+            enemies = [{key: enemy[key] for key in ("id", "enemy_type", "lane", "track", "x", "y", "hp", "max_hp", "collision_radius", "facing_x", "facing_y", "attacking", "progress")} for enemy in self.enemies.values()]
             towers = [{key: tower[key] for key in ("atom_tag_id", "owner", "socket_id", "aruco_id", "tower_type", "x", "y", "last_fire_at", "source")} for tower in self.placements.values()]
             return {"phase": self.phase, "paused": self.paused, "virtual_play": self.virtual_play, "sim_time": round(self.sim_time, 3), "wave": self.current_wave, "wave_count": int(self.settings["wave_count"]), "active_enemies": len(enemies), "max_active_enemies": int(self.settings["max_active_enemies"]), "pressure_bank": self.pressure_bank, "core_hp": round(self.core_hp, 2), "core_max_hp": round(self.core_max_hp, 2), "kills": self.kills, "breaches": self.breaches, "enemies": enemies, "towers": towers, "gates": self._gates(), "activation_order": list(self.activation_order), "loadout": {str(key): value for key, value in self.loadout.items()}, "settings": dict(self.settings), "events": list(self.events[-30:]), "server_time": time.time()}
 

@@ -16,7 +16,12 @@ PROTOTYPE = ROOT / "sandboxes/gamemaster/prototypes/laser-tag-z"
 sys.path.insert(0, str(PROTOTYPE))
 
 from photon_defence import DefenseEngine, SettingsStore  # noqa: E402
-from photon_defence.engine import COLLISION_PADDING  # noqa: E402
+from photon_defence.engine import (  # noqa: E402
+    COLLISION_PADDING,
+    ENEMY_STATS,
+    TRACK_OFFSETS,
+    _CollisionGrid,
+)
 
 
 MAP_PATH = ROOT / "assets/tiled/levels/z-pixel-first-map.tmj"
@@ -68,8 +73,39 @@ class LaserTagZEngineTests(unittest.TestCase):
         game_html = (PROTOTYPE / "game.html").read_text(encoding="utf-8")
         self.assertIn("`enemy:${type}:${frame}`", game_html)
         self.assertIn("Math.floor(visualTime*8", game_html)
+        self.assertIn("Math.atan2(facingY,facingX)-Math.PI/2", game_html)
+        self.assertIn("size=(enemy.enemy_type==='brute'?56:44)/3", game_html)
         self.assertIn("requestAnimationFrame(gameRenderLoop)", game_html)
         self.assertIn("function renderCoreHealth", game_html)
+
+    def test_three_orcs_fit_across_a_lane_and_face_their_motion(self):
+        weights = {"top_inner": 1.0}
+        self.assertTrue(all(self.engine._spawn_enemy("brute", weights) for _ in range(3)))
+        enemies = list(self.engine.enemies.values())
+        self.assertEqual({enemy["track"] for enemy in enemies}, {-1, 0, 1})
+        self.assertEqual(len({round(enemy["y"], 3) for enemy in enemies}), 3)
+        self.assertEqual(
+            max(enemy["y"] for enemy in enemies) - min(enemy["y"] for enemy in enemies),
+            TRACK_OFFSETS[-1] - TRACK_OFFSETS[0],
+        )
+        self.assertAlmostEqual(ENEMY_STATS["brute"]["collision_radius"], 28.0 / 3.0)
+
+        enemy = enemies[0]
+        self.assertAlmostEqual(enemy["facing_x"], 1.0)
+        self.assertAlmostEqual(enemy["facing_y"], 0.0)
+        enemy["x"], enemy["y"] = enemy["path"][1]
+        enemy["segment"] = 1
+        self.engine._advance_enemy(enemy, 1.0, _CollisionGrid([]))
+        self.assertAlmostEqual(enemy["facing_x"], 0.0)
+        self.assertAlmostEqual(enemy["facing_y"], 1.0)
+
+        self.assertTrue(self.engine._spawn_enemy("grunt", {"bottom_inner": 1.0}))
+        upward_enemy = self.engine.enemies[max(self.engine.enemies)]
+        upward_enemy["x"], upward_enemy["y"] = upward_enemy["path"][1]
+        upward_enemy["segment"] = 1
+        self.engine._advance_enemy(upward_enemy, 1.0, _CollisionGrid([]))
+        self.assertAlmostEqual(upward_enemy["facing_x"], 0.0)
+        self.assertAlmostEqual(upward_enemy["facing_y"], -1.0)
 
     def test_virtual_placements_make_force_field_and_survive_start(self):
         self.engine.set_virtual_play(True)
