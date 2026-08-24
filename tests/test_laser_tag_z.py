@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import sys
 import tempfile
 import unittest
@@ -15,6 +16,7 @@ PROTOTYPE = ROOT / "sandboxes/gamemaster/prototypes/laser-tag-z"
 sys.path.insert(0, str(PROTOTYPE))
 
 from photon_defence import DefenseEngine, SettingsStore  # noqa: E402
+from photon_defence.engine import COLLISION_PADDING  # noqa: E402
 
 
 MAP_PATH = ROOT / "assets/tiled/levels/z-pixel-first-map.tmj"
@@ -120,8 +122,30 @@ class LaserTagZEngineTests(unittest.TestCase):
         capped.enemies.clear()
         capped.step(0.1)
         drained = capped.snapshot()
-        self.assertEqual(drained["active_enemies"], 10)
+        self.assertGreater(drained["active_enemies"], 0)
+        self.assertLessEqual(drained["active_enemies"], 10)
         self.assertLess(drained["pressure_bank"], pressure_before)
+
+    def test_orcs_keep_personal_space_and_surround_the_core(self):
+        self.engine.start({
+            "wave_count": 1,
+            "enemy_speed_multiplier": 4.0,
+            "release_rate_multiplier": 1000.0,
+            "max_active_enemies": 40,
+            "core_hp": 100000.0,
+        })
+        for _ in range(200):
+            self.engine.step(0.1)
+            enemies = self.engine.snapshot()["enemies"]
+            for index, enemy in enumerate(enemies):
+                for other in enemies[index + 1:]:
+                    distance = math.hypot(enemy["x"] - other["x"], enemy["y"] - other["y"])
+                    minimum = enemy["collision_radius"] + other["collision_radius"] + COLLISION_PADDING
+                    self.assertGreaterEqual(distance + 0.02, minimum)
+
+        attackers = [enemy for enemy in self.engine.snapshot()["enemies"] if enemy["attacking"]]
+        self.assertGreaterEqual(len(attackers), 3)
+        self.assertEqual(len({(enemy["x"], enemy["y"]) for enemy in attackers}), len(attackers))
 
     def test_physical_placement_requires_matching_enabled_released_arm(self):
         tags = [

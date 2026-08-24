@@ -8,19 +8,24 @@ import math
 import random
 import threading
 import time
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Callable
 
 
 MAX_ACTIVE_ENEMIES = 1000
+COLLISION_PADDING = 2.0
+COLLISION_STEP = 6.0
+COLLISION_CELL_SIZE = 64.0
+JUNCTION_CLEARANCE = 64.0
 ATOM_OWNERS = {100: "green", 101: "green", 102: "purple", 103: "purple"}
 TOWER_TYPES = {"machine_gun", "flamethrower", "mortar"}
 DEFAULT_LOADOUT = {100: "machine_gun", 101: "flamethrower", 102: "machine_gun", 103: "mortar"}
 ENEMY_STATS = {
-    "grunt": {"hp": 70.0, "speed": 62.0, "core_dps": 6.0},
-    "runner": {"hp": 46.0, "speed": 104.0, "core_dps": 4.0},
-    "breaker": {"hp": 130.0, "speed": 50.0, "core_dps": 10.0},
-    "brute": {"hp": 240.0, "speed": 34.0, "core_dps": 16.0},
+    "grunt": {"hp": 70.0, "speed": 62.0, "core_dps": 6.0, "collision_radius": 22.0},
+    "runner": {"hp": 46.0, "speed": 104.0, "core_dps": 4.0, "collision_radius": 22.0},
+    "breaker": {"hp": 130.0, "speed": 50.0, "core_dps": 10.0, "collision_radius": 22.0},
+    "brute": {"hp": 240.0, "speed": 34.0, "core_dps": 16.0, "collision_radius": 28.0},
 }
 TOWER_STATS = {
     "machine_gun": {"range": 285.0, "rate": 6.0, "damage": 13.0},
@@ -61,6 +66,44 @@ def _tile_draw_offset(alignment: str, width: float, height: float) -> tuple[floa
     return dx, dy
 
 
+class _CollisionGrid:
+    """Small spatial hash used for collision checks at the 1000-orc cap."""
+
+    def __init__(self, enemies: list[dict[str, Any]]) -> None:
+        self.cells: dict[tuple[int, int], set[int]] = defaultdict(set)
+        self.entries: dict[int, tuple[float, float, float]] = {}
+        self.entry_cells: dict[int, tuple[int, int]] = {}
+        for enemy in enemies:
+            self.add(enemy["id"], enemy["x"], enemy["y"], enemy["collision_radius"])
+
+    @staticmethod
+    def _cell(x: float, y: float) -> tuple[int, int]:
+        return math.floor(x / COLLISION_CELL_SIZE), math.floor(y / COLLISION_CELL_SIZE)
+
+    def add(self, enemy_id: int, x: float, y: float, radius: float) -> None:
+        cell = self._cell(x, y)
+        self.entries[enemy_id] = (x, y, radius)
+        self.entry_cells[enemy_id] = cell
+        self.cells[cell].add(enemy_id)
+
+    def remove(self, enemy_id: int) -> None:
+        cell = self.entry_cells.pop(enemy_id, None)
+        self.entries.pop(enemy_id, None)
+        if cell is not None:
+            self.cells[cell].discard(enemy_id)
+
+    def collides(self, x: float, y: float, radius: float) -> bool:
+        cell_x, cell_y = self._cell(x, y)
+        for offset_y in (-1, 0, 1):
+            for offset_x in (-1, 0, 1):
+                for enemy_id in self.cells.get((cell_x + offset_x, cell_y + offset_y), ()):
+                    other_x, other_y, other_radius = self.entries[enemy_id]
+                    minimum = radius + other_radius + COLLISION_PADDING
+                    if (x - other_x) ** 2 + (y - other_y) ** 2 < minimum ** 2 - 1e-6:
+                        return True
+        return False
+
+
 class LevelModel:
     def __init__(self, map_path: str | Path) -> None:
         self.map_path = Path(map_path)
@@ -93,6 +136,11 @@ class LevelModel:
             edge = {"to": int(props["to_node"]), "cost": float(props.get("base_cost", 1.0)), "points": points, "edge_id": props.get("edge_id", obj["name"])}
             self.edges.setdefault(int(props["from_node"]), []).append(edge)
         self.paths = {group: self._shortest_path(self._node_id(node)) for group, node in self.spawns.items()}
+        self.junctions = {
+            (float(node["x"]), float(node["y"]))
+            for node in self.nodes.values()
+            if node.get("node_kind") in {"junction", "arrival", "turnaround"}
+        }
         self.sockets: dict[str, dict[str, Any]] = {}
         self.socket_by_marker: dict[int, str] = {}
         for obj in layers["09 Square Placement Spots (16)"]["objects"]:
@@ -185,6 +233,8 @@ class DefenseEngine:
             self.next_wave_at = 0.0
             self.enemies: dict[int, dict[str, Any]] = {}
             self.next_enemy_id = 1
+            self.attack_slot_cursor: dict[tuple[str, str], int] = defaultdict(int)
+            self.junction_reservations: dict[tuple[float, float], int] = {}
             self.pressure_bank = 0
             self.pressure_queue: list[dict[str, Any]] = []
             self.kills = 0
@@ -368,7 +418,8 @@ class DefenseEngine:
         active_limit = int(self.settings["max_active_enemies"])
         while self.pressure_queue and len(self.enemies) < active_limit:
             pending = self.pressure_queue[0]
-            self._spawn_enemy(pending["enemy"], pending["lane_weights"])
+            if not self._spawn_enemy(pending["enemy"], pending["lane_weights"]):
+                break
             pending["count"] -= 1
             self.pressure_bank -= 1
             if pending["count"] <= 0:
@@ -392,23 +443,137 @@ class DefenseEngine:
                             self.pressure_bank += accepted
                         group["spawned"] = target
                         break
-                    self._spawn_enemy(str(group["enemy"]), group.get("lane_weights") or {})
-                    group["spawned"] += 1
+                    if self._spawn_enemy(str(group["enemy"]), group.get("lane_weights") or {}):
+                        group["spawned"] += 1
+                        continue
+                    deferred = target - group["spawned"]
+                    accepted = min(deferred, 2000 - self.pressure_bank)
+                    if accepted > 0:
+                        self.pressure_queue.append({
+                            "enemy": str(group["enemy"]),
+                            "lane_weights": dict(group.get("lane_weights") or {}),
+                            "count": accepted,
+                        })
+                        self.pressure_bank += accepted
+                    group["spawned"] = target
+                    break
         if self.current_wave < min(int(self.settings["wave_count"]), len(self.wave_source)) and self.sim_time >= self.next_wave_at:
             self._launch_wave(self.current_wave + 1)
 
-    def _spawn_enemy(self, enemy_type: str, weights: dict[str, Any]) -> None:
+    def _spawn_enemy(self, enemy_type: str, weights: dict[str, Any]) -> bool:
         lanes = [lane for lane in self.level.paths if float(weights.get(lane, 0.0)) > 0]
         if not lanes:
             lanes = list(self.level.paths)
-        values = [float(weights.get(lane, 1.0)) for lane in lanes]
-        lane = self._rng.choices(lanes, weights=values, k=1)[0]
         stats = ENEMY_STATS.get(enemy_type, ENEMY_STATS["grunt"])
+        radius = float(stats["collision_radius"])
+        remaining_lanes = list(lanes)
+        lane = None
+        while remaining_lanes:
+            values = [float(weights.get(candidate, 1.0)) for candidate in remaining_lanes]
+            candidate = self._rng.choices(remaining_lanes, weights=values, k=1)[0]
+            spawn_x, spawn_y = self.level.paths[candidate][0]
+            if all(
+                math.hypot(spawn_x - other["x"], spawn_y - other["y"])
+                >= radius + other["collision_radius"] + COLLISION_PADDING
+                for other in self.enemies.values()
+            ):
+                lane = candidate
+                break
+            remaining_lanes.remove(candidate)
+        if lane is None:
+            return False
         hp = stats["hp"] * float(self.settings["enemy_health_multiplier"])
-        path = self.level.paths[lane]
+        path = self._path_to_attack_slot(lane)
         enemy_id = self.next_enemy_id
         self.next_enemy_id += 1
-        self.enemies[enemy_id] = {"id": enemy_id, "enemy_type": enemy_type, "lane": lane, "x": path[0][0], "y": path[0][1], "hp": hp, "max_hp": hp, "speed": stats["speed"] * float(self.settings["enemy_speed_multiplier"]), "core_dps": stats["core_dps"] * float(self.settings["enemy_core_damage_multiplier"]), "path": path, "segment": 0, "attacking": False, "progress": 0.0}
+        self.enemies[enemy_id] = {"id": enemy_id, "enemy_type": enemy_type, "lane": lane, "x": path[0][0], "y": path[0][1], "hp": hp, "max_hp": hp, "speed": stats["speed"] * float(self.settings["enemy_speed_multiplier"]), "core_dps": stats["core_dps"] * float(self.settings["enemy_core_damage_multiplier"]), "collision_radius": radius, "path": path, "segment": 0, "attacking": False, "progress": 0.0}
+        return True
+
+    def _path_to_attack_slot(self, lane: str) -> list[tuple[float, float]]:
+        side = "top" if lane.startswith("top") else "bottom"
+        base_path = [tuple(point) for point in self.level.paths[lane][:-1]]
+        arrival_x = base_path[-1][0]
+        prior_x = base_path[-2][0]
+        direction = "right" if arrival_x >= prior_x else "left"
+        cursor_key = (side, direction)
+        slot = self.attack_slot_cursor[cursor_key] % 2
+        self.attack_slot_cursor[cursor_key] += 1
+        core_x, core_y = float(self.level.core["x"]), float(self.level.core["y"])
+        ring_y = core_y - 104.0 if side == "top" else core_y + 104.0
+        side_y = core_y - 30.0 if side == "top" else core_y + 30.0
+        if slot == 0:
+            offset = 60.0 if direction == "right" else -60.0
+            approach = [(core_x + offset, ring_y)]
+        else:
+            offset = 104.0 if direction == "right" else -104.0
+            approach = [(core_x + offset, ring_y), (core_x + offset, side_y)]
+        return base_path + approach
+
+    def _release_cleared_junctions(self) -> None:
+        for junction, owner_id in list(self.junction_reservations.items()):
+            owner = self.enemies.get(owner_id)
+            if owner is None or owner["hp"] <= 0:
+                self.junction_reservations.pop(junction, None)
+                continue
+            occurrences = [index for index, point in enumerate(owner["path"]) if point == junction]
+            if not occurrences:
+                self.junction_reservations.pop(junction, None)
+                continue
+            passed = owner["segment"] >= max(occurrences)
+            if owner["attacking"] or (
+                passed and math.hypot(owner["x"] - junction[0], owner["y"] - junction[1]) >= JUNCTION_CLEARANCE
+            ):
+                self.junction_reservations.pop(junction, None)
+
+    def _junction_blocks(self, enemy: dict[str, Any], candidate_x: float, candidate_y: float) -> bool:
+        for junction in self.level.junctions:
+            candidate_distance = math.hypot(candidate_x - junction[0], candidate_y - junction[1])
+            if candidate_distance >= JUNCTION_CLEARANCE:
+                continue
+            current_distance = math.hypot(enemy["x"] - junction[0], enemy["y"] - junction[1])
+            owner_id = self.junction_reservations.get(junction)
+            if owner_id is None and current_distance >= JUNCTION_CLEARANCE:
+                self.junction_reservations[junction] = enemy["id"]
+                owner_id = enemy["id"]
+            if owner_id not in (None, enemy["id"]):
+                return True
+        return False
+
+    def _advance_enemy(self, enemy: dict[str, Any], remaining: float, grid: _CollisionGrid) -> None:
+        path = enemy["path"]
+        while remaining > 1e-9 and enemy["segment"] < len(path) - 1:
+            target_x, target_y = path[enemy["segment"] + 1]
+            dx, dy = target_x - enemy["x"], target_y - enemy["y"]
+            distance = math.hypot(dx, dy)
+            if distance <= 1e-9:
+                enemy["x"], enemy["y"] = target_x, target_y
+                enemy["segment"] += 1
+                continue
+            step = min(remaining, distance, COLLISION_STEP)
+            ratio = step / distance
+            candidate_x = enemy["x"] + dx * ratio
+            candidate_y = enemy["y"] + dy * ratio
+            if self._junction_blocks(enemy, candidate_x, candidate_y) or grid.collides(candidate_x, candidate_y, enemy["collision_radius"]):
+                low, high = 0.0, step
+                for _ in range(10):
+                    trial = (low + high) / 2.0
+                    trial_ratio = trial / distance
+                    trial_x = enemy["x"] + dx * trial_ratio
+                    trial_y = enemy["y"] + dy * trial_ratio
+                    if self._junction_blocks(enemy, trial_x, trial_y) or grid.collides(trial_x, trial_y, enemy["collision_radius"]):
+                        high = trial
+                    else:
+                        low = trial
+                if low > 1e-4:
+                    move_ratio = low / distance
+                    enemy["x"] += dx * move_ratio
+                    enemy["y"] += dy * move_ratio
+                break
+            enemy["x"], enemy["y"] = candidate_x, candidate_y
+            remaining -= step
+            if step >= distance - 1e-9:
+                enemy["x"], enemy["y"] = target_x, target_y
+                enemy["segment"] += 1
 
     def _gates(self) -> list[dict[str, Any]]:
         order = [tag for tag in self.activation_order if tag in self.placements]
@@ -426,8 +591,10 @@ class DefenseEngine:
                 return
             self.sim_time += dt
             self._spawn_due()
+            self._release_cleared_junctions()
             gates = self._gates()
             dead: set[int] = set()
+            slow_by_enemy: dict[int, float] = {}
             for enemy in self.enemies.values():
                 slow = 1.0
                 for gate in gates:
@@ -436,24 +603,24 @@ class DefenseEngine:
                         enemy["hp"] -= float(self.settings["force_field_damage_per_s"]) * dt
                 if enemy["hp"] <= 0:
                     dead.add(enemy["id"])
+                slow_by_enemy[enemy["id"]] = slow
+            collision_grid = _CollisionGrid(list(self.enemies.values()))
+            ordered = sorted(
+                self.enemies.values(),
+                key=lambda item: (bool(item["attacking"]), float(item["progress"]), item["id"]),
+                reverse=True,
+            )
+            for enemy in ordered:
+                if enemy["id"] in dead:
                     continue
                 if enemy["attacking"]:
                     self.core_hp -= enemy["core_dps"] * dt
                     continue
-                remaining = enemy["speed"] * slow * dt
+                collision_grid.remove(enemy["id"])
+                remaining = enemy["speed"] * slow_by_enemy[enemy["id"]] * dt
                 path = enemy["path"]
-                while remaining > 0 and enemy["segment"] < len(path) - 1:
-                    target = path[enemy["segment"] + 1]
-                    distance = math.hypot(target[0] - enemy["x"], target[1] - enemy["y"])
-                    if distance <= remaining + 1e-9:
-                        enemy["x"], enemy["y"] = target
-                        enemy["segment"] += 1
-                        remaining -= distance
-                    else:
-                        ratio = remaining / max(distance, 1e-9)
-                        enemy["x"] += (target[0] - enemy["x"]) * ratio
-                        enemy["y"] += (target[1] - enemy["y"]) * ratio
-                        remaining = 0
+                self._advance_enemy(enemy, remaining, collision_grid)
+                collision_grid.add(enemy["id"], enemy["x"], enemy["y"], enemy["collision_radius"])
                 enemy["progress"] = enemy["segment"] / max(1, len(path) - 1)
                 if enemy["segment"] >= len(path) - 1:
                     enemy["attacking"] = True
@@ -501,7 +668,7 @@ class DefenseEngine:
 
     def snapshot(self) -> dict[str, Any]:
         with self.lock:
-            enemies = [{key: enemy[key] for key in ("id", "enemy_type", "lane", "x", "y", "hp", "max_hp", "attacking", "progress")} for enemy in self.enemies.values()]
+            enemies = [{key: enemy[key] for key in ("id", "enemy_type", "lane", "x", "y", "hp", "max_hp", "collision_radius", "attacking", "progress")} for enemy in self.enemies.values()]
             towers = [{key: tower[key] for key in ("atom_tag_id", "owner", "socket_id", "aruco_id", "tower_type", "x", "y", "last_fire_at", "source")} for tower in self.placements.values()]
             return {"phase": self.phase, "paused": self.paused, "virtual_play": self.virtual_play, "sim_time": round(self.sim_time, 3), "wave": self.current_wave, "wave_count": int(self.settings["wave_count"]), "active_enemies": len(enemies), "max_active_enemies": int(self.settings["max_active_enemies"]), "pressure_bank": self.pressure_bank, "core_hp": round(self.core_hp, 2), "core_max_hp": round(self.core_max_hp, 2), "kills": self.kills, "breaches": self.breaches, "enemies": enemies, "towers": towers, "gates": self._gates(), "activation_order": list(self.activation_order), "loadout": {str(key): value for key, value in self.loadout.items()}, "settings": dict(self.settings), "events": list(self.events[-30:]), "server_time": time.time()}
 
