@@ -54,12 +54,30 @@ def _distance_point_to_segment(px: float, py: float, ax: float, ay: float, bx: f
     return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
 
 
+def _tile_draw_offset(alignment: str, width: float, height: float) -> tuple[float, float]:
+    value = (alignment or "bottomleft").lower()
+    dx = 0.0 if "left" in value else -width if "right" in value else -width / 2.0
+    dy = 0.0 if value.startswith("top") else -height if value.startswith("bottom") else -height / 2.0
+    return dx, dy
+
+
 class LevelModel:
     def __init__(self, map_path: str | Path) -> None:
         self.map_path = Path(map_path)
         self.data = json.loads(self.map_path.read_text(encoding="utf-8"))
         self.width = int(self.data["width"] * self.data["tilewidth"])
         self.height = int(self.data["height"] * self.data["tileheight"])
+        self.tileset_alignments: list[tuple[int, str]] = []
+        for reference in self.data.get("tilesets", []):
+            source = reference.get("source")
+            if not source:
+                continue
+            tileset_path = (self.map_path.parent / source).resolve()
+            tileset = json.loads(tileset_path.read_text(encoding="utf-8"))
+            self.tileset_alignments.append(
+                (int(reference["firstgid"]), str(tileset.get("objectalignment") or "bottomleft"))
+            )
+        self.tileset_alignments.sort()
         layers = {layer["name"]: layer for layer in self.data["layers"]}
         node_objects = layers["07 Path Nodes (hidden)"]["objects"]
         self.nodes = {obj["id"]: {"name": obj["name"], "x": float(obj["x"]), "y": float(obj["y"]), **_properties(obj)} for obj in node_objects}
@@ -80,7 +98,8 @@ class LevelModel:
         for obj in layers["09 Square Placement Spots (16)"]["objects"]:
             props = _properties(obj)
             socket_id, marker = str(props["socket_id"]), int(props["aruco_id"])
-            socket = {"socket_id": socket_id, "aruco_id": marker, "owner": props["owner"], "x": float(obj["x"]) + float(obj["width"]) / 2.0, "y": float(obj["y"]) - float(obj["height"]) / 2.0}
+            x, y = self._tile_object_center(obj)
+            socket = {"socket_id": socket_id, "aruco_id": marker, "owner": props["owner"], "x": x, "y": y}
             self.sockets[socket_id] = socket
             self.socket_by_marker[marker] = socket_id
         if sorted(self.socket_by_marker) != list(range(40, 56)):
@@ -88,6 +107,23 @@ class LevelModel:
 
     def _node_id(self, node: dict[str, Any]) -> int:
         return next(node_id for node_id, candidate in self.nodes.items() if candidate is node)
+
+    def _tile_object_center(self, obj: dict[str, Any]) -> tuple[float, float]:
+        gid = int(obj["gid"])
+        alignment = "bottomleft"
+        for first_gid, candidate in self.tileset_alignments:
+            if gid < first_gid:
+                break
+            alignment = candidate
+        width, height = float(obj["width"]), float(obj["height"])
+        dx, dy = _tile_draw_offset(alignment, width, height)
+        local_x, local_y = dx + width / 2.0, dy + height / 2.0
+        rotation = math.radians(float(obj.get("rotation", 0.0)))
+        cos, sin = math.cos(rotation), math.sin(rotation)
+        return (
+            float(obj["x"]) + local_x * cos - local_y * sin,
+            float(obj["y"]) + local_x * sin + local_y * cos,
+        )
 
     def _shortest_path(self, start_id: int) -> list[tuple[float, float]]:
         core_id = self._node_id(self.core)

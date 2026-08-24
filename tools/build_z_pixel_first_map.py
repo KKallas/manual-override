@@ -164,6 +164,21 @@ def path_length(points: list[tuple[float, float]]) -> float:
     return round(sum(math.dist(a, b) for a, b in zip(points, points[1:])), 2)
 
 
+def point_segment_distance(
+    point: tuple[float, float],
+    start: tuple[float, float],
+    end: tuple[float, float],
+) -> float:
+    px, py = point
+    ax, ay = start
+    bx, by = end
+    dx, dy = bx - ax, by - ay
+    if dx == 0 and dy == 0:
+        return math.dist(point, start)
+    amount = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
+    return math.hypot(px - (ax + amount * dx), py - (ay + amount * dy))
+
+
 def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
     tilesets, gids = load_tilesets()
     factory = Factory()
@@ -837,6 +852,58 @@ def validate_map(
     ):
         errors.append("central core plaza must have four openings and tapered curb ends without vertical caps")
 
+    # Tiled tile objects in this pack use center alignment. The enemy graph is
+    # therefore authored against each road object's x/y anchor, not the
+    # bottom-left image corner used by a default orthogonal tileset. Sample all
+    # path edges against the modular road ports so a future renderer or map edit
+    # cannot silently reproduce the half-module drift fixed in Laser Tag Z.
+    port_vectors = {"N": (0.0, -1.0), "E": (1.0, 0.0), "S": (0.0, 1.0), "W": (-1.0, 0.0)}
+    road_centerlines: list[tuple[tuple[float, float], tuple[float, float]]] = []
+    for road in roads:
+        road_properties = {item["name"]: item["value"] for item in road.get("properties", [])}
+        if road_properties.get("grid_column") is None or road_properties.get("grid_row") is None:
+            continue
+        center = (float(road["x"]), float(road["y"]))
+        for port_name in str(road_properties.get("ports", "")).split(","):
+            vector = port_vectors.get(port_name)
+            if vector:
+                road_centerlines.append(
+                    (center, (center[0] + vector[0] * ROAD_STEP / 2, center[1] + vector[1] * ROAD_STEP / 2))
+                )
+    if core_access_plaza:
+        plaza_x, plaza_y = float(core_access_plaza["x"]), float(core_access_plaza["y"])
+        plaza_half = float(core_access_plaza["width"]) / 2.0
+        road_centerlines.extend(
+            [
+                ((plaza_x - plaza_half, plaza_y - ROAD_STEP / 2), (plaza_x + plaza_half, plaza_y - ROAD_STEP / 2)),
+                ((plaza_x - plaza_half, plaza_y + ROAD_STEP / 2), (plaza_x + plaza_half, plaza_y + ROAD_STEP / 2)),
+                ((plaza_x, plaza_y - ROAD_STEP / 2), (plaza_x, plaza_y + ROAD_STEP / 2)),
+            ]
+        )
+
+    path_deviations: list[tuple[float, tuple[float, float], str]] = []
+    for edge in edges:
+        absolute = [
+            (float(edge["x"]) + float(point["x"]), float(edge["y"]) + float(point["y"]))
+            for point in edge.get("polyline", [])
+        ]
+        for start, end in zip(absolute, absolute[1:]):
+            sample_count = max(1, math.ceil(math.dist(start, end) / 16.0))
+            for index in range(sample_count + 1):
+                amount = index / sample_count
+                sample = (start[0] + (end[0] - start[0]) * amount, start[1] + (end[1] - start[1]) * amount)
+                deviation = min(
+                    (point_segment_distance(sample, line_start, line_end) for line_start, line_end in road_centerlines),
+                    default=math.inf,
+                )
+                path_deviations.append((deviation, sample, edge["name"]))
+    max_path_deviation = max(path_deviations, default=(math.inf, (0.0, 0.0), "none"))
+    if max_path_deviation[0] > 8.0:
+        errors.append(
+            "enemy path leaves the modular road centerline by "
+            f"{max_path_deviation[0]:.1f}px at {max_path_deviation[1]} on {max_path_deviation[2]}"
+        )
+
     node_properties = {
         node["name"]: {item["name"]: item["value"] for item in node["properties"]}
         for node in nodes
@@ -943,6 +1010,7 @@ def validate_map(
             "gate_candidates": len(gates),
             "active_gate_previews": sum(bool(gate["active_preview"]) for gate in gates),
         },
+        "max_path_road_deviation_px": round(max_path_deviation[0], 2),
     }
 
 

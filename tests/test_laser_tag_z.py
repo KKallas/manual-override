@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
@@ -26,6 +27,25 @@ class LaserTagZEngineTests(unittest.TestCase):
     def test_level_has_exact_fixed_marker_range(self):
         self.assertEqual(sorted(self.engine.level.socket_by_marker), list(range(40, 56)))
         self.assertEqual(len(self.engine.level.sockets), 16)
+
+    def test_tiled_center_alignment_is_used_by_map_and_gameplay(self):
+        level = json.loads(MAP_PATH.read_text(encoding="utf-8"))
+        alignments = []
+        for reference in level["tilesets"]:
+            tileset_path = (MAP_PATH.parent / reference["source"]).resolve()
+            alignments.append(json.loads(tileset_path.read_text(encoding="utf-8"))["objectalignment"])
+        self.assertEqual(set(alignments), {"center"})
+
+        socket_layer = next(layer for layer in level["layers"] if layer["name"] == "09 Square Placement Spots (16)")
+        for obj in socket_layer["objects"]:
+            marker = next(item["value"] for item in obj["properties"] if item["name"] == "aruco_id")
+            socket = self.engine.level.sockets[self.engine.level.socket_by_marker[marker]]
+            self.assertEqual((socket["x"], socket["y"]), (float(obj["x"]), float(obj["y"])))
+
+        game_html = (PROTOTYPE / "game.html").read_text(encoding="utf-8")
+        self.assertIn("selected.source.objectalignment", game_html)
+        self.assertIn("tileObjectCenter(socket)", game_html)
+        self.assertNotIn("socket.x+socket.width/2", game_html)
 
     def test_virtual_placements_make_force_field_and_survive_start(self):
         self.engine.set_virtual_play(True)

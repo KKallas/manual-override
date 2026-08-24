@@ -14,5 +14,6 @@
     "placement_spots": 16,
     "gate_candidates": 8,
     "active_gate_previews": 4
-  }
+  },
+  "max_path_road_deviation_px": 6.0
 }
