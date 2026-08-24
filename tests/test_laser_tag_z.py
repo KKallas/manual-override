@@ -22,6 +22,7 @@ from photon_defence.engine import (  # noqa: E402
     CORE_KEEP_OUT_HALF_SIZE,
     ENEMY_STATS,
     FLOW_SPAWN_OFFSETS,
+    PARTICLE_MAX_SPEED_SCALE,
 )
 
 
@@ -97,6 +98,13 @@ class LaserTagZEngineTests(unittest.TestCase):
             max(FLOW_SPAWN_OFFSETS[:3]) - min(FLOW_SPAWN_OFFSETS[:3]),
         )
         self.assertAlmostEqual(ENEMY_STATS["brute"]["collision_radius"], 2.8)
+        core_x = float(self.engine.level.core["x"])
+        for spawned in enemies:
+            self.assertAlmostEqual(
+                spawned["path"][-1][0],
+                core_x - CORE_BASIN_HALF_SIZE + spawned["collision_radius"] + 0.5,
+            )
+            self.assertAlmostEqual(spawned["path"][-1][1], 400.0 + spawned["track"])
 
         enemy = enemies[0]
         self.engine.enemies = {enemy["id"]: enemy}
@@ -243,11 +251,27 @@ class LaserTagZEngineTests(unittest.TestCase):
             "max_active_enemies": 1000,
             "core_hp": 1_000_000_000.0,
         })
+        transition_count = 0
         for _ in range(400):
+            before = {
+                enemy["id"]: (enemy["x"], enemy["y"], enemy["attacking"])
+                for enemy in dense.enemies.values()
+            }
             dense.step(0.1)
+            for enemy in dense.enemies.values():
+                previous = before.get(enemy["id"])
+                if previous is None or previous[2] or not enemy["attacking"]:
+                    continue
+                jump = math.hypot(enemy["x"] - previous[0], enemy["y"] - previous[1])
+                maximum_continuous_step = (
+                    enemy["speed"] * 0.1 * PARTICLE_MAX_SPEED_SCALE + 1.0
+                )
+                self.assertLessEqual(jump, maximum_continuous_step)
+                transition_count += 1
         state = dense.snapshot()
         self.assertEqual(state["active_enemies"], 118)
         self.assertEqual(state["breaches"], 118)
+        self.assertEqual(transition_count, state["breaches"])
         self.assertTrue(all(enemy["attacking"] for enemy in state["enemies"]))
         self.assertLess(max(enemy["blocked_steps"] for enemy in dense.enemies.values()), 10)
 

@@ -25,7 +25,7 @@ FLOW_NEIGHBOR_MARGIN = 5.0
 PARTICLE_STEERING_RESPONSE = 7.5
 PARTICLE_PRESSURE_WEIGHT = 0.9
 PARTICLE_WANDER_WEIGHT = 0.32
-PARTICLE_SOLVER_ITERATIONS = 8
+PARTICLE_SOLVER_ITERATIONS = 12
 PARTICLE_MAX_SPEED_SCALE = 1.35
 PATH_WAYPOINT_RADIUS = 8.0
 CORNER_RADIUS = 30.0
@@ -33,8 +33,7 @@ CORNER_SAMPLES = 6
 CORE_BASIN_HALF_SIZE = 112.0
 CORE_KEEP_OUT_HALF_SIZE = 74.0
 CORE_BASIN_SPEED = 40.0
-CORE_ENTRY_SEARCH_COUNT = 64
-CORE_HOLDING_ADMISSION_RADIUS = 18.0
+CORE_ENTRY_DISTANCE = 9.0
 ATOM_OWNERS = {100: "green", 101: "green", 102: "purple", 103: "purple"}
 TOWER_TYPES = {"machine_gun", "flamethrower", "mortar"}
 DEFAULT_LOADOUT = {100: "machine_gun", 101: "flamethrower", 102: "machine_gun", 103: "mortar"}
@@ -629,7 +628,7 @@ class DefenseEngine:
         hp = stats["hp"] * float(self.settings["enemy_health_multiplier"])
         enemy_id = self.next_enemy_id
         self.next_enemy_id += 1
-        path = self._path_to_core_basin(lane)
+        path = self._path_to_core_basin(lane, flow_offset, radius)
         initial_dx, initial_dy = path[1][0] - spawn_x, path[1][1] - spawn_y
         initial_length = math.hypot(initial_dx, initial_dy)
         speed = (
@@ -669,11 +668,18 @@ class DefenseEngine:
         }
         return True
 
-    def _path_to_core_basin(self, lane: str) -> list[tuple[float, float]]:
-        core_x, core_y = float(self.level.core["x"]), float(self.level.core["y"])
+    def _path_to_core_basin(
+        self, lane: str, flow_offset: float, radius: float
+    ) -> list[tuple[float, float]]:
+        core_x = float(self.level.core["x"])
         arrival_y = float(self.level.paths[lane][-2][1])
         road_centerline = [tuple(point) for point in self.level.paths[lane][:-2]]
-        road_centerline.append((core_x - CORE_BASIN_HALF_SIZE - 18.0, arrival_y))
+        # Carry each particle's lateral offset through the visible road/plaza
+        # seam. The endpoint sits just inside the basin boundary, so admission
+        # changes behavior without changing screen position.
+        entry_x = core_x - CORE_BASIN_HALF_SIZE + radius + 0.5
+        entry_y = arrival_y + flow_offset
+        road_centerline.append((entry_x, entry_y))
         return _rounded_polyline(road_centerline)
 
     @staticmethod
@@ -755,9 +761,15 @@ class DefenseEngine:
                 ((enemy["x"] - start_x) * segment_x + (enemy["y"] - start_y) * segment_y)
                 / length_sq if length_sq > 1e-9 else 1.0
             )
-            if target_distance <= PATH_WAYPOINT_RADIUS or (
-                projection >= 0.96 and target_distance <= FLOW_CORRIDOR_RADIUS * 1.25
-            ):
+            final_segment = enemy["segment"] == len(path) - 2
+            if final_segment:
+                reached = target_distance <= CORE_ENTRY_DISTANCE
+            else:
+                reached = target_distance <= PATH_WAYPOINT_RADIUS or (
+                    projection >= 0.96
+                    and target_distance <= FLOW_CORRIDOR_RADIUS * 1.25
+                )
+            if reached:
                 enemy["segment"] += 1
                 continue
             break
@@ -839,24 +851,7 @@ class DefenseEngine:
         enemy["vx"] += (desired_x - enemy["vx"]) * response
         enemy["vy"] += (desired_y - enemy["vy"]) * response
 
-    def _find_basin_entry(
-        self, enemy: dict[str, Any], grid: _CollisionGrid
-    ) -> tuple[float, float] | None:
-        center_x, center_y = float(self.level.core["x"]), float(self.level.core["y"])
-        radius = enemy["collision_radius"]
-        x = center_x - CORE_BASIN_HALF_SIZE + radius + 0.5
-        low = center_y - CORE_BASIN_HALF_SIZE + radius + 0.5
-        high = center_y + CORE_BASIN_HALF_SIZE - radius - 0.5
-        base = 0.18 if enemy["lane"].startswith("top") else 0.82
-        for attempt in range(CORE_ENTRY_SEARCH_COUNT):
-            fraction = (base + attempt * 0.618033988749895 + enemy["id"] * 0.037) % 1.0
-            y = low + (high - low) * fraction
-            if not grid.collides(x, y, radius):
-                return x, y
-        return None
-
     def _admit_ready_particles(self, living: list[dict[str, Any]]) -> None:
-        grid = _CollisionGrid(living)
         ready = sorted(
             (enemy for enemy in living if not enemy["attacking"]),
             key=lambda item: (item["progress"], item["id"]), reverse=True,
@@ -864,21 +859,12 @@ class DefenseEngine:
         for enemy in ready:
             self._update_road_progress(enemy)
             path = enemy["path"]
-            distance = math.hypot(enemy["x"] - path[-1][0], enemy["y"] - path[-1][1])
-            if enemy["segment"] < len(path) - 1 and distance > CORE_HOLDING_ADMISSION_RADIUS:
-                continue
-            grid.remove(enemy["id"])
-            entry = self._find_basin_entry(enemy, grid)
-            if entry is None:
-                grid.add(enemy["id"], enemy["x"], enemy["y"], enemy["collision_radius"])
+            if enemy["segment"] < len(path) - 1:
                 continue
             enemy["attacking"] = True
-            enemy["x"], enemy["y"] = entry
-            enemy["vx"], enemy["vy"] = 0.0, -CORE_BASIN_SPEED
             enemy["progress"] = 1.0
             enemy["blocked_steps"] = 0
             self.breaches += 1
-            grid.add(enemy["id"], enemy["x"], enemy["y"], enemy["collision_radius"])
 
     def _resolve_particle_contacts(self, living: list[dict[str, Any]]) -> None:
         by_id = {enemy["id"]: enemy for enemy in living}
