@@ -17,8 +17,16 @@ MAX_ACTIVE_ENEMIES = 1000
 COLLISION_PADDING = 2.0
 COLLISION_STEP = 6.0
 COLLISION_CELL_SIZE = 64.0
-JUNCTION_CLEARANCE = 24.0
+JUNCTION_CLEARANCE = 52.0
+JUNCTION_FLOW_WINDOW = 1.0
 TRACK_OFFSETS = (-21.0, 0.0, 21.0)
+CORNER_RADIUS = 30.0
+CORNER_SAMPLES = 6
+CORE_ORBIT_HALF_SIZES = (84.0, 108.0)
+CORE_ORBIT_CORNER_RADIUS = 28.0
+CORE_ORBIT_SPEED = 38.0
+CORE_ORBIT_ENTRY_BUFFER = 1.0
+CORE_ORBIT_ADMISSION_LOOKAHEAD = CORE_ORBIT_SPEED * 0.01
 ATOM_OWNERS = {100: "green", 101: "green", 102: "purple", 103: "purple"}
 TOWER_TYPES = {"machine_gun", "flamethrower", "mortar"}
 DEFAULT_LOADOUT = {100: "machine_gun", 101: "flamethrower", 102: "machine_gun", 103: "mortar"}
@@ -107,23 +115,118 @@ def _offset_polyline(
     return shifted
 
 
+def _rounded_polyline(
+    points: list[tuple[float, float]], radius: float = CORNER_RADIUS
+) -> list[tuple[float, float]]:
+    """Round polyline corners with quadratic arcs so motion keeps its inertia."""
+    clean = [point for index, point in enumerate(points) if index == 0 or point != points[index - 1]]
+    if len(clean) < 3:
+        return clean
+
+    rounded = [clean[0]]
+    for previous, corner, following in zip(clean, clean[1:-1], clean[2:]):
+        in_dx, in_dy = corner[0] - previous[0], corner[1] - previous[1]
+        out_dx, out_dy = following[0] - corner[0], following[1] - corner[1]
+        in_length, out_length = math.hypot(in_dx, in_dy), math.hypot(out_dx, out_dy)
+        if in_length <= 1e-9 or out_length <= 1e-9:
+            continue
+        in_x, in_y = in_dx / in_length, in_dy / in_length
+        out_x, out_y = out_dx / out_length, out_dy / out_length
+        if abs(in_x * out_y - in_y * out_x) <= 1e-6:
+            rounded.append(corner)
+            continue
+        trim = min(radius, in_length * 0.45, out_length * 0.45)
+        entry = (corner[0] - in_x * trim, corner[1] - in_y * trim)
+        exit_point = (corner[0] + out_x * trim, corner[1] + out_y * trim)
+        rounded.append(entry)
+        for sample in range(1, CORNER_SAMPLES + 1):
+            t = sample / CORNER_SAMPLES
+            inverse = 1.0 - t
+            rounded.append((
+                inverse * inverse * entry[0] + 2.0 * inverse * t * corner[0] + t * t * exit_point[0],
+                inverse * inverse * entry[1] + 2.0 * inverse * t * corner[1] + t * t * exit_point[1],
+            ))
+    rounded.append(clean[-1])
+    return rounded
+
+
+def _rounded_square_loop(
+    center_x: float, center_y: float, half_size: float
+) -> list[tuple[float, float]]:
+    """Build one clockwise circulation lane around the square core."""
+    corner = min(CORE_ORBIT_CORNER_RADIUS, half_size)
+    points = [(center_x - half_size + corner, center_y - half_size)]
+    corners = (
+        (center_x + half_size - corner, center_y - half_size + corner, -math.pi / 2.0, 0.0),
+        (center_x + half_size - corner, center_y + half_size - corner, 0.0, math.pi / 2.0),
+        (center_x - half_size + corner, center_y + half_size - corner, math.pi / 2.0, math.pi),
+        (center_x - half_size + corner, center_y - half_size + corner, math.pi, math.pi * 1.5),
+    )
+
+    def append_line(target: tuple[float, float]) -> None:
+        start_x, start_y = points[-1]
+        distance = math.hypot(target[0] - start_x, target[1] - start_y)
+        steps = max(1, math.ceil(distance / 14.0))
+        for step in range(1, steps + 1):
+            ratio = step / steps
+            points.append((
+                start_x + (target[0] - start_x) * ratio,
+                start_y + (target[1] - start_y) * ratio,
+            ))
+
+    for arc_x, arc_y, start_angle, end_angle in corners:
+        if start_angle == -math.pi / 2.0:
+            tangent = (arc_x, center_y - half_size)
+        elif start_angle == 0.0:
+            tangent = (center_x + half_size, arc_y)
+        elif start_angle == math.pi / 2.0:
+            tangent = (arc_x, center_y + half_size)
+        else:
+            tangent = (center_x - half_size, arc_y)
+        append_line(tangent)
+        for sample in range(1, CORNER_SAMPLES + 1):
+            angle = start_angle + (end_angle - start_angle) * sample / CORNER_SAMPLES
+            points.append((arc_x + corner * math.cos(angle), arc_y + corner * math.sin(angle)))
+    if points[-1] != points[0]:
+        points.append(points[0])
+    return points
+
+
+def _rotate_loop_to_nearest(
+    loop: list[tuple[float, float]], target: tuple[float, float]
+) -> list[tuple[float, float]]:
+    body = loop[:-1]
+    start = min(
+        range(len(body)),
+        key=lambda index: math.hypot(body[index][0] - target[0], body[index][1] - target[1]),
+    )
+    rotated = body[start:] + body[:start]
+    return rotated + [rotated[0]]
+
+
 class _CollisionGrid:
     """Small spatial hash used for collision checks at the 1000-orc cap."""
 
     def __init__(self, enemies: list[dict[str, Any]]) -> None:
         self.cells: dict[tuple[int, int], set[int]] = defaultdict(set)
-        self.entries: dict[int, tuple[float, float, float]] = {}
+        self.entries: dict[int, tuple[float, float, float, str | None]] = {}
         self.entry_cells: dict[int, tuple[int, int]] = {}
         for enemy in enemies:
-            self.add(enemy["id"], enemy["x"], enemy["y"], enemy["collision_radius"])
+            self.add(
+                enemy["id"], enemy["x"], enemy["y"], enemy["collision_radius"],
+                enemy.get("collision_group"),
+            )
 
     @staticmethod
     def _cell(x: float, y: float) -> tuple[int, int]:
         return math.floor(x / COLLISION_CELL_SIZE), math.floor(y / COLLISION_CELL_SIZE)
 
-    def add(self, enemy_id: int, x: float, y: float, radius: float) -> None:
+    def add(
+        self, enemy_id: int, x: float, y: float, radius: float,
+        collision_group: str | None = None,
+    ) -> None:
         cell = self._cell(x, y)
-        self.entries[enemy_id] = (x, y, radius)
+        self.entries[enemy_id] = (x, y, radius, collision_group)
         self.entry_cells[enemy_id] = cell
         self.cells[cell].add(enemy_id)
 
@@ -133,12 +236,16 @@ class _CollisionGrid:
         if cell is not None:
             self.cells[cell].discard(enemy_id)
 
-    def collides(self, x: float, y: float, radius: float) -> bool:
+    def collides(
+        self, x: float, y: float, radius: float, ignore_group: str | None = None
+    ) -> bool:
         cell_x, cell_y = self._cell(x, y)
         for offset_y in (-1, 0, 1):
             for offset_x in (-1, 0, 1):
                 for enemy_id in self.cells.get((cell_x + offset_x, cell_y + offset_y), ()):
-                    other_x, other_y, other_radius = self.entries[enemy_id]
+                    other_x, other_y, other_radius, other_group = self.entries[enemy_id]
+                    if ignore_group is not None and other_group == ignore_group:
+                        continue
                     minimum = radius + other_radius + COLLISION_PADDING
                     if (x - other_x) ** 2 + (y - other_y) ** 2 < minimum ** 2 - 1e-6:
                         return True
@@ -274,9 +381,8 @@ class DefenseEngine:
             self.next_wave_at = 0.0
             self.enemies: dict[int, dict[str, Any]] = {}
             self.next_enemy_id = 1
-            self.attack_slot_cursor: dict[tuple[str, str], int] = defaultdict(int)
             self.track_cursor: dict[str, int] = defaultdict(int)
-            self.junction_reservations: dict[tuple[float, float], int] = {}
+            self.junction_reservations: dict[tuple[float, float], dict[str, Any]] = {}
             self.pressure_bank = 0
             self.pressure_queue: list[dict[str, Any]] = []
             self.kills = 0
@@ -535,43 +641,62 @@ class DefenseEngine:
             return False
         self.track_cursor[lane] = track_index + 1
         hp = stats["hp"] * float(self.settings["enemy_health_multiplier"])
-        path = self._path_to_attack_slot(lane, TRACK_OFFSETS[track_index])
+        orbit_index = 0 if lane.startswith("top") else 1
+        path, orbit_path, orbit_entry = self._paths_to_core_orbit(
+            lane, TRACK_OFFSETS[track_index], orbit_index
+        )
         initial_dx, initial_dy = path[1][0] - path[0][0], path[1][1] - path[0][1]
         initial_length = math.hypot(initial_dx, initial_dy)
         enemy_id = self.next_enemy_id
         self.next_enemy_id += 1
-        self.enemies[enemy_id] = {"id": enemy_id, "enemy_type": enemy_type, "lane": lane, "track": track_index - 1, "x": path[0][0], "y": path[0][1], "hp": hp, "max_hp": hp, "speed": stats["speed"] * float(self.settings["enemy_speed_multiplier"]), "core_dps": stats["core_dps"] * float(self.settings["enemy_core_damage_multiplier"]), "collision_radius": radius, "facing_x": initial_dx / initial_length, "facing_y": initial_dy / initial_length, "path": path, "segment": 0, "attacking": False, "progress": 0.0}
+        self.enemies[enemy_id] = {"id": enemy_id, "enemy_type": enemy_type, "lane": lane, "track": track_index - 1, "orbit_index": orbit_index, "x": path[0][0], "y": path[0][1], "hp": hp, "max_hp": hp, "speed": stats["speed"] * float(self.settings["enemy_speed_multiplier"]), "core_dps": stats["core_dps"] * float(self.settings["enemy_core_damage_multiplier"]), "collision_radius": radius, "collision_group": None, "facing_x": initial_dx / initial_length, "facing_y": initial_dy / initial_length, "path": path, "orbit_path": orbit_path, "orbit_entry": orbit_entry, "segment": 0, "attacking": False, "progress": 0.0}
         return True
 
-    def _path_to_attack_slot(self, lane: str, track_offset: float = 0.0) -> list[tuple[float, float]]:
+    def _paths_to_core_orbit(
+        self, lane: str, track_offset: float, orbit_index: int
+    ) -> tuple[
+        list[tuple[float, float]], list[tuple[float, float]], tuple[float, float]
+    ]:
         side = "top" if lane.startswith("top") else "bottom"
-        base_path = [tuple(point) for point in self.level.paths[lane][:-1]]
-        arrival_x = base_path[-1][0]
-        prior_x = base_path[-2][0]
-        direction = "right" if arrival_x >= prior_x else "left"
-        cursor_key = (side, direction)
-        slot = self.attack_slot_cursor[cursor_key] % 2
-        self.attack_slot_cursor[cursor_key] += 1
         core_x, core_y = float(self.level.core["x"]), float(self.level.core["y"])
-        ring_y = core_y - 104.0 if side == "top" else core_y + 104.0
-        side_y = core_y - 30.0 if side == "top" else core_y + 30.0
-        if slot == 0:
-            offset = 60.0 if direction == "right" else -60.0
-            approach = [(core_x + offset, ring_y)]
+        half_size = CORE_ORBIT_HALF_SIZES[orbit_index]
+        loop = _rounded_square_loop(core_x, core_y, half_size)
+        if side == "top":
+            desired_entry = (
+                core_x - half_size + CORE_ORBIT_CORNER_RADIUS,
+                core_y - half_size,
+            )
         else:
-            offset = 104.0 if direction == "right" else -104.0
-            approach = [(core_x + offset, ring_y), (core_x + offset, side_y)]
-        return _offset_polyline(base_path + approach, track_offset)
+            desired_entry = (
+                core_x - half_size,
+                core_y + half_size - CORE_ORBIT_CORNER_RADIUS,
+            )
+        orbit_path = _rotate_loop_to_nearest(loop, desired_entry)
+        entry_x, entry_y = orbit_path[0]
+
+        arrival_y = float(self.level.paths[lane][-2][1])
+        approach_end_x = core_x - 240.0
+        road_centerline = [tuple(point) for point in self.level.paths[lane][:-2]]
+        road_centerline.append((approach_end_x, arrival_y))
+        approach = _offset_polyline(road_centerline, track_offset)
+        # Preserve three independent supply channels all the way to the yield
+        # line. They feed one moving orbit without converging into a hard-body
+        # bottleneck before the entry gap is available.
+        holding_x = core_x - max(CORE_ORBIT_HALF_SIZES) - 24.0
+        holding_point = (holding_x, entry_y + track_offset)
+        approach.append(holding_point)
+        return _rounded_polyline(approach), orbit_path, (entry_x, entry_y)
 
     def _release_cleared_junctions(self) -> None:
-        for junction, owner_id in list(self.junction_reservations.items()):
-            owner = self.enemies.get(owner_id)
-            if owner is None or owner["hp"] <= 0:
-                self.junction_reservations.pop(junction, None)
-                continue
-            if owner["attacking"] or math.hypot(
-                owner["x"] - junction[0], owner["y"] - junction[1]
-            ) >= JUNCTION_CLEARANCE:
+        for junction, reservation in list(self.junction_reservations.items()):
+            occupied = any(
+                enemy["hp"] > 0 and not enemy["attacking"]
+                and enemy["lane"] == reservation["lane"]
+                and math.hypot(enemy["x"] - junction[0], enemy["y"] - junction[1])
+                < JUNCTION_CLEARANCE
+                for enemy in self.enemies.values()
+            )
+            if not occupied:
                 self.junction_reservations.pop(junction, None)
 
     def _junction_blocks(self, enemy: dict[str, Any], candidate_x: float, candidate_y: float) -> bool:
@@ -580,16 +705,24 @@ class DefenseEngine:
             if candidate_distance >= JUNCTION_CLEARANCE:
                 continue
             current_distance = math.hypot(enemy["x"] - junction[0], enemy["y"] - junction[1])
-            owner_id = self.junction_reservations.get(junction)
-            if owner_id is None and current_distance >= JUNCTION_CLEARANCE:
-                self.junction_reservations[junction] = enemy["id"]
-                owner_id = enemy["id"]
-            if owner_id not in (None, enemy["id"]):
+            reservation = self.junction_reservations.get(junction)
+            if reservation is None:
+                reservation = {"lane": enemy["lane"], "acquired_at": self.sim_time}
+                self.junction_reservations[junction] = reservation
+            if reservation["lane"] != enemy["lane"]:
+                return True
+            expired = self.sim_time - float(reservation["acquired_at"]) >= JUNCTION_FLOW_WINDOW
+            if expired and current_distance >= JUNCTION_CLEARANCE:
                 return True
         return False
 
-    def _advance_enemy(self, enemy: dict[str, Any], remaining: float, grid: _CollisionGrid) -> None:
+    def _advance_enemy(
+        self, enemy: dict[str, Any], remaining: float, grid: _CollisionGrid,
+        *, check_junctions: bool = True, ignore_group: str | None = None,
+        clearance_radius: float | None = None,
+    ) -> float:
         path = enemy["path"]
+        moving_radius = clearance_radius or enemy["collision_radius"]
         while remaining > 1e-9 and enemy["segment"] < len(path) - 1:
             target_x, target_y = path[enemy["segment"] + 1]
             dx, dy = target_x - enemy["x"], target_y - enemy["y"]
@@ -603,14 +736,24 @@ class DefenseEngine:
             ratio = step / distance
             candidate_x = enemy["x"] + dx * ratio
             candidate_y = enemy["y"] + dy * ratio
-            if self._junction_blocks(enemy, candidate_x, candidate_y) or grid.collides(candidate_x, candidate_y, enemy["collision_radius"]):
+            if (
+                (check_junctions and self._junction_blocks(enemy, candidate_x, candidate_y))
+                or grid.collides(
+                    candidate_x, candidate_y, moving_radius, ignore_group
+                )
+            ):
                 low, high = 0.0, step
                 for _ in range(10):
                     trial = (low + high) / 2.0
                     trial_ratio = trial / distance
                     trial_x = enemy["x"] + dx * trial_ratio
                     trial_y = enemy["y"] + dy * trial_ratio
-                    if self._junction_blocks(enemy, trial_x, trial_y) or grid.collides(trial_x, trial_y, enemy["collision_radius"]):
+                    if (
+                        (check_junctions and self._junction_blocks(enemy, trial_x, trial_y))
+                        or grid.collides(
+                            trial_x, trial_y, moving_radius, ignore_group
+                        )
+                    ):
                         high = trial
                     else:
                         low = trial
@@ -624,6 +767,7 @@ class DefenseEngine:
             if step >= distance - 1e-9:
                 enemy["x"], enemy["y"] = target_x, target_y
                 enemy["segment"] += 1
+        return remaining
 
     def _gates(self) -> list[dict[str, Any]]:
         order = [tag for tag in self.activation_order if tag in self.placements]
@@ -665,16 +809,61 @@ class DefenseEngine:
                     continue
                 if enemy["attacking"]:
                     self.core_hp -= enemy["core_dps"] * dt
+                    collision_grid.remove(enemy["id"])
+                    if enemy["segment"] >= len(enemy["path"]) - 1:
+                        enemy["x"], enemy["y"] = enemy["path"][0]
+                        enemy["segment"] = 0
+                    leftover = self._advance_enemy(
+                        enemy, CORE_ORBIT_SPEED * dt, collision_grid,
+                        check_junctions=False, ignore_group=enemy["collision_group"],
+                    )
+                    if enemy["segment"] >= len(enemy["path"]) - 1:
+                        enemy["x"], enemy["y"] = enemy["path"][0]
+                        enemy["segment"] = 0
+                        if leftover > 1e-9:
+                            self._advance_enemy(
+                                enemy, leftover, collision_grid,
+                                check_junctions=False, ignore_group=enemy["collision_group"],
+                            )
+                    collision_grid.add(
+                        enemy["id"], enemy["x"], enemy["y"],
+                        enemy["collision_radius"], enemy["collision_group"],
+                    )
                     continue
                 collision_grid.remove(enemy["id"])
                 remaining = enemy["speed"] * slow_by_enemy[enemy["id"]] * dt
                 path = enemy["path"]
-                self._advance_enemy(enemy, remaining, collision_grid)
-                collision_grid.add(enemy["id"], enemy["x"], enemy["y"], enemy["collision_radius"])
+                entry_radius = None
+                if enemy["segment"] >= len(path) - 2:
+                    entry_radius = enemy["collision_radius"] + CORE_ORBIT_ENTRY_BUFFER
+                self._advance_enemy(
+                    enemy, remaining, collision_grid, clearance_radius=entry_radius
+                )
                 enemy["progress"] = enemy["segment"] / max(1, len(path) - 1)
                 if enemy["segment"] >= len(path) - 1:
-                    enemy["attacking"] = True
-                    self.breaches += 1
+                    entry_x, entry_y = enemy["orbit_entry"]
+                    admission_radius = (
+                        enemy["collision_radius"] + CORE_ORBIT_ENTRY_BUFFER
+                        + CORE_ORBIT_ADMISSION_LOOKAHEAD
+                    )
+                    orbit_clear = all(
+                        not other["attacking"] or other["id"] == enemy["id"]
+                        or math.hypot(entry_x - other["x"], entry_y - other["y"])
+                        >= admission_radius + other["collision_radius"] + COLLISION_PADDING
+                        for other in self.enemies.values()
+                    )
+                    if orbit_clear:
+                        enemy["attacking"] = True
+                        enemy["collision_group"] = f"core-orbit-{enemy['orbit_index']}"
+                        enemy["path"] = enemy["orbit_path"]
+                        enemy["x"], enemy["y"] = enemy["path"][0]
+                        enemy["segment"] = 0
+                        enemy["progress"] = 1.0
+                        self.breaches += 1
+                collision_grid.add(
+                    enemy["id"], enemy["x"], enemy["y"],
+                    enemy["collision_radius"], enemy["collision_group"],
+                )
             self._fire_towers(dt, dead)
             for enemy_id in dead:
                 if self.enemies.pop(enemy_id, None):
@@ -718,7 +907,7 @@ class DefenseEngine:
 
     def snapshot(self) -> dict[str, Any]:
         with self.lock:
-            enemies = [{key: enemy[key] for key in ("id", "enemy_type", "lane", "track", "x", "y", "hp", "max_hp", "collision_radius", "facing_x", "facing_y", "attacking", "progress")} for enemy in self.enemies.values()]
+            enemies = [{key: enemy[key] for key in ("id", "enemy_type", "lane", "track", "orbit_index", "x", "y", "hp", "max_hp", "collision_radius", "facing_x", "facing_y", "attacking", "progress")} for enemy in self.enemies.values()]
             towers = [{key: tower[key] for key in ("atom_tag_id", "owner", "socket_id", "aruco_id", "tower_type", "x", "y", "last_fire_at", "source")} for tower in self.placements.values()]
             return {"phase": self.phase, "paused": self.paused, "virtual_play": self.virtual_play, "sim_time": round(self.sim_time, 3), "wave": self.current_wave, "wave_count": int(self.settings["wave_count"]), "active_enemies": len(enemies), "max_active_enemies": int(self.settings["max_active_enemies"]), "pressure_bank": self.pressure_bank, "core_hp": round(self.core_hp, 2), "core_max_hp": round(self.core_max_hp, 2), "kills": self.kills, "breaches": self.breaches, "enemies": enemies, "towers": towers, "gates": self._gates(), "activation_order": list(self.activation_order), "loadout": {str(key): value for key, value in self.loadout.items()}, "settings": dict(self.settings), "events": list(self.events[-30:]), "server_time": time.time()}
 
