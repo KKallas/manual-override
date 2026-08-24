@@ -31,7 +31,11 @@ PATH_WAYPOINT_RADIUS = 8.0
 CORNER_RADIUS = 30.0
 CORNER_SAMPLES = 6
 CORE_BASIN_HALF_SIZE = 112.0
-CORE_KEEP_OUT_HALF_SIZE = 74.0
+# Alpha bounds of the 144 px central_core_square_base Tiled object. Keeping
+# separate axes lets particles touch the visible rectangular base instead of
+# orbiting its larger nominal object box.
+CORE_KEEP_OUT_HALF_WIDTH = 55.5
+CORE_KEEP_OUT_HALF_HEIGHT = 62.25
 CORE_BASIN_SPEED = 40.0
 CORE_ENTRY_DISTANCE = 9.0
 ATOM_OWNERS = {100: "green", 101: "green", 102: "purple", 103: "purple"}
@@ -635,6 +639,13 @@ class DefenseEngine:
             stats["speed"] * float(self.settings["enemy_speed_multiplier"])
             * self._rng.uniform(0.94, 1.06)
         )
+        basin_inner = min(
+            CORE_KEEP_OUT_HALF_WIDTH, CORE_KEEP_OUT_HALF_HEIGHT
+        ) + radius + 0.5
+        basin_outer = CORE_BASIN_HALF_SIZE - radius - 1.0
+        basin_radius = basin_inner + (
+            basin_outer - basin_inner
+        ) * self._rng.random() ** 1.65
         self.enemies[enemy_id] = {
             "id": enemy_id,
             "enemy_type": enemy_type,
@@ -655,10 +666,7 @@ class DefenseEngine:
             "vy": initial_dy / initial_length * speed,
             "flow_phase": self._rng.uniform(0.0, math.pi * 2.0),
             "flow_rate": self._rng.uniform(0.72, 1.28),
-            "basin_radius": self._rng.uniform(
-                CORE_KEEP_OUT_HALF_SIZE + radius + 1.0,
-                CORE_BASIN_HALF_SIZE - radius - 1.0,
-            ),
+            "basin_radius": basin_radius,
             "basin_direction": -1.0 if enemy_id % 7 == 0 else 1.0,
             "blocked_steps": 0,
             "path": path,
@@ -724,22 +732,23 @@ class DefenseEngine:
         enemy["y"] = max(center_y - outer, min(center_y + outer, enemy["y"]))
 
         dx, dy = enemy["x"] - center_x, enemy["y"] - center_y
-        inner = CORE_KEEP_OUT_HALF_SIZE + radius
-        if abs(dx) >= inner or abs(dy) >= inner:
+        inner_x = CORE_KEEP_OUT_HALF_WIDTH + radius
+        inner_y = CORE_KEEP_OUT_HALF_HEIGHT + radius
+        if abs(dx) >= inner_x or abs(dy) >= inner_y:
             return
         choices = (
-            (inner - abs(dx), "x"),
-            (inner - abs(dy), "y"),
+            (inner_x - abs(dx), "x"),
+            (inner_y - abs(dy), "y"),
         )
         _, axis = min(choices)
         if axis == "x":
             sign = -1.0 if dx < 0.0 or (dx == 0.0 and enemy["vx"] < 0.0) else 1.0
-            enemy["x"] = center_x + sign * inner
+            enemy["x"] = center_x + sign * inner_x
             if enemy["vx"] * sign < 0.0:
                 enemy["vx"] *= -0.2
         else:
             sign = -1.0 if dy < 0.0 or (dy == 0.0 and enemy["vy"] < 0.0) else 1.0
-            enemy["y"] = center_y + sign * inner
+            enemy["y"] = center_y + sign * inner_y
             if enemy["vy"] * sign < 0.0:
                 enemy["vy"] *= -0.2
 

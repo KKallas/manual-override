@@ -19,7 +19,8 @@ from photon_defence import DefenseEngine, SettingsStore  # noqa: E402
 from photon_defence.engine import (  # noqa: E402
     COLLISION_PADDING,
     CORE_BASIN_HALF_SIZE,
-    CORE_KEEP_OUT_HALF_SIZE,
+    CORE_KEEP_OUT_HALF_HEIGHT,
+    CORE_KEEP_OUT_HALF_WIDTH,
     ENEMY_STATS,
     FLOW_SPAWN_OFFSETS,
     PARTICLE_MAX_SPEED_SCALE,
@@ -295,16 +296,27 @@ class LaserTagZEngineTests(unittest.TestCase):
 
         core_x, core_y = float(dense.level.core["x"]), float(dense.level.core["y"])
         square_radii = set()
+        surface_gaps = {side: [] for side in ("left", "right", "top", "bottom")}
         for enemy in attackers:
-            dx, dy = abs(enemy["x"] - core_x), abs(enemy["y"] - core_y)
+            signed_dx, signed_dy = enemy["x"] - core_x, enemy["y"] - core_y
+            dx, dy = abs(signed_dx), abs(signed_dy)
             radius = enemy["collision_radius"]
             self.assertLessEqual(max(dx, dy), CORE_BASIN_HALF_SIZE - radius + 0.02)
             self.assertTrue(
-                dx >= CORE_KEEP_OUT_HALF_SIZE + radius - 0.02
-                or dy >= CORE_KEEP_OUT_HALF_SIZE + radius - 0.02
+                dx >= CORE_KEEP_OUT_HALF_WIDTH + radius - 0.02
+                or dy >= CORE_KEEP_OUT_HALF_HEIGHT + radius - 0.02
             )
+            if dy <= CORE_KEEP_OUT_HALF_HEIGHT:
+                side = "left" if signed_dx < 0.0 else "right"
+                surface_gaps[side].append(dx - CORE_KEEP_OUT_HALF_WIDTH - radius)
+            if dx <= CORE_KEEP_OUT_HALF_WIDTH:
+                side = "top" if signed_dy < 0.0 else "bottom"
+                surface_gaps[side].append(dy - CORE_KEEP_OUT_HALF_HEIGHT - radius)
             square_radii.add(round(max(dx, dy), 1))
         self.assertGreater(len(square_radii), 80)
+        for side, gaps in surface_gaps.items():
+            self.assertTrue(gaps, f"no orcs reached the {side} face of the core")
+            self.assertLessEqual(min(gaps), 0.75, f"empty floor remains on the {side}")
 
         for index, enemy in enumerate(attackers):
             for other in attackers[index + 1:]:
