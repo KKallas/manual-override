@@ -19,7 +19,7 @@ from photon_defence import DefenseEngine, SettingsStore  # noqa: E402
 from photon_defence.engine import (  # noqa: E402
     COLLISION_PADDING,
     ENEMY_STATS,
-    TRACK_OFFSETS,
+    FLOW_SPAWN_OFFSETS,
     _CollisionGrid,
 )
 
@@ -77,16 +77,23 @@ class LaserTagZEngineTests(unittest.TestCase):
         self.assertIn("size=(enemy.enemy_type==='brute'?56:44)/3", game_html)
         self.assertIn("requestAnimationFrame(gameRenderLoop)", game_html)
         self.assertIn("function renderCoreHealth", game_html)
+        enemy_renderer = game_html.split("function drawEnemy", 1)[1].split(
+            "function renderGame", 1
+        )[0]
+        self.assertNotIn("enemy.hp", enemy_renderer)
+        self.assertNotIn("barWidth", enemy_renderer)
 
     def test_three_orcs_fit_across_a_lane_and_face_their_motion(self):
         weights = {"top_inner": 1.0}
         self.assertTrue(all(self.engine._spawn_enemy("brute", weights) for _ in range(3)))
         enemies = list(self.engine.enemies.values())
-        self.assertEqual({enemy["track"] for enemy in enemies}, {-1, 0, 1})
+        self.assertEqual(
+            {enemy["track"] for enemy in enemies}, set(FLOW_SPAWN_OFFSETS[:3])
+        )
         self.assertEqual(len({round(enemy["y"], 3) for enemy in enemies}), 3)
         self.assertEqual(
             max(enemy["y"] for enemy in enemies) - min(enemy["y"] for enemy in enemies),
-            TRACK_OFFSETS[-1] - TRACK_OFFSETS[0],
+            max(FLOW_SPAWN_OFFSETS[:3]) - min(FLOW_SPAWN_OFFSETS[:3]),
         )
         self.assertAlmostEqual(ENEMY_STATS["brute"]["collision_radius"], 28.0 / 3.0)
 
@@ -173,6 +180,7 @@ class LaserTagZEngineTests(unittest.TestCase):
             "max_active_enemies": 40,
             "core_hp": 100000.0,
         })
+        closest_body_clearance = math.inf
         for _ in range(200):
             self.engine.step(0.1)
             enemies = self.engine.snapshot()["enemies"]
@@ -181,6 +189,18 @@ class LaserTagZEngineTests(unittest.TestCase):
                     distance = math.hypot(enemy["x"] - other["x"], enemy["y"] - other["y"])
                     minimum = enemy["collision_radius"] + other["collision_radius"] + COLLISION_PADDING
                     self.assertGreaterEqual(distance + 0.02, minimum)
+                    closest_body_clearance = min(
+                        closest_body_clearance,
+                        distance - enemy["collision_radius"] - other["collision_radius"],
+                    )
+
+        self.assertLess(closest_body_clearance, 0.5)
+        self.assertGreaterEqual(
+            len({enemy["track"] for enemy in self.engine.enemies.values()}), 5
+        )
+        self.assertTrue(
+            all(enemy["collision_group"] is None for enemy in self.engine.enemies.values())
+        )
 
         attackers = [enemy for enemy in self.engine.snapshot()["enemies"] if enemy["attacking"]]
         self.assertGreaterEqual(len(attackers), 3)
