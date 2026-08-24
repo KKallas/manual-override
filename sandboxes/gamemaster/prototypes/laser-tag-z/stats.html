@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Laser Tag Z — Score history</title>
+<link rel="stylesheet" href="/theme.css">
+<style>
+:root{--green:#35d07f;--purple:#c084fc;--gold:#ffd35a;
+ --surface:#0a1018;--ink:#f5f8ff;--ink-2:#9aa6b6;--ink-muted:#8290a3;--grid:#1a2432;--baseline:#304054;
+ --g1:#3987e5;--g2:#c98500;--g3:#008300;--g4:#d55181;--g-unknown:#898781}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#05070a;color:var(--ink);font-family:system-ui,sans-serif}
+.hero,.desk{width:min(calc(100vw - 24px),1500px);margin:12px auto}.hero{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+h1{margin:0;font-size:21px;letter-spacing:.1em;text-transform:uppercase}.sub{color:var(--ink-2);font-size:13px}
+.button,button,select{min-height:44px;padding:8px 14px;border:1px solid #354153;border-radius:8px;background:#19212d;color:#fff;font:inherit;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+select{background:#060a10;font-weight:750;padding-right:30px}
+.desk{display:grid;gap:13px;margin-bottom:22px}
+.panel{border:1px solid #304054;border-radius:9px;background:var(--surface)}
+.filters{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:13px}
+.filters label{display:inline-flex;gap:9px;align-items:center;font-size:12px;font-weight:800;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em}
+.legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-left:auto;font-size:12px;color:var(--ink-2)}
+.legend span{display:inline-flex;gap:6px;align-items:center;font-weight:700}
+.chip{width:12px;height:12px;border-radius:3px;flex:none}
+.trend-chip{width:18px;height:0;border-top:2px dashed var(--gold);border-radius:0}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.tile{padding:14px;border:1px solid #304054;border-radius:9px;background:var(--surface)}
+.tile b{display:block;font-size:11px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.07em}
+.tile .value{margin-top:6px;font-size:26px;font-weight:900}
+.tile .note{margin-top:3px;color:var(--ink-muted);font-size:11px}
+.chart-head{display:flex;gap:14px;align-items:baseline;padding:13px 13px 0}
+.chart-head b{font-size:14px}.chart-head .sub{margin-left:auto}
+.chart-wrap{position:relative;overflow-x:auto;padding:6px 4px 10px}
+.chart-empty{padding:34px;color:var(--ink-muted);text-align:center}
+.tooltip{position:absolute;z-index:5;max-width:270px;padding:9px 11px;border:1px solid #40516a;border-radius:8px;background:#111b28f2;font-size:12px;line-height:1.5;pointer-events:none;box-shadow:0 7px 20px #0008}
+.tooltip b{font-size:13px}.tooltip .muted{color:var(--ink-2)}
+.tooltip .partner .green{color:var(--green);font-weight:800}.tooltip .partner .purple{color:var(--purple);font-weight:800}
+.score-table-wrap{overflow-x:auto;border-top:1px solid #263141}
+.score-table{width:100%;border-collapse:collapse;font-size:13px}
+.score-table th,.score-table td{padding:10px 13px;border-bottom:1px solid #202c3b;text-align:left}
+.score-table th{color:#9eabbc;background:#080d14;font-size:10px;text-transform:uppercase;letter-spacing:.07em}
+.score-table tbody tr:last-child td{border-bottom:0}
+.score-table .num{font-variant-numeric:tabular-nums}
+.score-table .time{font-weight:900;font-size:15px;font-variant-numeric:tabular-nums}
+.score-table .side-green{color:var(--green);font-weight:800}.score-table .side-purple{color:var(--purple);font-weight:800}
+.game-cell{display:inline-flex;gap:7px;align-items:center;font-weight:800;white-space:nowrap}
+.table-head{display:flex;gap:14px;align-items:baseline;padding:13px}.table-head b{font-size:14px}.table-head .sub{margin-left:auto}
+@media(max-width:850px){.tiles{grid-template-columns:1fr 1fr}.filters{align-items:stretch;flex-direction:column}.legend{margin-left:0}.hero{align-items:stretch;flex-direction:column}}
+</style>
+</head>
+<body>
+<header class="hero">
+ <div><h1>Score history</h1><div class="sub">Winning time per game in the order they were played — watch experience and more automated game modes bend the curve down.</div></div>
+ <a id="gameLink" class="button">← Back to Laser Tag Z</a>
+</header>
+<main class="desk">
+ <section class="panel">
+  <div class="filters">
+   <label for="playerSelect">Player <select id="playerSelect"><option value="">All players</option></select></label>
+   <div id="legend" class="legend" aria-label="Game type colors"></div>
+  </div>
+ </section>
+ <section id="tiles" class="tiles" hidden>
+  <div class="tile"><b>Games</b><div class="value" id="tileGames">—</div><div class="note" id="tileGamesNote"></div></div>
+  <div class="tile"><b>Best time</b><div class="value" id="tileBest">—</div><div class="note" id="tileBestNote"></div></div>
+  <div class="tile"><b>Median time</b><div class="value" id="tileMedian">—</div><div class="note">across shown games</div></div>
+  <div class="tile"><b>Improvement</b><div class="value" id="tileTrend">—</div><div class="note" id="tileTrendNote">first 3 games vs last 3</div></div>
+ </section>
+ <section class="panel" aria-label="Solve time per game">
+  <div class="chart-head"><b>Solve time, game by game</b><span class="sub">Background band = game type · label over each point = partner</span></div>
+  <div id="chartWrap" class="chart-wrap"><div class="chart-empty">Loading score history…</div></div>
+ </section>
+ <section class="panel" aria-label="Games as a table">
+  <div class="table-head"><b>Same games as a table</b><span class="sub" id="tableStatus"></span></div>
+  <div class="score-table-wrap"><table class="score-table"><thead><tr>
+   <th scope="col">#</th><th scope="col">Completed</th><th scope="col">Game type</th><th scope="col">Played as</th><th scope="col">Partner</th><th scope="col">Winning time</th>
+  </tr></thead><tbody id="tableRows"></tbody></table></div>
+ </section>
+</main>
+<script>
+const ROOT=location.pathname.replace(/\/p\/.*$/,'');
+const U={self:`${ROOT}/p/laser-tag-z`};
+const $=id=>document.getElementById(id);
+$('gameLink').href=`${U.self}/game`;
+const GAME_TYPES={
+ game_1:{label:'Game 1',color:'var(--g1)',hex:'#3987e5'},
+ game_2:{label:'Game 2',color:'var(--g2)',hex:'#c98500'},
+ game_3:{label:'Game 3',color:'var(--g3)',hex:'#008300'},
+ game_4:{label:'Game 4',color:'var(--g4)',hex:'#d55181'},
+ unknown:{label:'Unknown',color:'var(--g-unknown)',hex:'#898781'},
+};
+const SVG_NS='http://www.w3.org/2000/svg';
+let history=[],selectedPlayer='';
+
+function gameKey(row){
+ if(GAME_TYPES[row.game_mode])return row.game_mode;
+ const match=/^Game ([1-4])$/.exec(String(row.game_type||'').trim());
+ return match?`game_${match[1]}`:'unknown';
+}
+function fmtClock(seconds,decimals=0){
+ const total=Number(seconds);if(!Number.isFinite(total))return'—';
+ const minutes=Math.floor(total/60),rest=total-minutes*60;
+ const secText=decimals?rest.toFixed(decimals).padStart(3+decimals,'0'):String(Math.round(rest)).padStart(2,'0');
+ return`${minutes}:${secText}`;
+}
+function fmtWhen(row){
+ const when=new Date(row.logged_at||Number(row.recorded_at)*1000);
+ return Number.isNaN(when.getTime())?'—':when.toLocaleString([],{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+function fmtDay(row){
+ const when=new Date(row.logged_at||Number(row.recorded_at)*1000);
+ return Number.isNaN(when.getTime())?'':when.toLocaleDateString([],{day:'2-digit',month:'2-digit'});
+}
+function playerNames(){
+ const names=new Map();
+ for(const row of history)for(const name of[row.green_player_name,row.purple_player_name]){
+  const trimmed=String(name||'').trim();
+  if(trimmed&&!names.has(trimmed.toLowerCase()))names.set(trimmed.toLowerCase(),trimmed);
+ }
+ return[...names.values()].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+}
+function visibleGames(){
+ const wanted=selectedPlayer.toLowerCase();
+ const games=[];
+ history.forEach(row=>{
+  const green=String(row.green_player_name||'').trim(),purple=String(row.purple_player_name||'').trim();
+  if(selectedPlayer&&green.toLowerCase()!==wanted&&purple.toLowerCase()!==wanted)return;
+  let side='both',partner=`${green||'?'} + ${purple||'?'}`,partnerSide='';
+  if(selectedPlayer){
+   side=green.toLowerCase()===wanted?'green':'purple';
+   partner=side==='green'?purple:green;
+   partnerSide=side==='green'?'purple':'green';
+  }
+  games.push({row,side,partner:partner||'—',partnerSide,key:gameKey(row),elapsed:Number(row.elapsed_seconds)});
+ });
+ return games;
+}
+function rollingMean(games,window=3){
+ return games.map((_,index)=>{
+  const slice=games.slice(Math.max(0,index-window+1),index+1);
+  return slice.reduce((sum,game)=>sum+game.elapsed,0)/slice.length;
+ });
+}
+function renderLegend(games){
+ const legend=$('legend');legend.replaceChildren();
+ const present=new Set(games.map(game=>game.key));
+ for(const key of['game_1','game_2','game_3','game_4','unknown']){
+  if(key==='unknown'&&!present.has('unknown'))continue;
+  const item=document.createElement('span'),chip=document.createElement('i');
+  chip.className='chip';chip.style.background=GAME_TYPES[key].color;
+  item.append(chip,GAME_TYPES[key].label);legend.append(item);
+ }
+ const trend=document.createElement('span'),chip=document.createElement('i');
+ chip.className='chip trend-chip';trend.append(chip,'3-game average');legend.append(trend);
+}
+function renderTiles(games){
+ $('tiles').hidden=!games.length;
+ if(!games.length)return;
+ const times=games.map(game=>game.elapsed).filter(Number.isFinite);
+ const sorted=[...times].sort((a,b)=>a-b);
+ const best=sorted[0],median=sorted.length%2?sorted[(sorted.length-1)/2]:(sorted[sorted.length/2-1]+sorted[sorted.length/2])/2;
+ const bestIndex=games.findIndex(game=>game.elapsed===best);
+ $('tileGames').textContent=String(games.length);
+ $('tileGamesNote').textContent=selectedPlayer?`played by ${selectedPlayer}`:'all players';
+ $('tileBest').textContent=fmtClock(best,1);
+ $('tileBestNote').textContent=bestIndex>=0?`game #${bestIndex+1} · ${GAME_TYPES[games[bestIndex].key].label}`:'';
+ $('tileMedian').textContent=fmtClock(median,1);
+ const window=Math.min(3,games.length);
+ const early=times.slice(0,window),late=times.slice(-window);
+ const earlyMean=early.reduce((a,b)=>a+b,0)/early.length,lateMean=late.reduce((a,b)=>a+b,0)/late.length;
+ if(games.length<2||earlyMean<=0){$('tileTrend').textContent='—';$('tileTrendNote').textContent='need more games';}
+ else{
+  const change=(earlyMean-lateMean)/earlyMean*100;
+  $('tileTrend').textContent=`${change>=0?'−':'+'}${Math.abs(change).toFixed(0)}%`;
+  $('tileTrendNote').textContent=`first ${window} games avg ${fmtClock(earlyMean)} → last ${window} avg ${fmtClock(lateMean)}`;
+ }
+}
+function el(name,attrs={},text){
+ const node=document.createElementNS(SVG_NS,name);
+ for(const[key,value]of Object.entries(attrs))node.setAttribute(key,value);
+ if(text!=null)node.textContent=text;
+ return node;
+}
+function hideTooltip(){const tip=document.querySelector('.tooltip');if(tip)tip.remove()}
+function showTooltip(wrap,game,index,pageX,pageY){
+ hideTooltip();
+ const tip=document.createElement('div');tip.className='tooltip';
+ const green=String(game.row.green_player_name||'?').trim()||'?',purple=String(game.row.purple_player_name||'?').trim()||'?';
+ const partnerLine=selectedPlayer
+  ?`Partner: <span class="${game.partnerSide}">${escapeHtml(game.partner)}</span> · played as <span class="${game.side}">${game.side==='green'?'Green':'Purple'}</span>`
+  :`<span class="green">${escapeHtml(green)}</span> + <span class="purple">${escapeHtml(purple)}</span>`;
+ tip.innerHTML=`<b>Game #${index+1} · ${GAME_TYPES[game.key].label}</b><br>`
+  +`Winning time <b>${fmtClock(game.elapsed,1)}</b><br>`
+  +`<span class="partner">${partnerLine}</span><br>`
+  +`<span class="muted">${fmtWhen(game.row)}</span>`;
+ wrap.append(tip);
+ const wrapBox=wrap.getBoundingClientRect();
+ let x=pageX-wrapBox.left+14,y=pageY-wrapBox.top-10;
+ const tipBox=tip.getBoundingClientRect();
+ if(x+tipBox.width>wrap.clientWidth+wrap.scrollLeft-8)x-=tipBox.width+26;
+ if(y+tipBox.height>wrap.clientHeight-8)y=Math.max(6,wrap.clientHeight-tipBox.height-8);
+ tip.style.left=`${x}px`;tip.style.top=`${Math.max(6,y)}px`;
+}
+function escapeHtml(value){const div=document.createElement('div');div.textContent=value;return div.innerHTML}
+function renderChart(games){
+ const wrap=$('chartWrap');wrap.replaceChildren();hideTooltip();
+ if(!games.length){
+  const empty=document.createElement('div');empty.className='chart-empty';
+  empty.textContent=selectedPlayer?`No finished games for ${selectedPlayer} yet.`:'No finished games in the log yet.';
+  wrap.append(empty);return;
+ }
+ const margin={top:46,right:24,bottom:64,left:66},slot=64;
+ const innerWidth=Math.max(games.length*slot,wrap.clientWidth-margin.left-margin.right-8);
+ const width=innerWidth+margin.left+margin.right,height=430;
+ const plotHeight=height-margin.top-margin.bottom;
+ const maxTime=Math.max(...games.map(game=>game.elapsed))*1.12;
+ const xAt=index=>margin.left+(games.length===1?innerWidth/2:index*(innerWidth/(games.length-1||1)));
+ const step=games.length===1?innerWidth:innerWidth/(games.length-1);
+ const yAt=seconds=>margin.top+plotHeight-(seconds/maxTime)*plotHeight;
+ const svg=el('svg',{width,height,viewBox:`0 0 ${width} ${height}`,role:'img','aria-label':'Winning time per game in chronological order'});
+
+ // Background bands: one rect per run of consecutive games of the same type.
+ const bands=[];
+ games.forEach((game,index)=>{
+  const last=bands[bands.length-1];
+  if(last&&last.key===game.key)last.end=index;else bands.push({key:game.key,start:index,end:index});
+ });
+ bands.forEach(band=>{
+  const x0=band.start===0?margin.left-Math.min(26,step/2):xAt(band.start)-step/2+1;
+  const x1=band.end===games.length-1?margin.left+innerWidth+Math.min(26,step/2):xAt(band.end)+step/2-1;
+  const rect=el('rect',{x:x0,y:margin.top-24,width:Math.max(2,x1-x0),height:plotHeight+24,rx:5,
+   fill:GAME_TYPES[band.key].hex,'fill-opacity':.14});
+  svg.append(rect);
+  if(x1-x0>=46)svg.append(el('text',{x:(x0+x1)/2,y:margin.top-9,'text-anchor':'middle',fill:GAME_TYPES[band.key].hex,
+   'font-size':10,'font-weight':900,'letter-spacing':'.07em'},GAME_TYPES[band.key].label.toUpperCase()));
+ });
+
+ // Y gridlines + tick labels (mm:ss).
+ const tickStep=[15,30,60,120,180,300,600].find(candidate=>maxTime/candidate<=7)||600;
+ for(let tick=tickStep;tick<maxTime;tick+=tickStep){
+  const y=yAt(tick);
+  svg.append(el('line',{x1:margin.left-4,x2:margin.left+innerWidth,y1:y,y2:y,stroke:'var(--grid)','stroke-width':1}));
+  svg.append(el('text',{x:margin.left-10,y:y+4,'text-anchor':'end',fill:'var(--ink-muted)','font-size':11,
+   'font-variant-numeric':'tabular-nums'},fmtClock(tick)));
+ }
+ svg.append(el('line',{x1:margin.left,x2:margin.left+innerWidth,y1:yAt(0),y2:yAt(0),stroke:'var(--baseline)','stroke-width':1}));
+ svg.append(el('text',{x:margin.left-10,y:yAt(0)+4,'text-anchor':'end',fill:'var(--ink-muted)','font-size':11},'0:00'));
+
+ // X ticks: game number every point, date label where the day changes.
+ let lastDay='';
+ games.forEach((game,index)=>{
+  const x=xAt(index);
+  svg.append(el('text',{x,y:margin.top+plotHeight+18,'text-anchor':'middle',fill:'var(--ink-muted)','font-size':10,
+   'font-variant-numeric':'tabular-nums'},String(index+1)));
+  const day=fmtDay(game.row);
+  if(day&&day!==lastDay){
+   lastDay=day;
+   svg.append(el('text',{x,y:margin.top+plotHeight+36,'text-anchor':'middle',fill:'var(--ink-2)','font-size':10,
+    'font-weight':800},day));
+  }
+ });
+ svg.append(el('text',{x:margin.left+innerWidth/2,y:height-8,'text-anchor':'middle',fill:'var(--ink-muted)','font-size':10,
+  'letter-spacing':'.06em','font-weight':800},'GAMES IN THE ORDER THEY WERE PLAYED →'));
+
+ // Rolling 3-game average — the improvement trend.
+ if(games.length>=3){
+  const trend=rollingMean(games);
+  const path=trend.map((value,index)=>`${index?'L':'M'}${xAt(index).toFixed(1)} ${yAt(value).toFixed(1)}`).join(' ');
+  svg.append(el('path',{d:path,fill:'none',stroke:'var(--gold)','stroke-width':2,'stroke-dasharray':'6 5','stroke-linecap':'round',opacity:.9}));
+ }
+
+ // Solve-time line + points.
+ if(games.length>1){
+  const path=games.map((game,index)=>`${index?'L':'M'}${xAt(index).toFixed(1)} ${yAt(game.elapsed).toFixed(1)}`).join(' ');
+  svg.append(el('path',{d:path,fill:'none',stroke:'#aab5c5','stroke-width':2,'stroke-linejoin':'round','stroke-linecap':'round'}));
+ }
+ games.forEach((game,index)=>{
+  svg.append(el('circle',{cx:xAt(index),cy:yAt(game.elapsed),r:5,fill:'#f5f8ff',stroke:'#05070a','stroke-width':2}));
+ });
+
+ // Partner label above each point, rotated to dodge neighbours.
+ games.forEach((game,index)=>{
+  const x=xAt(index),y=yAt(game.elapsed)-12;
+  const label=el('text',{x,y,fill:'var(--ink-2)','font-size':10,'font-weight':700,
+   transform:`rotate(-42 ${x} ${y})`},game.partner);
+  svg.append(label);
+ });
+
+ // Hover hit targets (wider than the marks) + tooltip.
+ games.forEach((game,index)=>{
+  const hit=el('rect',{x:xAt(index)-step/2,y:margin.top-24,width:step,height:plotHeight+24,fill:'transparent'});
+  hit.style.cursor='pointer';
+  hit.addEventListener('mousemove',event=>showTooltip(wrap,game,index,event.clientX,event.clientY));
+  hit.addEventListener('mouseleave',hideTooltip);
+  svg.append(hit);
+ });
+ wrap.append(svg);
+}
+function renderTable(games){
+ const body=$('tableRows');body.replaceChildren();
+ $('tableStatus').textContent=games.length?`${games.length} game${games.length===1?'':'s'}, oldest first`:'';
+ if(!games.length){
+  const row=document.createElement('tr'),cell=document.createElement('td');
+  cell.colSpan=6;cell.style.textAlign='center';cell.style.color='var(--ink-muted)';cell.style.padding='18px';
+  cell.textContent='No games to show.';row.append(cell);body.append(row);return;
+ }
+ games.forEach((game,index)=>{
+  const row=document.createElement('tr');
+  const cells={
+   num:`${index+1}`,when:fmtWhen(game.row),
+  };
+  const numCell=document.createElement('td');numCell.className='num';numCell.textContent=cells.num;
+  const whenCell=document.createElement('td');whenCell.className='num';whenCell.textContent=cells.when;
+  const typeCell=document.createElement('td');
+  const typeWrap=document.createElement('span');typeWrap.className='game-cell';
+  const chip=document.createElement('i');chip.className='chip';chip.style.background=GAME_TYPES[game.key].color;
+  typeWrap.append(chip,GAME_TYPES[game.key].label);typeCell.append(typeWrap);
+  const sideCell=document.createElement('td');
+  if(selectedPlayer){sideCell.className=`side-${game.side}`;sideCell.textContent=game.side==='green'?'Green':'Purple';}
+  else sideCell.textContent='—';
+  const partnerCell=document.createElement('td');
+  if(selectedPlayer){partnerCell.className=game.partnerSide?`side-${game.partnerSide}`:'';partnerCell.textContent=game.partner;}
+  else{
+   const green=document.createElement('span');green.className='side-green';green.textContent=String(game.row.green_player_name||'?').trim()||'?';
+   const purple=document.createElement('span');purple.className='side-purple';purple.textContent=String(game.row.purple_player_name||'?').trim()||'?';
+   partnerCell.append(green,document.createTextNode(' + '),purple);
+  }
+  const timeCell=document.createElement('td');timeCell.className='time';timeCell.textContent=fmtClock(game.elapsed,1);
+  row.append(numCell,whenCell,typeCell,sideCell,partnerCell,timeCell);
+  body.append(row);
+ });
+}
+function render(){
+ const games=visibleGames();
+ renderLegend(games);renderTiles(games);renderChart(games);renderTable(games);
+ const url=new URL(location.href);
+ if(selectedPlayer)url.searchParams.set('player',selectedPlayer);else url.searchParams.delete('player');
+ window.history.replaceState(null,'',url);
+}
+async function load(){
+ const wrap=$('chartWrap');
+ try{
+  const response=await fetch(`${U.self}/api/scores/history`);
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(data.error||`HTTP ${response.status}`);
+  history=(data.scores||[]).filter(row=>Number.isFinite(Number(row.elapsed_seconds)));
+ }catch(error){
+  wrap.replaceChildren();
+  const failed=document.createElement('div');failed.className='chart-empty';
+  failed.textContent=`Could not load score history: ${error.message}`;
+  wrap.append(failed);return;
+ }
+ const select=$('playerSelect');
+ for(const name of playerNames()){
+  const option=document.createElement('option');option.value=name;option.textContent=name;select.append(option);
+ }
+ const wanted=new URL(location.href).searchParams.get('player');
+ if(wanted&&[...select.options].some(option=>option.value===wanted))select.value=wanted;
+ selectedPlayer=select.value;
+ select.onchange=()=>{selectedPlayer=select.value;render()};
+ render();
+}
+let resizeTimer=0;
+window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(render,150)});
+load();
+</script>
+</body>
+</html>

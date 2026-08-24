@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "level_id": "z_pixel_first_map_01",
+  "max_active_enemies": 1000,
+  "overflow_policy": "pressure_bank",
+  "gate_routing": "recalculate_at_crossover_when_edge_blocked",
+  "waves": [
+    {
+      "wave": 1,
+      "groups": [
+        {
+          "enemy": "grunt",
+          "count": 118,
+          "duration_s": 37,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "groups": [
+        {
+          "enemy": "runner",
+          "count": 166,
+          "duration_s": 36,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "groups": [
+        {
+          "enemy": "breaker",
+          "count": 214,
+          "duration_s": 35,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 4,
+      "groups": [
+        {
+          "enemy": "brute",
+          "count": 262,
+          "duration_s": 34,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 5,
+      "groups": [
+        {
+          "enemy": "grunt",
+          "count": 310,
+          "duration_s": 33,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 6,
+      "groups": [
+        {
+          "enemy": "runner",
+          "count": 358,
+          "duration_s": 32,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 7,
+      "groups": [
+        {
+          "enemy": "breaker",
+          "count": 406,
+          "duration_s": 31,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 8,
+      "groups": [
+        {
+          "enemy": "brute",
+          "count": 454,
+          "duration_s": 30,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 9,
+      "groups": [
+        {
+          "enemy": "grunt",
+          "count": 502,
+          "duration_s": 29,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 10,
+      "groups": [
+        {
+          "enemy": "runner",
+          "count": 550,
+          "duration_s": 28,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 11,
+      "groups": [
+        {
+          "enemy": "breaker",
+          "count": 598,
+          "duration_s": 27,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 12,
+      "groups": [
+        {
+          "enemy": "brute",
+          "count": 646,
+          "duration_s": 26,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    }
+  ]
+}

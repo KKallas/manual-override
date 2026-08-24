@@ -1,0 +1,963 @@
+{
+  "type": "tileset",
+  "version": "1.10",
+  "tiledversion": "1.12.2",
+  "name": "photon-yard-z-pixel-v2-roads",
+  "tilewidth": 320,
+  "tileheight": 320,
+  "tilecount": 16,
+  "columns": 0,
+  "grid": {
+    "orientation": "orthogonal",
+    "width": 320,
+    "height": 320
+  },
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "pack_id",
+      "type": "string",
+      "value": "photon-yard-z-pixel-v2"
+    },
+    {
+      "name": "style",
+      "type": "string",
+      "value": "1990s British Amiga/DOS top-down strategy pixel art"
+    },
+    {
+      "name": "nearest_neighbor",
+      "type": "bool",
+      "value": true
+    }
+  ],
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/straight-horizontal.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/straight-horizontal"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "E,W"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/straight-vertical.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/straight-vertical"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N,S"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/corner-ne.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/corner-ne"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "E,S"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/corner-es.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/corner-es"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "S,W"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/corner-sw.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/corner-sw"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "S,W"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/corner-wn.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/corner-wn"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N,W"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/junction-t-new.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/junction-t-new"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N,E,S,W"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal-cross-variant"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/junction-t-nes.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/junction-t-nes"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N,E,S,W"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal-cross-variant"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/junction-t-esw.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/junction-t-esw"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "E,S,W"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal-t"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/junction-t-nsw.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/junction-t-nsw"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N,E,S,W"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal-cross-variant"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/junction-cross.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/junction-cross"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N,E,S,W"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal-cross"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/junction-y.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/junction-y"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N-left,N-right,S"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "split-merge"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/uturn-left.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/uturn-left"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "S-left,S-right"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "same-edge-pair"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/uturn-right.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/uturn-right"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "S-left,S-right"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "same-edge-pair"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/s-bend.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/s-bend"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "E,W"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal-offset"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/four-to-two-merge.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/four-to-two-merge"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "E,W"
+        },
+        {
+          "name": "port_profile",
+          "type": "string",
+          "value": "cardinal-wide"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "recessed",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "rotation_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    }
+  ]
+}

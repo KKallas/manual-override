@@ -1,0 +1,420 @@
+{
+  "schema_version": 1,
+  "level_id": "photon_yard_01",
+  "max_active_enemies": 1000,
+  "overflow_policy": "pressure_bank",
+  "default_wave_interval_s": 45,
+  "early_call_credit_multiplier": 1.15,
+  "lane_edges": {
+    "top_outer": "edge_approach_top_outer",
+    "top_inner": "edge_approach_top_inner",
+    "bottom_inner": "edge_approach_bottom_inner",
+    "bottom_outer": "edge_approach_bottom_outer"
+  },
+  "waves": [
+    {
+      "wave": 1,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "grunt",
+          "count": 82,
+          "duration_s": 41,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "runner",
+          "count": 116,
+          "duration_s": 40,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "breaker",
+          "count": 150,
+          "duration_s": 39,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 4,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "shield",
+          "count": 184,
+          "duration_s": 38,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 5,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "brute",
+          "count": 218,
+          "duration_s": 37,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        },
+        {
+          "enemy": "shield",
+          "count": 22,
+          "duration_s": 24,
+          "lane_weights": {
+            "top_outer": 2,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 2
+          }
+        }
+      ]
+    },
+    {
+      "wave": 6,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "commander",
+          "count": 252,
+          "duration_s": 36,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 7,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "grunt",
+          "count": 286,
+          "duration_s": 35,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 8,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "runner",
+          "count": 320,
+          "duration_s": 34,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 9,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "breaker",
+          "count": 354,
+          "duration_s": 33,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 10,
+      "boss": true,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "shield",
+          "count": 388,
+          "duration_s": 32,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        },
+        {
+          "enemy": "shield",
+          "count": 32,
+          "duration_s": 24,
+          "lane_weights": {
+            "top_outer": 2,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 2
+          }
+        }
+      ]
+    },
+    {
+      "wave": 11,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "brute",
+          "count": 422,
+          "duration_s": 31,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 12,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "commander",
+          "count": 456,
+          "duration_s": 30,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 13,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "grunt",
+          "count": 490,
+          "duration_s": 29,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 14,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "runner",
+          "count": 524,
+          "duration_s": 28,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 15,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "breaker",
+          "count": 558,
+          "duration_s": 27,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        },
+        {
+          "enemy": "commander",
+          "count": 42,
+          "duration_s": 24,
+          "lane_weights": {
+            "top_outer": 2,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 2
+          }
+        }
+      ]
+    },
+    {
+      "wave": 16,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "shield",
+          "count": 592,
+          "duration_s": 26,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 17,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "brute",
+          "count": 626,
+          "duration_s": 25,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 18,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "commander",
+          "count": 660,
+          "duration_s": 24,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 19,
+      "boss": false,
+      "contract_objective": false,
+      "groups": [
+        {
+          "enemy": "grunt",
+          "count": 694,
+          "duration_s": 23,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        }
+      ]
+    },
+    {
+      "wave": 20,
+      "boss": true,
+      "contract_objective": true,
+      "groups": [
+        {
+          "enemy": "runner",
+          "count": 728,
+          "duration_s": 22,
+          "lane_weights": {
+            "top_outer": 1,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 1
+          }
+        },
+        {
+          "enemy": "commander",
+          "count": 52,
+          "duration_s": 24,
+          "lane_weights": {
+            "top_outer": 2,
+            "top_inner": 1,
+            "bottom_inner": 1,
+            "bottom_outer": 2
+          }
+        }
+      ]
+    }
+  ]
+}

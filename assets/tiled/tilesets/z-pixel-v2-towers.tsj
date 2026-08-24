@@ -1,0 +1,643 @@
+{
+  "type": "tileset",
+  "version": "1.10",
+  "tiledversion": "1.12.2",
+  "name": "photon-yard-z-pixel-v2-towers",
+  "tilewidth": 320,
+  "tileheight": 320,
+  "tilecount": 16,
+  "columns": 0,
+  "grid": {
+    "orientation": "orthogonal",
+    "width": 320,
+    "height": 320
+  },
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "pack_id",
+      "type": "string",
+      "value": "photon-yard-z-pixel-v2"
+    },
+    {
+      "name": "style",
+      "type": "string",
+      "value": "1990s British Amiga/DOS top-down strategy pixel art"
+    },
+    {
+      "name": "nearest_neighbor",
+      "type": "bool",
+      "value": true
+    }
+  ],
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/machine-gun-dormant.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/machine-gun-dormant"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "machine-gun"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "dormant"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/flamethrower-dormant.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/flamethrower-dormant"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "flamethrower"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "dormant"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/mortar-dormant.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/mortar-dormant"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "mortar"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "dormant"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/photon-detonator-dormant.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/photon-detonator-dormant"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "photon-detonator"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "dormant"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/machine-gun-active-l1.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/machine-gun-active-l1"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "machine-gun"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "active-l1"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/flamethrower-active-l1.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/flamethrower-active-l1"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "flamethrower"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "active-l1"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/mortar-active-l1.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/mortar-active-l1"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "mortar"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "active-l1"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/photon-detonator-active-l1.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/photon-detonator-active-l1"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "photon-detonator"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "active-l1"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/machine-gun-upgraded-l5.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/machine-gun-upgraded-l5"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "machine-gun"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "upgraded-l5"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/flamethrower-upgraded-l5.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/flamethrower-upgraded-l5"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "flamethrower"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "upgraded-l5"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/mortar-upgraded-l5.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/mortar-upgraded-l5"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "mortar"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "upgraded-l5"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/photon-detonator-upgraded-l5.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/photon-detonator-upgraded-l5"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "photon-detonator"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "upgraded-l5"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/machine-gun-damaged.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/machine-gun-damaged"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "machine-gun"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "damaged"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/flamethrower-damaged.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/flamethrower-damaged"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "flamethrower"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "damaged"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/mortar-damaged.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/mortar-damaged"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "mortar"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "damaged"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "image": "../../game-art/z-pixel-v2/normalized/structures/photon-detonator-damaged.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/photon-detonator-damaged"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "towers"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "photon-detonator"
+        },
+        {
+          "name": "tower_state",
+          "type": "string",
+          "value": "damaged"
+        }
+      ]
+    }
+  ]
+}

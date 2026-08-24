@@ -38,7 +38,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MANIFEST = {
     "name": "Webcam",
     "description": "Live OpenCV camera feed with ArUco tracking (printed DICT_4X4_50 "
-                   "tags, plus the Atom-screen 3x3 set as ids 100-105): a debounced "
+                   "tags, DICT_4X4_100 ids 50-55, and the Atom-screen 3x3 set "
+                   "as ids 100-105): a debounced "
                    "list of tags (id, x, y, rotation) at /api/tags, for other "
                    "prototypes. Needs opencv-python (see requirements.txt).",
     "default_page": "controller",   # the config screen the hub embeds
@@ -87,6 +88,15 @@ DETECTION_HOLD_SECS = 10.0  # keep one-shot reads long enough for game clients
 
 _aruco_dict = cv2.aruco.getPredefinedDictionary(TAG_DICT)
 _detector = cv2.aruco.ArucoDetector(_aruco_dict, cv2.aruco.DetectorParameters())
+
+# Tower Defense adds fixed socket ids 50-55. DICT_4X4_50 cannot encode those
+# ids, so an additive DICT_4X4_100 pass is filtered to just that range. The
+# original detector and camera stream stay unchanged for every existing game.
+TOWER_TAG_MIN = 50
+TOWER_TAG_MAX = 55
+_tower_aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)
+_tower_detector = cv2.aruco.ArucoDetector(
+    _tower_aruco_dict, cv2.aruco.DetectorParameters())
 
 # Second, coarse dictionary used by the Atom screens: atom-manager renders markers
 # with cv2.aruco.extendDictionary(6, 3); we build it identically here so we can read
@@ -184,16 +194,22 @@ def _native_focus_request(process, command, value=None):
     return data
 
 
-def _collect(dets, corners, ids, scale, w, h, id_offset=0):
+def _collect(dets, corners, ids, scale, w, h, id_offset=0,
+             id_min=None, id_max=None):
     """Fold detectMarkers() output into `dets` in full-res coords; ids are shifted
     by `id_offset` so markers from different dictionaries don't clash."""
     if ids is None:
         return
     for c, mid in zip(corners, ids.flatten()):
+        marker_id = int(mid)
+        if id_min is not None and marker_id < id_min:
+            continue
+        if id_max is not None and marker_id > id_max:
+            continue
         pts = c.reshape(4, 2) / scale            # back to full-res pixels
         cx, cy = pts.mean(axis=0)
         dx, dy = pts[1] - pts[0]                  # top edge -> orientation
-        dets[id_offset + int(mid)] = {
+        dets[id_offset + marker_id] = {
             "x": float(cx), "y": float(cy),
             "nx": float(cx / w), "ny": float(cy / h),
             "rot": float(math.degrees(math.atan2(dy, dx))),
@@ -202,8 +218,9 @@ def _collect(dets, corners, ids, scale, w, h, id_offset=0):
 
 
 def _detect(frame, target_width, target_height):
-    """Detect markers from BOTH dictionaries; return {id: {x, y, nx, ny, rot,
-    corners}} in full-res pixel coords. Printed DICT_4X4_50 tags keep their ids;
+    """Detect markers from all supported dictionaries in full-res pixel coords.
+
+    Printed DICT_4X4_50 tags keep their ids;
     Atom-screen (3x3) markers come back as SCREEN_BASE + id (100..105)."""
     h, w = frame.shape[:2]
     scale = min(1.0, target_width / w, target_height / h)
@@ -213,6 +230,9 @@ def _detect(frame, target_width, target_height):
     dets = {}
     c, i, _ = _detector.detectMarkers(gray)
     _collect(dets, c, i, scale, w, h)                       # printed 4x4 tags
+    c, i, _ = _tower_detector.detectMarkers(gray)
+    _collect(dets, c, i, scale, w, h,
+             id_min=TOWER_TAG_MIN, id_max=TOWER_TAG_MAX)    # fixed sockets 50-55
     c, i, _ = _screen_detector.detectMarkers(gray)
     _collect(dets, c, i, scale, w, h, SCREEN_BASE)          # Atom-screen markers
     return dets
@@ -1034,6 +1054,7 @@ def api_tags():
         "width": _mgr.status()["width"],
         "height": _mgr.status()["height"],
         "dict": "DICT_4X4_50",
+        "additional_dicts": ["DICT_4X4_100:50-55", "ATOM_SCREEN_3X3:100-105"],
         "promote_secs": PROMOTE_SECS,
         "drop_secs": DROP_SECS,
         "detection_hold_secs": DETECTION_HOLD_SECS,

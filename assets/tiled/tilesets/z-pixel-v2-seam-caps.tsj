@@ -1,0 +1,38 @@
+{
+  "columns": 11,
+  "image": "../../game-art/z-pixel-v2/normalized/roads/straight-horizontal.png",
+  "imageheight": 320,
+  "imagewidth": 320,
+  "margin": 94,
+  "name": "z-pixel-v2-seam-caps",
+  "objectalignment": "center",
+  "spacing": 0,
+  "tilecount": 11,
+  "tiledversion": "1.12.2",
+  "tileheight": 132,
+  "tiles": [
+    {
+      "id": 5,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/seam-cap-vertical"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    }
+  ],
+  "tilewidth": 12,
+  "type": "tileset",
+  "version": "1.11"
+}

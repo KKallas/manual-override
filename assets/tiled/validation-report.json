@@ -1,0 +1,19 @@
+{
+  "level": "assets/tiled/levels/photon-yard.tmj",
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "counts": {
+    "sockets": 16,
+    "path_nodes": 9,
+    "path_edges": 8,
+    "spawn_nodes": 4,
+    "gate_hints": 4,
+    "starter_structures": 2
+  },
+  "topology": {
+    "approach": 4,
+    "back": 2,
+    "return": 2
+  }
+}

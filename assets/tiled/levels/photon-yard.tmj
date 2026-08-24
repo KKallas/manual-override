@@ -1,0 +1,6600 @@
+{
+  "backgroundcolor": "#17130f",
+  "class": "PhotonLevel",
+  "compressionlevel": -1,
+  "height": 30,
+  "infinite": false,
+  "layers": [
+    {
+      "id": 1,
+      "image": "../../game-art/backgrounds/menu-prebattle-arena.png",
+      "imageheight": 941,
+      "imagewidth": 1672,
+      "locked": true,
+      "name": "01 Style Reference (hidden)",
+      "offsetx": 12,
+      "offsety": 9,
+      "opacity": 0.35,
+      "repeatx": false,
+      "repeaty": false,
+      "type": "imagelayer",
+      "visible": false,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "draworder": "topdown",
+      "id": 2,
+      "height": 0,
+      "name": "02 Ground Modules",
+      "objects": [
+        {
+          "height": 320,
+          "id": 53,
+          "name": "ground_0_0",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 160,
+          "y": 160,
+          "gid": 81,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/concrete-clean"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 54,
+          "name": "ground_0_1",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 480,
+          "y": 160,
+          "gid": 82,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/concrete-cracked"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 55,
+          "name": "ground_0_2",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 800,
+          "y": 160,
+          "gid": 83,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/service-panels"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 56,
+          "name": "ground_0_3",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 1120,
+          "y": 160,
+          "gid": 84,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/energy-conduits"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 57,
+          "name": "ground_0_4",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 1440,
+          "y": 160,
+          "gid": 81,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/concrete-clean"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 58,
+          "name": "ground_0_5",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 1760,
+          "y": 160,
+          "gid": 82,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/concrete-cracked"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 59,
+          "name": "ground_1_0",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 160,
+          "y": 480,
+          "gid": 83,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/service-panels"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 60,
+          "name": "ground_1_1",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 480,
+          "y": 480,
+          "gid": 84,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/energy-conduits"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 61,
+          "name": "ground_1_2",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 800,
+          "y": 480,
+          "gid": 81,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/concrete-clean"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 62,
+          "name": "ground_1_3",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 1120,
+          "y": 480,
+          "gid": 82,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/concrete-cracked"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 63,
+          "name": "ground_1_4",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 1440,
+          "y": 480,
+          "gid": 83,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/service-panels"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 64,
+          "name": "ground_1_5",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 1760,
+          "y": 480,
+          "gid": 84,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/energy-conduits"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 65,
+          "name": "ground_2_0",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 160,
+          "y": 800,
+          "gid": 81,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/concrete-clean"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 66,
+          "name": "ground_2_1",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 480,
+          "y": 800,
+          "gid": 82,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/concrete-cracked"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 67,
+          "name": "ground_2_2",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 800,
+          "y": 800,
+          "gid": 83,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/service-panels"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 68,
+          "name": "ground_2_3",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 1120,
+          "y": 800,
+          "gid": 84,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/energy-conduits"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 69,
+          "name": "ground_2_4",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 1440,
+          "y": 800,
+          "gid": 81,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/concrete-clean"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        },
+        {
+          "height": 320,
+          "id": 70,
+          "name": "ground_2_5",
+          "rotation": 0,
+          "type": "GroundModule",
+          "visible": true,
+          "width": 320,
+          "x": 1760,
+          "y": 800,
+          "gid": 82,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "ground/concrete-cracked"
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "ground"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            }
+          ]
+        }
+      ],
+      "opacity": 1.0,
+      "type": "objectgroup",
+      "visible": true,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#b99b68"
+    },
+    {
+      "draworder": "topdown",
+      "id": 3,
+      "height": 0,
+      "name": "03 Road Modules",
+      "objects": [
+        {
+          "height": 164,
+          "id": 71,
+          "name": "road_01_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 240,
+          "y": 80,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 72,
+          "name": "road_02_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 400,
+          "y": 80,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 73,
+          "name": "road_03_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 560,
+          "y": 80,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 74,
+          "name": "road_04_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 720,
+          "y": 80,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 75,
+          "name": "road_05_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 880,
+          "y": 80,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 76,
+          "name": "road_06_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1040,
+          "y": 80,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 6
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 77,
+          "name": "road_07_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1200,
+          "y": 80,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 7
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 78,
+          "name": "road_08_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1360,
+          "y": 80,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 8
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 79,
+          "name": "road_09_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1520,
+          "y": 80,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 9
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 80,
+          "name": "road_10_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1680,
+          "y": 80,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 10
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 81,
+          "name": "road_11_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 240,
+          "y": 240,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 82,
+          "name": "road_12_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 400,
+          "y": 240,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 83,
+          "name": "road_13_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 560,
+          "y": 240,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 84,
+          "name": "road_14_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 720,
+          "y": 240,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 85,
+          "name": "road_15_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 880,
+          "y": 240,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 86,
+          "name": "road_16_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1040,
+          "y": 240,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 6
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 87,
+          "name": "road_17_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1200,
+          "y": 240,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 7
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 88,
+          "name": "road_18_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1360,
+          "y": 240,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 8
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 89,
+          "name": "road_19_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1520,
+          "y": 240,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 9
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 90,
+          "name": "road_20_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1680,
+          "y": 240,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 10
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 91,
+          "name": "road_21_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 240,
+          "y": 720,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 92,
+          "name": "road_22_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 400,
+          "y": 720,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 93,
+          "name": "road_23_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 560,
+          "y": 720,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 94,
+          "name": "road_24_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 720,
+          "y": 720,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 95,
+          "name": "road_25_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 880,
+          "y": 720,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 96,
+          "name": "road_26_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1040,
+          "y": 720,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 6
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 97,
+          "name": "road_27_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1200,
+          "y": 720,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 7
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 98,
+          "name": "road_28_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1360,
+          "y": 720,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 8
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 99,
+          "name": "road_29_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1520,
+          "y": 720,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 9
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 100,
+          "name": "road_30_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1680,
+          "y": 720,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 10
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 101,
+          "name": "road_31_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 240,
+          "y": 880,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 102,
+          "name": "road_32_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 400,
+          "y": 880,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 103,
+          "name": "road_33_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 560,
+          "y": 880,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 104,
+          "name": "road_34_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 720,
+          "y": 880,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 105,
+          "name": "road_35_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 880,
+          "y": 880,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 106,
+          "name": "road_36_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1040,
+          "y": 880,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 6
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 107,
+          "name": "road_37_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1200,
+          "y": 880,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 7
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 108,
+          "name": "road_38_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1360,
+          "y": 880,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 8
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 109,
+          "name": "road_39_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1520,
+          "y": 880,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 9
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 110,
+          "name": "road_40_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 1680,
+          "y": 880,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 10
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 111,
+          "name": "road_41_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 240,
+          "y": 400,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 112,
+          "name": "road_42_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 400,
+          "y": 400,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 113,
+          "name": "road_43_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 560,
+          "y": 400,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 114,
+          "name": "road_44_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 720,
+          "y": 400,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 115,
+          "name": "road_45_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 880,
+          "y": 400,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 116,
+          "name": "road_46_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 240,
+          "y": 560,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 117,
+          "name": "road_47_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 400,
+          "y": 560,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 118,
+          "name": "road_48_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 560,
+          "y": 560,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 119,
+          "name": "road_49_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 720,
+          "y": 560,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 120,
+          "name": "road_50_straight-horizontal",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 880,
+          "y": 560,
+          "gid": 65,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/straight-horizontal"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 121,
+          "name": "road_51_corner-ne",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 80,
+          "y": 80,
+          "gid": 67,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/corner-ne"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,S"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 122,
+          "name": "road_52_junction-t-new",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 80,
+          "y": 240,
+          "gid": 71,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/junction-t-new"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 1
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "N,E,S,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 123,
+          "name": "road_53_corner-es",
+          "rotation": 180,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 80,
+          "y": 400,
+          "gid": 68,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/corner-es"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 2
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "N,E"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 124,
+          "name": "road_54_corner-ne",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 80,
+          "y": 560,
+          "gid": 67,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/corner-ne"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "E,S"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 125,
+          "name": "road_55_junction-t-nes",
+          "rotation": 0,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 80,
+          "y": 720,
+          "gid": 72,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/junction-t-nes"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "N,E,S,W"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        },
+        {
+          "height": 164,
+          "id": 126,
+          "name": "road_56_corner-ne",
+          "rotation": -90,
+          "type": "RoadModule",
+          "visible": true,
+          "width": 164,
+          "x": 80,
+          "y": 880,
+          "gid": 67,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "roads/corner-ne"
+            },
+            {
+              "name": "display_footprint",
+              "type": "int",
+              "value": 164
+            },
+            {
+              "name": "grid_column",
+              "type": "int",
+              "value": 0
+            },
+            {
+              "name": "grid_row",
+              "type": "int",
+              "value": 5
+            },
+            {
+              "name": "module_family",
+              "type": "string",
+              "value": "roads"
+            },
+            {
+              "name": "normalized_size",
+              "type": "int",
+              "value": 320
+            },
+            {
+              "name": "ports",
+              "type": "string",
+              "value": "N,E"
+            },
+            {
+              "name": "snap_step",
+              "type": "int",
+              "value": 160
+            },
+            {
+              "name": "visual_depth",
+              "type": "string",
+              "value": "sunken"
+            }
+          ]
+        }
+      ],
+      "opacity": 1.0,
+      "type": "objectgroup",
+      "visible": true,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#e7c98b"
+    },
+    {
+      "draworder": "topdown",
+      "id": 4,
+      "height": 0,
+      "name": "04 Industrial Border and Props",
+      "objects": [
+        {
+          "height": 96,
+          "id": 127,
+          "name": "border_prop_dome",
+          "rotation": 0,
+          "type": "EnvironmentProp",
+          "visible": true,
+          "width": 96,
+          "x": 300,
+          "y": 480,
+          "gid": 57,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "environment-props/storage-dome"
+            }
+          ]
+        },
+        {
+          "height": 88,
+          "id": 128,
+          "name": "border_prop_vent",
+          "rotation": 0,
+          "type": "EnvironmentProp",
+          "visible": true,
+          "width": 88,
+          "x": 1390,
+          "y": 480,
+          "gid": 55,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "environment-props/vent-fan"
+            }
+          ]
+        },
+        {
+          "height": 92,
+          "id": 129,
+          "name": "border_prop_crates",
+          "rotation": -8,
+          "type": "EnvironmentProp",
+          "visible": true,
+          "width": 92,
+          "x": 1510,
+          "y": 480,
+          "gid": 58,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "environment-props/supply-crates"
+            }
+          ]
+        },
+        {
+          "height": 76,
+          "id": 130,
+          "name": "border_prop_power",
+          "rotation": 0,
+          "type": "EnvironmentProp",
+          "visible": true,
+          "width": 76,
+          "x": 210,
+          "y": 480,
+          "gid": 56,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "environment-props/power-box"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 131,
+          "name": "border_prop_lamps_top",
+          "rotation": 0,
+          "type": "EnvironmentProp",
+          "visible": true,
+          "width": 110,
+          "x": 400,
+          "y": 18,
+          "gid": 60,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "environment-props/lamp-cluster"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 132,
+          "name": "border_prop_lamps_bottom",
+          "rotation": 180,
+          "type": "EnvironmentProp",
+          "visible": true,
+          "width": 110,
+          "x": 1290,
+          "y": 942,
+          "gid": 60,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "environment-props/lamp-cluster"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 133,
+          "name": "border_prop_pipes_top",
+          "rotation": 0,
+          "type": "EnvironmentProp",
+          "visible": true,
+          "width": 180,
+          "x": 820,
+          "y": 18,
+          "gid": 53,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "environment-props/pipes"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 134,
+          "name": "border_prop_pipes_bottom",
+          "rotation": 180,
+          "type": "EnvironmentProp",
+          "visible": true,
+          "width": 180,
+          "x": 860,
+          "y": 942,
+          "gid": 53,
+          "properties": [
+            {
+              "name": "asset_id",
+              "type": "string",
+              "value": "environment-props/pipes"
+            }
+          ]
+        }
+      ],
+      "opacity": 0.9,
+      "type": "objectgroup",
+      "visible": true,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#d0b37c"
+    },
+    {
+      "draworder": "topdown",
+      "id": 5,
+      "height": 0,
+      "name": "05 Player Reach Zones",
+      "objects": [
+        {
+          "height": 0,
+          "id": 18,
+          "name": "purple_arching_reach",
+          "rotation": 0,
+          "type": "ReachZone",
+          "visible": true,
+          "width": 0,
+          "x": 350,
+          "y": 0,
+          "polygon": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 1346,
+              "y": 0
+            },
+            {
+              "x": 1346,
+              "y": 700
+            },
+            {
+              "x": 900,
+              "y": 700
+            },
+            {
+              "x": 550,
+              "y": 620
+            },
+            {
+              "x": 250,
+              "y": 500
+            },
+            {
+              "x": 0,
+              "y": 400
+            }
+          ],
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "purple",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "priority",
+              "type": "int",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 19,
+          "name": "green_arching_reach",
+          "rotation": 0,
+          "type": "ReachZone",
+          "visible": true,
+          "width": 0,
+          "x": 0,
+          "y": 240,
+          "polygon": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 420,
+              "y": 0
+            },
+            {
+              "x": 700,
+              "y": 100
+            },
+            {
+              "x": 1000,
+              "y": 190
+            },
+            {
+              "x": 1350,
+              "y": 280
+            },
+            {
+              "x": 1350,
+              "y": 720
+            },
+            {
+              "x": 0,
+              "y": 720
+            }
+          ],
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "green",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "priority",
+              "type": "int",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 20,
+          "name": "shared_low_priority_overlap",
+          "rotation": 0,
+          "type": "ReachZone",
+          "visible": true,
+          "width": 0,
+          "x": 430,
+          "y": 280,
+          "polygon": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 270,
+              "y": 20
+            },
+            {
+              "x": 830,
+              "y": 220
+            },
+            {
+              "x": 830,
+              "y": 400
+            },
+            {
+              "x": 470,
+              "y": 340
+            },
+            {
+              "x": 130,
+              "y": 200
+            },
+            {
+              "x": 0,
+              "y": 110
+            }
+          ],
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "shared",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "priority",
+              "type": "int",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "opacity": 0.28,
+      "type": "objectgroup",
+      "visible": false,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#76dfac"
+    },
+    {
+      "draworder": "topdown",
+      "id": 6,
+      "height": 0,
+      "name": "06 Enemy Path Graph",
+      "objects": [
+        {
+          "height": 0,
+          "id": 10,
+          "name": "edge_approach_top_outer",
+          "rotation": 0,
+          "type": "PathEdge",
+          "visible": true,
+          "width": 0,
+          "x": 1685,
+          "y": 80,
+          "polyline": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": -1605,
+              "y": 0
+            },
+            {
+              "x": -1605,
+              "y": 160
+            }
+          ],
+          "properties": [
+            {
+              "name": "base_cost",
+              "type": "float",
+              "value": 1765.0
+            },
+            {
+              "name": "edge_id",
+              "type": "string",
+              "value": "edge_approach_top_outer"
+            },
+            {
+              "name": "enabled",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "from_node",
+              "type": "object",
+              "value": 1
+            },
+            {
+              "name": "road_width",
+              "type": "float",
+              "value": 96.0
+            },
+            {
+              "name": "route_phase",
+              "type": "string",
+              "value": "approach",
+              "propertytype": "RoutePhase"
+            },
+            {
+              "name": "to_node",
+              "type": "object",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 11,
+          "name": "edge_approach_top_inner",
+          "rotation": 0,
+          "type": "PathEdge",
+          "visible": true,
+          "width": 0,
+          "x": 1685,
+          "y": 240,
+          "polyline": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": -1605,
+              "y": 0
+            }
+          ],
+          "properties": [
+            {
+              "name": "base_cost",
+              "type": "float",
+              "value": 1605.0
+            },
+            {
+              "name": "edge_id",
+              "type": "string",
+              "value": "edge_approach_top_inner"
+            },
+            {
+              "name": "enabled",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "from_node",
+              "type": "object",
+              "value": 2
+            },
+            {
+              "name": "road_width",
+              "type": "float",
+              "value": 96.0
+            },
+            {
+              "name": "route_phase",
+              "type": "string",
+              "value": "approach",
+              "propertytype": "RoutePhase"
+            },
+            {
+              "name": "to_node",
+              "type": "object",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 12,
+          "name": "edge_approach_bottom_inner",
+          "rotation": 0,
+          "type": "PathEdge",
+          "visible": true,
+          "width": 0,
+          "x": 1685,
+          "y": 720,
+          "polyline": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": -1605,
+              "y": 0
+            }
+          ],
+          "properties": [
+            {
+              "name": "base_cost",
+              "type": "float",
+              "value": 1605.0
+            },
+            {
+              "name": "edge_id",
+              "type": "string",
+              "value": "edge_approach_bottom_inner"
+            },
+            {
+              "name": "enabled",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "from_node",
+              "type": "object",
+              "value": 3
+            },
+            {
+              "name": "road_width",
+              "type": "float",
+              "value": 96.0
+            },
+            {
+              "name": "route_phase",
+              "type": "string",
+              "value": "approach",
+              "propertytype": "RoutePhase"
+            },
+            {
+              "name": "to_node",
+              "type": "object",
+              "value": 8
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 13,
+          "name": "edge_approach_bottom_outer",
+          "rotation": 0,
+          "type": "PathEdge",
+          "visible": true,
+          "width": 0,
+          "x": 1685,
+          "y": 880,
+          "polyline": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": -1605,
+              "y": 0
+            },
+            {
+              "x": -1605,
+              "y": -160
+            }
+          ],
+          "properties": [
+            {
+              "name": "base_cost",
+              "type": "float",
+              "value": 1765.0
+            },
+            {
+              "name": "edge_id",
+              "type": "string",
+              "value": "edge_approach_bottom_outer"
+            },
+            {
+              "name": "enabled",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "from_node",
+              "type": "object",
+              "value": 4
+            },
+            {
+              "name": "road_width",
+              "type": "float",
+              "value": 96.0
+            },
+            {
+              "name": "route_phase",
+              "type": "string",
+              "value": "approach",
+              "propertytype": "RoutePhase"
+            },
+            {
+              "name": "to_node",
+              "type": "object",
+              "value": 8
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 14,
+          "name": "edge_back_top",
+          "rotation": 0,
+          "type": "PathEdge",
+          "visible": true,
+          "width": 0,
+          "x": 80,
+          "y": 240,
+          "polyline": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 0,
+              "y": 160
+            }
+          ],
+          "properties": [
+            {
+              "name": "base_cost",
+              "type": "float",
+              "value": 160.0
+            },
+            {
+              "name": "edge_id",
+              "type": "string",
+              "value": "edge_back_top"
+            },
+            {
+              "name": "enabled",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "from_node",
+              "type": "object",
+              "value": 5
+            },
+            {
+              "name": "road_width",
+              "type": "float",
+              "value": 96.0
+            },
+            {
+              "name": "route_phase",
+              "type": "string",
+              "value": "back",
+              "propertytype": "RoutePhase"
+            },
+            {
+              "name": "to_node",
+              "type": "object",
+              "value": 6
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 15,
+          "name": "edge_back_bottom",
+          "rotation": 0,
+          "type": "PathEdge",
+          "visible": true,
+          "width": 0,
+          "x": 80,
+          "y": 720,
+          "polyline": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 0,
+              "y": -160
+            }
+          ],
+          "properties": [
+            {
+              "name": "base_cost",
+              "type": "float",
+              "value": 160.0
+            },
+            {
+              "name": "edge_id",
+              "type": "string",
+              "value": "edge_back_bottom"
+            },
+            {
+              "name": "enabled",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "from_node",
+              "type": "object",
+              "value": 8
+            },
+            {
+              "name": "road_width",
+              "type": "float",
+              "value": 96.0
+            },
+            {
+              "name": "route_phase",
+              "type": "string",
+              "value": "back",
+              "propertytype": "RoutePhase"
+            },
+            {
+              "name": "to_node",
+              "type": "object",
+              "value": 7
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 16,
+          "name": "edge_return_top",
+          "rotation": 0,
+          "type": "PathEdge",
+          "visible": true,
+          "width": 0,
+          "x": 80,
+          "y": 400,
+          "polyline": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 768,
+              "y": 0
+            },
+            {
+              "x": 768,
+              "y": 80
+            }
+          ],
+          "properties": [
+            {
+              "name": "base_cost",
+              "type": "float",
+              "value": 848.0
+            },
+            {
+              "name": "edge_id",
+              "type": "string",
+              "value": "edge_return_top"
+            },
+            {
+              "name": "enabled",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "from_node",
+              "type": "object",
+              "value": 6
+            },
+            {
+              "name": "road_width",
+              "type": "float",
+              "value": 96.0
+            },
+            {
+              "name": "route_phase",
+              "type": "string",
+              "value": "return",
+              "propertytype": "RoutePhase"
+            },
+            {
+              "name": "to_node",
+              "type": "object",
+              "value": 9
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 17,
+          "name": "edge_return_bottom",
+          "rotation": 0,
+          "type": "PathEdge",
+          "visible": true,
+          "width": 0,
+          "x": 80,
+          "y": 560,
+          "polyline": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 768,
+              "y": 0
+            },
+            {
+              "x": 768,
+              "y": -80
+            }
+          ],
+          "properties": [
+            {
+              "name": "base_cost",
+              "type": "float",
+              "value": 848.0
+            },
+            {
+              "name": "edge_id",
+              "type": "string",
+              "value": "edge_return_bottom"
+            },
+            {
+              "name": "enabled",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "from_node",
+              "type": "object",
+              "value": 7
+            },
+            {
+              "name": "road_width",
+              "type": "float",
+              "value": 96.0
+            },
+            {
+              "name": "route_phase",
+              "type": "string",
+              "value": "return",
+              "propertytype": "RoutePhase"
+            },
+            {
+              "name": "to_node",
+              "type": "object",
+              "value": 9
+            }
+          ]
+        }
+      ],
+      "opacity": 0.42,
+      "type": "objectgroup",
+      "visible": false,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#38d9ff"
+    },
+    {
+      "draworder": "topdown",
+      "id": 7,
+      "height": 0,
+      "name": "07 Path Nodes",
+      "objects": [
+        {
+          "height": 0,
+          "id": 1,
+          "name": "spawn_top_outer",
+          "rotation": 0,
+          "type": "PathNode",
+          "visible": true,
+          "width": 0,
+          "x": 1685,
+          "y": 80,
+          "point": true,
+          "properties": [
+            {
+              "name": "node_id",
+              "type": "string",
+              "value": "spawn_top_outer"
+            },
+            {
+              "name": "node_kind",
+              "type": "string",
+              "value": "spawn",
+              "propertytype": "NodeKind"
+            },
+            {
+              "name": "spawn_group",
+              "type": "string",
+              "value": "top_outer"
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 2,
+          "name": "spawn_top_inner",
+          "rotation": 0,
+          "type": "PathNode",
+          "visible": true,
+          "width": 0,
+          "x": 1685,
+          "y": 240,
+          "point": true,
+          "properties": [
+            {
+              "name": "node_id",
+              "type": "string",
+              "value": "spawn_top_inner"
+            },
+            {
+              "name": "node_kind",
+              "type": "string",
+              "value": "spawn",
+              "propertytype": "NodeKind"
+            },
+            {
+              "name": "spawn_group",
+              "type": "string",
+              "value": "top_inner"
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 3,
+          "name": "spawn_bottom_inner",
+          "rotation": 0,
+          "type": "PathNode",
+          "visible": true,
+          "width": 0,
+          "x": 1685,
+          "y": 720,
+          "point": true,
+          "properties": [
+            {
+              "name": "node_id",
+              "type": "string",
+              "value": "spawn_bottom_inner"
+            },
+            {
+              "name": "node_kind",
+              "type": "string",
+              "value": "spawn",
+              "propertytype": "NodeKind"
+            },
+            {
+              "name": "spawn_group",
+              "type": "string",
+              "value": "bottom_inner"
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 4,
+          "name": "spawn_bottom_outer",
+          "rotation": 0,
+          "type": "PathNode",
+          "visible": true,
+          "width": 0,
+          "x": 1685,
+          "y": 880,
+          "point": true,
+          "properties": [
+            {
+              "name": "node_id",
+              "type": "string",
+              "value": "spawn_bottom_outer"
+            },
+            {
+              "name": "node_kind",
+              "type": "string",
+              "value": "spawn",
+              "propertytype": "NodeKind"
+            },
+            {
+              "name": "spawn_group",
+              "type": "string",
+              "value": "bottom_outer"
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 5,
+          "name": "merge_top_back",
+          "rotation": 0,
+          "type": "PathNode",
+          "visible": true,
+          "width": 0,
+          "x": 80,
+          "y": 240,
+          "point": true,
+          "properties": [
+            {
+              "name": "node_id",
+              "type": "string",
+              "value": "merge_top_back"
+            },
+            {
+              "name": "node_kind",
+              "type": "string",
+              "value": "turnaround",
+              "propertytype": "NodeKind"
+            },
+            {
+              "name": "spawn_group",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 6,
+          "name": "return_top_back",
+          "rotation": 0,
+          "type": "PathNode",
+          "visible": true,
+          "width": 0,
+          "x": 80,
+          "y": 400,
+          "point": true,
+          "properties": [
+            {
+              "name": "node_id",
+              "type": "string",
+              "value": "return_top_back"
+            },
+            {
+              "name": "node_kind",
+              "type": "string",
+              "value": "junction",
+              "propertytype": "NodeKind"
+            },
+            {
+              "name": "spawn_group",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 7,
+          "name": "return_bottom_back",
+          "rotation": 0,
+          "type": "PathNode",
+          "visible": true,
+          "width": 0,
+          "x": 80,
+          "y": 560,
+          "point": true,
+          "properties": [
+            {
+              "name": "node_id",
+              "type": "string",
+              "value": "return_bottom_back"
+            },
+            {
+              "name": "node_kind",
+              "type": "string",
+              "value": "junction",
+              "propertytype": "NodeKind"
+            },
+            {
+              "name": "spawn_group",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 8,
+          "name": "merge_bottom_back",
+          "rotation": 0,
+          "type": "PathNode",
+          "visible": true,
+          "width": 0,
+          "x": 80,
+          "y": 720,
+          "point": true,
+          "properties": [
+            {
+              "name": "node_id",
+              "type": "string",
+              "value": "merge_bottom_back"
+            },
+            {
+              "name": "node_kind",
+              "type": "string",
+              "value": "turnaround",
+              "propertytype": "NodeKind"
+            },
+            {
+              "name": "spawn_group",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 9,
+          "name": "core_entry",
+          "rotation": 0,
+          "type": "PathNode",
+          "visible": true,
+          "width": 0,
+          "x": 848,
+          "y": 480,
+          "point": true,
+          "properties": [
+            {
+              "name": "node_id",
+              "type": "string",
+              "value": "core_entry"
+            },
+            {
+              "name": "node_kind",
+              "type": "string",
+              "value": "core",
+              "propertytype": "NodeKind"
+            },
+            {
+              "name": "spawn_group",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        }
+      ],
+      "opacity": 1.0,
+      "type": "objectgroup",
+      "visible": false,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#f6e05e"
+    },
+    {
+      "draworder": "topdown",
+      "id": 8,
+      "height": 0,
+      "name": "08 Gameplay Zones",
+      "objects": [
+        {
+          "height": 160,
+          "id": 43,
+          "name": "photon_sync_zone",
+          "rotation": 0,
+          "type": "PhotonSyncZone",
+          "visible": true,
+          "width": 160,
+          "x": 768,
+          "y": 400,
+          "ellipse": true,
+          "properties": [
+            {
+              "name": "requires_active_towers",
+              "type": "int",
+              "value": 8
+            },
+            {
+              "name": "requires_both_heroes",
+              "type": "bool",
+              "value": true
+            }
+          ]
+        },
+        {
+          "height": 108,
+          "id": 44,
+          "name": "core_damage_zone",
+          "rotation": 0,
+          "type": "CoreZone",
+          "visible": true,
+          "width": 108,
+          "x": 794,
+          "y": 426,
+          "ellipse": true,
+          "properties": [
+            {
+              "name": "core_hp",
+              "type": "int",
+              "value": 10000
+            },
+            {
+              "name": "loss_on_breach",
+              "type": "bool",
+              "value": true
+            }
+          ]
+        },
+        {
+          "height": 960,
+          "id": 45,
+          "name": "camera_bounds",
+          "rotation": 0,
+          "type": "CameraBounds",
+          "visible": true,
+          "width": 1696,
+          "x": 0,
+          "y": 0,
+          "properties": [
+            {
+              "name": "clamp_camera",
+              "type": "bool",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "opacity": 0.8,
+      "type": "objectgroup",
+      "visible": false,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#ff4ff0"
+    },
+    {
+      "draworder": "topdown",
+      "id": 9,
+      "height": 0,
+      "name": "09 Tower Sockets (16)",
+      "objects": [
+        {
+          "height": 70,
+          "id": 21,
+          "name": "socket_01",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 560,
+          "y": 160,
+          "gid": 3,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "purple",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_01"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "high",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 22,
+          "name": "socket_02",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 720,
+          "y": 160,
+          "gid": 3,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "purple",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_02"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "high",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 23,
+          "name": "socket_03",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 1040,
+          "y": 160,
+          "gid": 3,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "purple",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_03"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "high",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 24,
+          "name": "socket_04",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 1200,
+          "y": 160,
+          "gid": 3,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "purple",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_04"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "high",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 25,
+          "name": "socket_05",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 480,
+          "y": 320,
+          "gid": 4,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "shared",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_05"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "support",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 26,
+          "name": "socket_06",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 640,
+          "y": 320,
+          "gid": 4,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "shared",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_06"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "standard",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 27,
+          "name": "socket_07",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 1056,
+          "y": 320,
+          "gid": 3,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "purple",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_07"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "high",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 28,
+          "name": "socket_08",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 1216,
+          "y": 320,
+          "gid": 3,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "purple",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_08"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "high",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 29,
+          "name": "socket_09",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 480,
+          "y": 640,
+          "gid": 2,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "green",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_09"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "high",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 30,
+          "name": "socket_10",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 640,
+          "y": 640,
+          "gid": 2,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "green",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_10"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "high",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 31,
+          "name": "socket_11",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 1056,
+          "y": 640,
+          "gid": 4,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "shared",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_11"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "standard",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 32,
+          "name": "socket_12",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 1216,
+          "y": 640,
+          "gid": 4,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "shared",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_12"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "support",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 33,
+          "name": "socket_13",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 560,
+          "y": 800,
+          "gid": 2,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "green",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_13"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "high",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 34,
+          "name": "socket_14",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 720,
+          "y": 800,
+          "gid": 2,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "green",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_14"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "high",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 35,
+          "name": "socket_15",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 1040,
+          "y": 800,
+          "gid": 2,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "green",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_15"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "high",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        },
+        {
+          "height": 70,
+          "id": 36,
+          "name": "socket_16",
+          "rotation": 0,
+          "type": "TowerSocket",
+          "visible": true,
+          "width": 70,
+          "x": 1200,
+          "y": 800,
+          "gid": 2,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "green",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "resource_favored",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "socket_id",
+              "type": "string",
+              "value": "socket_16"
+            },
+            {
+              "name": "strategic_value",
+              "type": "string",
+              "value": "high",
+              "propertytype": "StrategicValue"
+            }
+          ]
+        }
+      ],
+      "opacity": 1.0,
+      "type": "objectgroup",
+      "visible": true,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#ffd166"
+    },
+    {
+      "draworder": "topdown",
+      "id": 10,
+      "height": 0,
+      "name": "10 Starter Structures",
+      "objects": [
+        {
+          "height": 64,
+          "id": 37,
+          "name": "starter_purple_machine_gun",
+          "rotation": 0,
+          "type": "StarterStructure",
+          "visible": true,
+          "width": 64,
+          "x": 1056,
+          "y": 320,
+          "gid": 21,
+          "properties": [
+            {
+              "name": "socket_ref",
+              "type": "object",
+              "value": 27
+            },
+            {
+              "name": "team",
+              "type": "string",
+              "value": "purple",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "tower_type",
+              "type": "string",
+              "value": "machine_gun"
+            }
+          ]
+        },
+        {
+          "height": 64,
+          "id": 38,
+          "name": "starter_green_flamethrower",
+          "rotation": 0,
+          "type": "StarterStructure",
+          "visible": true,
+          "width": 64,
+          "x": 640,
+          "y": 640,
+          "gid": 22,
+          "properties": [
+            {
+              "name": "socket_ref",
+              "type": "object",
+              "value": 30
+            },
+            {
+              "name": "team",
+              "type": "string",
+              "value": "green",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "tower_type",
+              "type": "string",
+              "value": "flamethrower"
+            }
+          ]
+        }
+      ],
+      "opacity": 1.0,
+      "type": "objectgroup",
+      "visible": true,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#ff9d4d"
+    },
+    {
+      "draworder": "topdown",
+      "id": 11,
+      "height": 0,
+      "name": "11 Force Field Gate Hints",
+      "objects": [
+        {
+          "height": 0,
+          "id": 39,
+          "name": "gate_hint_01",
+          "rotation": 0,
+          "type": "GateHint",
+          "visible": true,
+          "width": 0,
+          "x": 480,
+          "y": 320,
+          "polyline": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 0,
+              "y": 320
+            }
+          ],
+          "properties": [
+            {
+              "name": "requires_active_towers",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "socket_a",
+              "type": "object",
+              "value": 25
+            },
+            {
+              "name": "socket_b",
+              "type": "object",
+              "value": 29
+            },
+            {
+              "name": "wear_multiplier",
+              "type": "float",
+              "value": 1.0
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 40,
+          "name": "gate_hint_02",
+          "rotation": 0,
+          "type": "GateHint",
+          "visible": true,
+          "width": 0,
+          "x": 640,
+          "y": 320,
+          "polyline": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 0,
+              "y": 320
+            }
+          ],
+          "properties": [
+            {
+              "name": "requires_active_towers",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "socket_a",
+              "type": "object",
+              "value": 26
+            },
+            {
+              "name": "socket_b",
+              "type": "object",
+              "value": 30
+            },
+            {
+              "name": "wear_multiplier",
+              "type": "float",
+              "value": 1.0
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 41,
+          "name": "gate_hint_03",
+          "rotation": 0,
+          "type": "GateHint",
+          "visible": true,
+          "width": 0,
+          "x": 1056,
+          "y": 320,
+          "polyline": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 0,
+              "y": 320
+            }
+          ],
+          "properties": [
+            {
+              "name": "requires_active_towers",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "socket_a",
+              "type": "object",
+              "value": 27
+            },
+            {
+              "name": "socket_b",
+              "type": "object",
+              "value": 31
+            },
+            {
+              "name": "wear_multiplier",
+              "type": "float",
+              "value": 1.0
+            }
+          ]
+        },
+        {
+          "height": 0,
+          "id": 42,
+          "name": "gate_hint_04",
+          "rotation": 0,
+          "type": "GateHint",
+          "visible": true,
+          "width": 0,
+          "x": 1216,
+          "y": 320,
+          "polyline": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 0,
+              "y": 320
+            }
+          ],
+          "properties": [
+            {
+              "name": "requires_active_towers",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "socket_a",
+              "type": "object",
+              "value": 28
+            },
+            {
+              "name": "socket_b",
+              "type": "object",
+              "value": 32
+            },
+            {
+              "name": "wear_multiplier",
+              "type": "float",
+              "value": 1.0
+            }
+          ]
+        }
+      ],
+      "opacity": 0.9,
+      "type": "objectgroup",
+      "visible": true,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#6ce8ff"
+    },
+    {
+      "draworder": "topdown",
+      "id": 12,
+      "height": 0,
+      "name": "12 Core and Crane Components",
+      "objects": [
+        {
+          "height": 185,
+          "id": 46,
+          "name": "central_photon_core",
+          "rotation": 0,
+          "type": "CoreVisual",
+          "visible": true,
+          "width": 190,
+          "x": 848,
+          "y": 480,
+          "gid": 5,
+          "properties": [
+            {
+              "name": "gameplay_node_ref",
+              "type": "object",
+              "value": 9
+            }
+          ]
+        },
+        {
+          "height": 236,
+          "id": 47,
+          "name": "green_crane_base",
+          "rotation": -18,
+          "type": "CraneVisual",
+          "visible": true,
+          "width": 245,
+          "x": 45,
+          "y": 900,
+          "gid": 33,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "green",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "visual_role",
+              "type": "string",
+              "value": "base"
+            }
+          ]
+        },
+        {
+          "height": 205,
+          "id": 48,
+          "name": "green_crane_arm",
+          "rotation": -34,
+          "type": "CraneVisual",
+          "visible": true,
+          "width": 300,
+          "x": 185,
+          "y": 815,
+          "gid": 37,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "green",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "visual_role",
+              "type": "string",
+              "value": "arm"
+            }
+          ]
+        },
+        {
+          "height": 92,
+          "id": 49,
+          "name": "green_hero",
+          "rotation": 0,
+          "type": "HeroVisual",
+          "visible": true,
+          "width": 92,
+          "x": 335,
+          "y": 735,
+          "gid": 41,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "green",
+              "propertytype": "SocketOwner"
+            }
+          ]
+        },
+        {
+          "height": 236,
+          "id": 50,
+          "name": "purple_crane_base",
+          "rotation": 162,
+          "type": "CraneVisual",
+          "visible": true,
+          "width": 245,
+          "x": 1650,
+          "y": 58,
+          "gid": 34,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "purple",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "visual_role",
+              "type": "string",
+              "value": "base"
+            }
+          ]
+        },
+        {
+          "height": 205,
+          "id": 51,
+          "name": "purple_crane_arm",
+          "rotation": 146,
+          "type": "CraneVisual",
+          "visible": true,
+          "width": 300,
+          "x": 1510,
+          "y": 145,
+          "gid": 38,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "purple",
+              "propertytype": "SocketOwner"
+            },
+            {
+              "name": "visual_role",
+              "type": "string",
+              "value": "arm"
+            }
+          ]
+        },
+        {
+          "height": 92,
+          "id": 52,
+          "name": "purple_hero",
+          "rotation": 0,
+          "type": "HeroVisual",
+          "visible": true,
+          "width": 92,
+          "x": 1360,
+          "y": 225,
+          "gid": 42,
+          "properties": [
+            {
+              "name": "owner",
+              "type": "string",
+              "value": "purple",
+              "propertytype": "SocketOwner"
+            }
+          ]
+        }
+      ],
+      "opacity": 1.0,
+      "type": "objectgroup",
+      "visible": true,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#b590ff"
+    },
+    {
+      "draworder": "topdown",
+      "id": 13,
+      "height": 0,
+      "name": "13 Enemy Preview Markers",
+      "objects": [
+        {
+          "height": 58,
+          "id": 135,
+          "name": "preview_grunt",
+          "rotation": 0,
+          "type": "EnemyPreview",
+          "visible": true,
+          "width": 58,
+          "x": 1570,
+          "y": 80,
+          "gid": 101,
+          "properties": [
+            {
+              "name": "enemy_type",
+              "type": "string",
+              "value": "grunt"
+            },
+            {
+              "name": "runtime_spawned",
+              "type": "bool",
+              "value": true
+            }
+          ]
+        },
+        {
+          "height": 54,
+          "id": 136,
+          "name": "preview_runner",
+          "rotation": 0,
+          "type": "EnemyPreview",
+          "visible": true,
+          "width": 54,
+          "x": 1570,
+          "y": 240,
+          "gid": 102,
+          "properties": [
+            {
+              "name": "enemy_type",
+              "type": "string",
+              "value": "runner"
+            },
+            {
+              "name": "runtime_spawned",
+              "type": "bool",
+              "value": true
+            }
+          ]
+        },
+        {
+          "height": 64,
+          "id": 137,
+          "name": "preview_breaker",
+          "rotation": 0,
+          "type": "EnemyPreview",
+          "visible": true,
+          "width": 64,
+          "x": 1570,
+          "y": 720,
+          "gid": 103,
+          "properties": [
+            {
+              "name": "enemy_type",
+              "type": "string",
+              "value": "breaker"
+            },
+            {
+              "name": "runtime_spawned",
+              "type": "bool",
+              "value": true
+            }
+          ]
+        },
+        {
+          "height": 76,
+          "id": 138,
+          "name": "preview_shield",
+          "rotation": 0,
+          "type": "EnemyPreview",
+          "visible": true,
+          "width": 76,
+          "x": 1570,
+          "y": 880,
+          "gid": 114,
+          "properties": [
+            {
+              "name": "enemy_type",
+              "type": "string",
+              "value": "shield"
+            },
+            {
+              "name": "runtime_spawned",
+              "type": "bool",
+              "value": true
+            }
+          ]
+        },
+        {
+          "height": 128,
+          "id": 139,
+          "name": "preview_boss",
+          "rotation": 0,
+          "type": "EnemyPreview",
+          "visible": true,
+          "width": 128,
+          "x": 1450,
+          "y": 480,
+          "gid": 125,
+          "properties": [
+            {
+              "name": "enemy_type",
+              "type": "string",
+              "value": "boss"
+            },
+            {
+              "name": "runtime_spawned",
+              "type": "bool",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "opacity": 1.0,
+      "type": "objectgroup",
+      "visible": false,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#ff655e"
+    },
+    {
+      "draworder": "topdown",
+      "id": 14,
+      "height": 0,
+      "name": "14 Editor Notes",
+      "objects": [
+        {
+          "height": 88,
+          "id": 140,
+          "name": "path_note",
+          "rotation": 0,
+          "type": "EditorNote",
+          "visible": true,
+          "width": 350,
+          "x": 18,
+          "y": 18,
+          "text": {
+            "color": "#e9f6ff",
+            "fontfamily": "Inter",
+            "pixelsize": 16,
+            "text": "Four routes enter from the right. The upper pair loops around the far-left top turn and the lower pair loops around the far-left bottom turn; two separate recessed return lanes then circle back toward the central Photon Core.",
+            "valign": "top",
+            "wrap": true
+          }
+        },
+        {
+          "height": 82,
+          "id": 141,
+          "name": "gate_note",
+          "rotation": 0,
+          "type": "EditorNote",
+          "visible": true,
+          "width": 450,
+          "x": 1190,
+          "y": 25,
+          "text": {
+            "color": "#e9f6ff",
+            "fontfamily": "Inter",
+            "pixelsize": 16,
+            "text": "Gate Hint lines are legal endpoint pairs only. Runtime force fields appear only when both referenced towers are active.",
+            "valign": "top",
+            "wrap": true
+          }
+        }
+      ],
+      "opacity": 1.0,
+      "type": "objectgroup",
+      "visible": false,
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "color": "#ffffff",
+      "locked": true
+    }
+  ],
+  "nextlayerid": 15,
+  "nextobjectid": 142,
+  "orientation": "orthogonal",
+  "properties": [
+    {
+      "name": "background_asset",
+      "type": "file",
+      "value": "../../game-art/backgrounds/menu-prebattle-arena.png"
+    },
+    {
+      "name": "design_resolution",
+      "type": "string",
+      "value": "1696x960"
+    },
+    {
+      "name": "display_name",
+      "type": "string",
+      "value": "Photon Yard"
+    },
+    {
+      "name": "level_id",
+      "type": "string",
+      "value": "photon_yard_01"
+    },
+    {
+      "name": "max_active_enemies",
+      "type": "int",
+      "value": 1000
+    },
+    {
+      "name": "max_structures",
+      "type": "int",
+      "value": 8
+    },
+    {
+      "name": "modular_visuals",
+      "type": "bool",
+      "value": true
+    },
+    {
+      "name": "path_topology",
+      "type": "string",
+      "value": "four_right_approaches_loop_top_bottom_to_two_core_returns"
+    },
+    {
+      "name": "schema_version",
+      "type": "int",
+      "value": 1
+    },
+    {
+      "name": "socket_count",
+      "type": "int",
+      "value": 16
+    },
+    {
+      "name": "wave_file",
+      "type": "file",
+      "value": "photon-yard.waves.json"
+    }
+  ],
+  "renderorder": "right-down",
+  "tiledversion": "1.12.2",
+  "tileheight": 32,
+  "tilesets": [
+    {
+      "firstgid": 1,
+      "source": "../tilesets/photon-objectives.tsj"
+    },
+    {
+      "firstgid": 17,
+      "source": "../tilesets/photon-structures.tsj"
+    },
+    {
+      "firstgid": 33,
+      "source": "../tilesets/photon-cranes.tsj"
+    },
+    {
+      "firstgid": 49,
+      "source": "../tilesets/photon-environment-props.tsj"
+    },
+    {
+      "firstgid": 65,
+      "source": "../tilesets/photon-roads.tsj"
+    },
+    {
+      "firstgid": 81,
+      "source": "../tilesets/photon-ground.tsj"
+    },
+    {
+      "firstgid": 85,
+      "source": "../tilesets/photon-effects.tsj"
+    },
+    {
+      "firstgid": 101,
+      "source": "../tilesets/photon-enemies-light.tsj"
+    },
+    {
+      "firstgid": 113,
+      "source": "../tilesets/photon-enemies-heavy.tsj"
+    },
+    {
+      "firstgid": 125,
+      "source": "../tilesets/photon-boss.tsj"
+    }
+  ],
+  "tilewidth": 32,
+  "type": "map",
+  "version": "1.11",
+  "width": 53
+}

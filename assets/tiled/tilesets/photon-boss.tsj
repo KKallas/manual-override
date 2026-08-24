@@ -1,0 +1,417 @@
+{
+  "columns": 0,
+  "grid": {
+    "height": 1,
+    "orientation": "orthogonal",
+    "width": 1
+  },
+  "margin": 0,
+  "name": "photon-boss",
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "source_category",
+      "type": "string",
+      "value": "boss"
+    }
+  ],
+  "spacing": 0,
+  "tilecount": 16,
+  "tiledversion": "1.12.2",
+  "tileheight": 314,
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/sprites/boss/boss-idle-01.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-idle-01"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 1,
+      "image": "../../game-art/sprites/boss/boss-idle-02.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-idle-02"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 2,
+      "image": "../../game-art/sprites/boss/boss-idle-03.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-idle-03"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 3,
+      "image": "../../game-art/sprites/boss/boss-idle-04.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-idle-04"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 4,
+      "image": "../../game-art/sprites/boss/boss-move-01.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-move-01"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 5,
+      "image": "../../game-art/sprites/boss/boss-move-02.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-move-02"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 6,
+      "image": "../../game-art/sprites/boss/boss-move-03.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-move-03"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 7,
+      "image": "../../game-art/sprites/boss/boss-move-04.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-move-04"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 8,
+      "image": "../../game-art/sprites/boss/boss-attack-01.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-attack-01"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 9,
+      "image": "../../game-art/sprites/boss/boss-attack-02.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-attack-02"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 10,
+      "image": "../../game-art/sprites/boss/boss-attack-03.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-attack-03"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 11,
+      "image": "../../game-art/sprites/boss/boss-attack-04.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-attack-04"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 12,
+      "image": "../../game-art/sprites/boss/boss-destroy-01.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-destroy-01"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 13,
+      "image": "../../game-art/sprites/boss/boss-destroy-02.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-destroy-02"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 14,
+      "image": "../../game-art/sprites/boss/boss-destroy-03.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-destroy-03"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 15,
+      "image": "../../game-art/sprites/boss/boss-destroy-04.png",
+      "imageheight": 314,
+      "imagewidth": 314,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "boss/boss-destroy-04"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "boss"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "type": "ArtAsset"
+    }
+  ],
+  "tilewidth": 314,
+  "transformations": {
+    "hflip": true,
+    "preferuntransformed": false,
+    "rotate": true,
+    "vflip": true
+  },
+  "type": "tileset",
+  "version": "1.11"
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "level_id": "z_pixel_first_map_01",
+  "status": "pass",
+  "errors": [],
+  "warnings": [
+    "Gate previews are illustrative; runtime visibility still requires both endpoint tags to be active"
+  ],
+  "counts": {
+    "ground_modules": 18,
+    "road_modules": 61,
+    "path_nodes": 23,
+    "path_edges": 40,
+    "placement_spots": 16,
+    "gate_candidates": 8,
+    "active_gate_previews": 4
+  }
+}

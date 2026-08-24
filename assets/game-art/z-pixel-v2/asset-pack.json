@@ -1,0 +1,1139 @@
+{
+  "schema_version": 1,
+  "pack_id": "photon-yard-z-pixel-v2",
+  "style": {
+    "direction": "1990s British Amiga/DOS top-down strategy pixel art",
+    "reference": "assets/concept-art/z-pixel-variants/gameplay-z-pixel-simplified-tag-targets-v1.png",
+    "palette": [
+      "charcoal",
+      "gunmetal",
+      "dirty-gray",
+      "muted-amber",
+      "green",
+      "violet",
+      "cyan"
+    ],
+    "filter": "nearest"
+  },
+  "module_size": 320,
+  "sheets": [
+    {
+      "category": "roads",
+      "file": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "columns": 4,
+      "rows": 4
+    },
+    {
+      "category": "objectives",
+      "file": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "columns": 4,
+      "rows": 4
+    },
+    {
+      "category": "structures",
+      "file": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "columns": 4,
+      "rows": 4
+    },
+    {
+      "category": "core",
+      "file": "assets/game-art/z-pixel-v2/source-sheets/core-2x2.png",
+      "columns": 2,
+      "rows": 2
+    },
+    {
+      "category": "ground",
+      "file": "assets/game-art/z-pixel-v2/source-sheets/ground-2x2.png",
+      "columns": 2,
+      "rows": 2
+    },
+    {
+      "category": "effects",
+      "file": "assets/game-art/z-pixel-v2/source-sheets/force-fields-2x2.png",
+      "columns": 2,
+      "rows": 2
+    }
+  ],
+  "sprites": [
+    {
+      "id": "roads/straight-horizontal",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/straight-horizontal.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/straight-vertical",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/straight-vertical.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/corner-ne",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/corner-ne.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/corner-es",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/corner-es.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 3,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/corner-sw",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/corner-sw.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/corner-wn",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/corner-wn.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/junction-t-new",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/junction-t-new.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/junction-t-nes",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/junction-t-nes.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 3,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/junction-t-esw",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/junction-t-esw.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 2
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/junction-t-nsw",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/junction-t-nsw.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 2
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/junction-cross",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/junction-cross.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 2
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/junction-y",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/junction-y.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 3,
+        "row": 2
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/uturn-left",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/uturn-left.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 3
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/uturn-right",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/uturn-right.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 3
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/s-bend",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/s-bend.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 3
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "roads/four-to-two-merge",
+      "file": "assets/game-art/z-pixel-v2/sprites/roads/four-to-two-merge.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/roads-4x4.png",
+      "source_cell": {
+        "column": 3,
+        "row": 3
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-neutral-inactive",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-neutral-inactive.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-green-inactive",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-green-inactive.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-purple-inactive",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-purple-inactive.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-shared-inactive",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-shared-inactive.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 3,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-neutral-detected",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-neutral-detected.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-green-detected",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-green-detected.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-purple-detected",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-purple-detected.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-shared-detected",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-shared-detected.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 3,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-neutral-active",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-neutral-active.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 2
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-green-active",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-green-active.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 2
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-purple-active",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-purple-active.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 2
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-shared-active",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-shared-active.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 3,
+        "row": 2
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-neutral-stressed",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-neutral-stressed.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 3
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-green-stressed",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-green-stressed.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 3
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-purple-stressed",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-purple-stressed.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 3
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/target-shared-stressed",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/target-shared-stressed.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/targets-4x4.png",
+      "source_cell": {
+        "column": 3,
+        "row": 3
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/machine-gun-dormant",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/machine-gun-dormant.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/flamethrower-dormant",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/flamethrower-dormant.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/mortar-dormant",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/mortar-dormant.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/photon-detonator-dormant",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/photon-detonator-dormant.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 3,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/machine-gun-active-l1",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/machine-gun-active-l1.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/flamethrower-active-l1",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/flamethrower-active-l1.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/mortar-active-l1",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/mortar-active-l1.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/photon-detonator-active-l1",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/photon-detonator-active-l1.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 3,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/machine-gun-upgraded-l5",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/machine-gun-upgraded-l5.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 2
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/flamethrower-upgraded-l5",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/flamethrower-upgraded-l5.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 2
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/mortar-upgraded-l5",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/mortar-upgraded-l5.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 2
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/photon-detonator-upgraded-l5",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/photon-detonator-upgraded-l5.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 3,
+        "row": 2
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/machine-gun-damaged",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/machine-gun-damaged.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 3
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/flamethrower-damaged",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/flamethrower-damaged.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 3
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/mortar-damaged",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/mortar-damaged.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 3
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "structures/photon-detonator-damaged",
+      "file": "assets/game-art/z-pixel-v2/sprites/structures/photon-detonator-damaged.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/towers-4x4.png",
+      "source_cell": {
+        "column": 3,
+        "row": 3
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/core-full",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/core-full.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/core-2x2.png",
+      "source_cell": {
+        "column": 0,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/core-stressed",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/core-stressed.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/core-2x2.png",
+      "source_cell": {
+        "column": 1,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/core-critical",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/core-critical.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/core-2x2.png",
+      "source_cell": {
+        "column": 0,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "objectives/core-destroyed",
+      "file": "assets/game-art/z-pixel-v2/sprites/objectives/core-destroyed.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/core-2x2.png",
+      "source_cell": {
+        "column": 1,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "ground/gunmetal-clean",
+      "file": "assets/game-art/z-pixel-v2/sprites/ground/gunmetal-clean.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/ground-2x2.png",
+      "source_cell": {
+        "column": 0,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "ground/concrete-cracked",
+      "file": "assets/game-art/z-pixel-v2/sprites/ground/concrete-cracked.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/ground-2x2.png",
+      "source_cell": {
+        "column": 1,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "ground/service-panels",
+      "file": "assets/game-art/z-pixel-v2/sprites/ground/service-panels.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/ground-2x2.png",
+      "source_cell": {
+        "column": 0,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "ground/energy-conduits",
+      "file": "assets/game-art/z-pixel-v2/sprites/ground/energy-conduits.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/ground-2x2.png",
+      "source_cell": {
+        "column": 1,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "effects/force-wall-stable",
+      "file": "assets/game-art/z-pixel-v2/sprites/effects/force-wall-stable.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/force-fields-2x2.png",
+      "source_cell": {
+        "column": 0,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "effects/force-wall-stressed",
+      "file": "assets/game-art/z-pixel-v2/sprites/effects/force-wall-stressed.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/force-fields-2x2.png",
+      "source_cell": {
+        "column": 1,
+        "row": 0
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "effects/force-wall-coop",
+      "file": "assets/game-art/z-pixel-v2/sprites/effects/force-wall-coop.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/force-fields-2x2.png",
+      "source_cell": {
+        "column": 0,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    },
+    {
+      "id": "effects/force-wall-breaking",
+      "file": "assets/game-art/z-pixel-v2/sprites/effects/force-wall-breaking.png",
+      "source_sheet": "assets/game-art/z-pixel-v2/source-sheets/force-fields-2x2.png",
+      "source_cell": {
+        "column": 1,
+        "row": 1
+      },
+      "size": {
+        "width": 320,
+        "height": 320
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "pixel_filter": "nearest"
+    }
+  ]
+}

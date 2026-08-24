@@ -1,0 +1,417 @@
+{
+  "columns": 0,
+  "grid": {
+    "height": 1,
+    "orientation": "orthogonal",
+    "width": 1
+  },
+  "margin": 0,
+  "name": "photon-cranes",
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "source_category",
+      "type": "string",
+      "value": "cranes"
+    }
+  ],
+  "spacing": 0,
+  "tilecount": 16,
+  "tiledversion": "1.12.2",
+  "tileheight": 320,
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/normalized/cranes/green-crane-base.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/green-crane-base"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 1,
+      "image": "../../game-art/normalized/cranes/purple-crane-base.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/purple-crane-base"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 2,
+      "image": "../../game-art/normalized/cranes/neutral-crane-base.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/neutral-crane-base"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 3,
+      "image": "../../game-art/normalized/cranes/docking-zone.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/docking-zone"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 4,
+      "image": "../../game-art/normalized/cranes/green-arm-segment.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/green-arm-segment"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 5,
+      "image": "../../game-art/normalized/cranes/purple-arm-segment.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/purple-arm-segment"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 6,
+      "image": "../../game-art/normalized/cranes/neutral-arm-segment.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/neutral-arm-segment"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 7,
+      "image": "../../game-art/normalized/cranes/movement-cue.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/movement-cue"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 8,
+      "image": "../../game-art/normalized/cranes/green-hero-core.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/green-hero-core"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 9,
+      "image": "../../game-art/normalized/cranes/purple-hero-core.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/purple-hero-core"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 10,
+      "image": "../../game-art/normalized/cranes/neutral-gripper.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/neutral-gripper"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 11,
+      "image": "../../game-art/normalized/cranes/target-reticle.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/target-reticle"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 12,
+      "image": "../../game-art/normalized/cranes/green-photon-core.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/green-photon-core"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 13,
+      "image": "../../game-art/normalized/cranes/purple-photon-core.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/purple-photon-core"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 14,
+      "image": "../../game-art/normalized/cranes/photon-emitter.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/photon-emitter"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 15,
+      "image": "../../game-art/normalized/cranes/photon-sync-zone.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "cranes/photon-sync-zone"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "cranes"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    }
+  ],
+  "tilewidth": 320,
+  "transformations": {
+    "hflip": true,
+    "preferuntransformed": false,
+    "rotate": true,
+    "vflip": true
+  },
+  "type": "tileset",
+  "version": "1.11"
+}

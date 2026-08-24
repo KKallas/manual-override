@@ -1,0 +1,417 @@
+{
+  "columns": 0,
+  "grid": {
+    "height": 1,
+    "orientation": "orthogonal",
+    "width": 1
+  },
+  "margin": 0,
+  "name": "photon-environment-props",
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "source_category",
+      "type": "string",
+      "value": "environment-props"
+    }
+  ],
+  "spacing": 0,
+  "tilecount": 16,
+  "tiledversion": "1.12.2",
+  "tileheight": 320,
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/normalized/environment-props/wall-straight.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/wall-straight"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 1,
+      "image": "../../game-art/normalized/environment-props/wall-corner.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/wall-corner"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 2,
+      "image": "../../game-art/normalized/environment-props/wall-broken.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/wall-broken"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 3,
+      "image": "../../game-art/normalized/environment-props/gate-frame.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/gate-frame"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 4,
+      "image": "../../game-art/normalized/environment-props/pipes.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/pipes"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 5,
+      "image": "../../game-art/normalized/environment-props/cable-trench.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/cable-trench"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 6,
+      "image": "../../game-art/normalized/environment-props/vent-fan.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/vent-fan"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 7,
+      "image": "../../game-art/normalized/environment-props/power-box.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/power-box"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 8,
+      "image": "../../game-art/normalized/environment-props/storage-dome.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/storage-dome"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 9,
+      "image": "../../game-art/normalized/environment-props/supply-crates.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/supply-crates"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 10,
+      "image": "../../game-art/normalized/environment-props/barricade.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/barricade"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 11,
+      "image": "../../game-art/normalized/environment-props/lamp-cluster.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/lamp-cluster"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 12,
+      "image": "../../game-art/normalized/environment-props/rubble.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/rubble"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 13,
+      "image": "../../game-art/normalized/environment-props/scorch-crater.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/scorch-crater"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 14,
+      "image": "../../game-art/normalized/environment-props/mechanical-scrap.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/mechanical-scrap"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 15,
+      "image": "../../game-art/normalized/environment-props/safety-rail.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "environment-props/safety-rail"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "environment-props"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    }
+  ],
+  "tilewidth": 320,
+  "transformations": {
+    "hflip": true,
+    "preferuntransformed": false,
+    "rotate": true,
+    "vflip": true
+  },
+  "type": "tileset",
+  "version": "1.11"
+}

@@ -1,0 +1,125 @@
+{
+  "type": "tileset",
+  "version": "1.11",
+  "tiledversion": "1.12.2",
+  "name": "photon-yard-z-pixel-v2-seam-safe-roads",
+  "tilewidth": 320,
+  "tileheight": 320,
+  "tilecount": 6,
+  "columns": 0,
+  "grid": {
+    "orientation": "orthogonal",
+    "width": 320,
+    "height": 320
+  },
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "pack_id",
+      "type": "string",
+      "value": "photon-yard-z-pixel-v2"
+    },
+    {
+      "name": "nearest_neighbor",
+      "type": "bool",
+      "value": true
+    },
+    {
+      "name": "normalization",
+      "type": "string",
+      "value": "open-port road-bed edge bleed"
+    }
+  ],
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/z-pixel-v2/normalized-seam-safe/roads/straight-horizontal.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {"name": "asset_id", "type": "string", "value": "roads/straight-horizontal"},
+        {"name": "module_family", "type": "string", "value": "roads"},
+        {"name": "normalized_size", "type": "int", "value": 320},
+        {"name": "ports", "type": "string", "value": "E,W"},
+        {"name": "seam_safe", "type": "bool", "value": true},
+        {"name": "snap_step", "type": "int", "value": 160},
+        {"name": "visual_depth", "type": "string", "value": "sunken"}
+      ]
+    },
+    {
+      "id": 1,
+      "image": "../../game-art/z-pixel-v2/normalized-seam-safe/roads/junction-cross.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {"name": "asset_id", "type": "string", "value": "roads/junction-cross"},
+        {"name": "module_family", "type": "string", "value": "roads"},
+        {"name": "normalized_size", "type": "int", "value": 320},
+        {"name": "ports", "type": "string", "value": "N,E,S,W"},
+        {"name": "seam_safe", "type": "bool", "value": true},
+        {"name": "snap_step", "type": "int", "value": 160},
+        {"name": "visual_depth", "type": "string", "value": "sunken"}
+      ]
+    },
+    {
+      "id": 2,
+      "image": "../../game-art/z-pixel-v2/normalized-seam-safe/roads/junction-t-esw.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {"name": "asset_id", "type": "string", "value": "roads/junction-t-esw"},
+        {"name": "module_family", "type": "string", "value": "roads"},
+        {"name": "normalized_size", "type": "int", "value": 320},
+        {"name": "ports", "type": "string", "value": "E,S,W"},
+        {"name": "seam_safe", "type": "bool", "value": true},
+        {"name": "snap_step", "type": "int", "value": 160},
+        {"name": "visual_depth", "type": "string", "value": "sunken"}
+      ]
+    },
+    {
+      "id": 3,
+      "image": "../../game-art/z-pixel-v2/normalized-seam-safe/roads/corner-wn.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {"name": "asset_id", "type": "string", "value": "roads/corner-wn"},
+        {"name": "module_family", "type": "string", "value": "roads"},
+        {"name": "normalized_size", "type": "int", "value": 320},
+        {"name": "ports", "type": "string", "value": "N,W"},
+        {"name": "seam_safe", "type": "bool", "value": true},
+        {"name": "snap_step", "type": "int", "value": 160},
+        {"name": "visual_depth", "type": "string", "value": "sunken"}
+      ]
+    },
+    {
+      "id": 4,
+      "image": "../../game-art/z-pixel-v2/normalized-seam-safe/roads/center-bottom-left-adapter.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {"name": "asset_id", "type": "string", "value": "roads/center-bottom-left-adapter"},
+        {"name": "module_family", "type": "string", "value": "roads"},
+        {"name": "normalized_size", "type": "int", "value": 320},
+        {"name": "ports", "type": "string", "value": "E,W"},
+        {"name": "seam_safe", "type": "bool", "value": true},
+        {"name": "snap_step", "type": "int", "value": 160},
+        {"name": "visual_depth", "type": "string", "value": "sunken"}
+      ]
+    },
+    {
+      "id": 5,
+      "image": "../../game-art/z-pixel-v2/normalized-seam-safe/roads/center-bottom-right-adapter.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {"name": "asset_id", "type": "string", "value": "roads/center-bottom-right-adapter"},
+        {"name": "module_family", "type": "string", "value": "roads"},
+        {"name": "normalized_size", "type": "int", "value": 320},
+        {"name": "ports", "type": "string", "value": "E,W"},
+        {"name": "seam_safe", "type": "bool", "value": true},
+        {"name": "snap_step", "type": "int", "value": 160},
+        {"name": "visual_depth", "type": "string", "value": "sunken"}
+      ]
+    }
+  ]
+}

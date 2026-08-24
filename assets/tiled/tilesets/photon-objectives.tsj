@@ -1,0 +1,417 @@
+{
+  "columns": 0,
+  "grid": {
+    "height": 1,
+    "orientation": "orthogonal",
+    "width": 1
+  },
+  "margin": 0,
+  "name": "photon-objectives",
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "source_category",
+      "type": "string",
+      "value": "objectives"
+    }
+  ],
+  "spacing": 0,
+  "tilecount": 16,
+  "tiledversion": "1.12.2",
+  "tileheight": 320,
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/normalized/objectives/socket-neutral.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/socket-neutral"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 1,
+      "image": "../../game-art/normalized/objectives/socket-green.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/socket-green"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 2,
+      "image": "../../game-art/normalized/objectives/socket-purple.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/socket-purple"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 3,
+      "image": "../../game-art/normalized/objectives/socket-shared.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/socket-shared"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 4,
+      "image": "../../game-art/normalized/objectives/core-full.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/core-full"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 5,
+      "image": "../../game-art/normalized/objectives/core-stressed.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/core-stressed"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 6,
+      "image": "../../game-art/normalized/objectives/core-critical.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/core-critical"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 7,
+      "image": "../../game-art/normalized/objectives/core-destroyed.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/core-destroyed"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 8,
+      "image": "../../game-art/normalized/objectives/field-panel-stable-a.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/field-panel-stable-a"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 9,
+      "image": "../../game-art/normalized/objectives/field-panel-stable-b.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/field-panel-stable-b"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 10,
+      "image": "../../game-art/normalized/objectives/field-panel-coop.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/field-panel-coop"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 11,
+      "image": "../../game-art/normalized/objectives/field-panel-overloaded.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/field-panel-overloaded"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 12,
+      "image": "../../game-art/normalized/objectives/selection-ring.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/selection-ring"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 13,
+      "image": "../../game-art/normalized/objectives/docking-progress-ring.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/docking-progress-ring"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 14,
+      "image": "../../game-art/normalized/objectives/boost-aura.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/boost-aura"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 15,
+      "image": "../../game-art/normalized/objectives/invalid-placement.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/invalid-placement"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "objectives"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    }
+  ],
+  "tilewidth": 320,
+  "transformations": {
+    "hflip": true,
+    "preferuntransformed": false,
+    "rotate": true,
+    "vflip": true
+  },
+  "type": "tileset",
+  "version": "1.11"
+}

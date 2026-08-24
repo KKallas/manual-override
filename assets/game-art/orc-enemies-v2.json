@@ -1,0 +1,562 @@
+{
+  "schema_version": 1,
+  "asset_pass": "green-orc-enemies-v2",
+  "visual_style": "miniature green orcs in chunky 1990s RTS pixel art",
+  "direction": "screen-down in the source; rotate the sprite container to the path tangent",
+  "sheets": [
+    {
+      "category": "enemies-light-orcs-v2",
+      "file": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "columns": 3,
+      "rows": 4,
+      "roles": [
+        "grunt",
+        "runner",
+        "breaker"
+      ],
+      "frame_order": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "cell_size": {
+        "width": 362,
+        "height": 362
+      },
+      "content_scale": 0.88
+    },
+    {
+      "category": "enemies-heavy-orcs-v2",
+      "file": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "columns": 3,
+      "rows": 4,
+      "roles": [
+        "brute",
+        "shield",
+        "commander"
+      ],
+      "frame_order": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "cell_size": {
+        "width": 342,
+        "height": 384
+      },
+      "content_scale": 0.88
+    }
+  ],
+  "sprites": [
+    {
+      "id": "enemies-light-orcs-v2/grunt-walk-01",
+      "role": "grunt",
+      "animation": "walk",
+      "frame": 1,
+      "file": "assets/game-art/sprites/enemies-light-orcs-v2/grunt-walk-01.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 0
+      },
+      "size": {
+        "width": 362,
+        "height": 362
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-light-orcs-v2/runner-walk-01",
+      "role": "runner",
+      "animation": "walk",
+      "frame": 1,
+      "file": "assets/game-art/sprites/enemies-light-orcs-v2/runner-walk-01.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 0
+      },
+      "size": {
+        "width": 362,
+        "height": 362
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-light-orcs-v2/breaker-walk-01",
+      "role": "breaker",
+      "animation": "walk",
+      "frame": 1,
+      "file": "assets/game-art/sprites/enemies-light-orcs-v2/breaker-walk-01.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 0
+      },
+      "size": {
+        "width": 362,
+        "height": 362
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-light-orcs-v2/grunt-walk-02",
+      "role": "grunt",
+      "animation": "walk",
+      "frame": 2,
+      "file": "assets/game-art/sprites/enemies-light-orcs-v2/grunt-walk-02.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 1
+      },
+      "size": {
+        "width": 362,
+        "height": 362
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-light-orcs-v2/runner-walk-02",
+      "role": "runner",
+      "animation": "walk",
+      "frame": 2,
+      "file": "assets/game-art/sprites/enemies-light-orcs-v2/runner-walk-02.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 1
+      },
+      "size": {
+        "width": 362,
+        "height": 362
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-light-orcs-v2/breaker-walk-02",
+      "role": "breaker",
+      "animation": "walk",
+      "frame": 2,
+      "file": "assets/game-art/sprites/enemies-light-orcs-v2/breaker-walk-02.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 1
+      },
+      "size": {
+        "width": 362,
+        "height": 362
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-light-orcs-v2/grunt-walk-03",
+      "role": "grunt",
+      "animation": "walk",
+      "frame": 3,
+      "file": "assets/game-art/sprites/enemies-light-orcs-v2/grunt-walk-03.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 2
+      },
+      "size": {
+        "width": 362,
+        "height": 362
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-light-orcs-v2/runner-walk-03",
+      "role": "runner",
+      "animation": "walk",
+      "frame": 3,
+      "file": "assets/game-art/sprites/enemies-light-orcs-v2/runner-walk-03.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 2
+      },
+      "size": {
+        "width": 362,
+        "height": 362
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-light-orcs-v2/breaker-walk-03",
+      "role": "breaker",
+      "animation": "walk",
+      "frame": 3,
+      "file": "assets/game-art/sprites/enemies-light-orcs-v2/breaker-walk-03.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 2
+      },
+      "size": {
+        "width": 362,
+        "height": 362
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-light-orcs-v2/grunt-walk-04",
+      "role": "grunt",
+      "animation": "walk",
+      "frame": 4,
+      "file": "assets/game-art/sprites/enemies-light-orcs-v2/grunt-walk-04.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 3
+      },
+      "size": {
+        "width": 362,
+        "height": 362
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-light-orcs-v2/runner-walk-04",
+      "role": "runner",
+      "animation": "walk",
+      "frame": 4,
+      "file": "assets/game-art/sprites/enemies-light-orcs-v2/runner-walk-04.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 3
+      },
+      "size": {
+        "width": 362,
+        "height": 362
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-light-orcs-v2/breaker-walk-04",
+      "role": "breaker",
+      "animation": "walk",
+      "frame": 4,
+      "file": "assets/game-art/sprites/enemies-light-orcs-v2/breaker-walk-04.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-light-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 3
+      },
+      "size": {
+        "width": 362,
+        "height": 362
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-heavy-orcs-v2/brute-walk-01",
+      "role": "brute",
+      "animation": "walk",
+      "frame": 1,
+      "file": "assets/game-art/sprites/enemies-heavy-orcs-v2/brute-walk-01.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 0
+      },
+      "size": {
+        "width": 342,
+        "height": 384
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-heavy-orcs-v2/shield-walk-01",
+      "role": "shield",
+      "animation": "walk",
+      "frame": 1,
+      "file": "assets/game-art/sprites/enemies-heavy-orcs-v2/shield-walk-01.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 0
+      },
+      "size": {
+        "width": 342,
+        "height": 384
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-heavy-orcs-v2/commander-walk-01",
+      "role": "commander",
+      "animation": "walk",
+      "frame": 1,
+      "file": "assets/game-art/sprites/enemies-heavy-orcs-v2/commander-walk-01.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 0
+      },
+      "size": {
+        "width": 342,
+        "height": 384
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-heavy-orcs-v2/brute-walk-02",
+      "role": "brute",
+      "animation": "walk",
+      "frame": 2,
+      "file": "assets/game-art/sprites/enemies-heavy-orcs-v2/brute-walk-02.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 1
+      },
+      "size": {
+        "width": 342,
+        "height": 384
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-heavy-orcs-v2/shield-walk-02",
+      "role": "shield",
+      "animation": "walk",
+      "frame": 2,
+      "file": "assets/game-art/sprites/enemies-heavy-orcs-v2/shield-walk-02.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 1
+      },
+      "size": {
+        "width": 342,
+        "height": 384
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-heavy-orcs-v2/commander-walk-02",
+      "role": "commander",
+      "animation": "walk",
+      "frame": 2,
+      "file": "assets/game-art/sprites/enemies-heavy-orcs-v2/commander-walk-02.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 1
+      },
+      "size": {
+        "width": 342,
+        "height": 384
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-heavy-orcs-v2/brute-walk-03",
+      "role": "brute",
+      "animation": "walk",
+      "frame": 3,
+      "file": "assets/game-art/sprites/enemies-heavy-orcs-v2/brute-walk-03.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 2
+      },
+      "size": {
+        "width": 342,
+        "height": 384
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-heavy-orcs-v2/shield-walk-03",
+      "role": "shield",
+      "animation": "walk",
+      "frame": 3,
+      "file": "assets/game-art/sprites/enemies-heavy-orcs-v2/shield-walk-03.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 2
+      },
+      "size": {
+        "width": 342,
+        "height": 384
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-heavy-orcs-v2/commander-walk-03",
+      "role": "commander",
+      "animation": "walk",
+      "frame": 3,
+      "file": "assets/game-art/sprites/enemies-heavy-orcs-v2/commander-walk-03.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 2
+      },
+      "size": {
+        "width": 342,
+        "height": 384
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-heavy-orcs-v2/brute-walk-04",
+      "role": "brute",
+      "animation": "walk",
+      "frame": 4,
+      "file": "assets/game-art/sprites/enemies-heavy-orcs-v2/brute-walk-04.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 0,
+        "row": 3
+      },
+      "size": {
+        "width": 342,
+        "height": 384
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-heavy-orcs-v2/shield-walk-04",
+      "role": "shield",
+      "animation": "walk",
+      "frame": 4,
+      "file": "assets/game-art/sprites/enemies-heavy-orcs-v2/shield-walk-04.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 1,
+        "row": 3
+      },
+      "size": {
+        "width": 342,
+        "height": 384
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    },
+    {
+      "id": "enemies-heavy-orcs-v2/commander-walk-04",
+      "role": "commander",
+      "animation": "walk",
+      "frame": 4,
+      "file": "assets/game-art/sprites/enemies-heavy-orcs-v2/commander-walk-04.png",
+      "source_sheet": "assets/game-art/source-sheets/enemies-heavy-orcs-v2-3x4.png",
+      "source_cell": {
+        "column": 2,
+        "row": 3
+      },
+      "size": {
+        "width": 342,
+        "height": 384
+      },
+      "anchor": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "content_scale": 0.88
+    }
+  ],
+  "tiled_tilesets": [
+    "assets/tiled/tilesets/photon-enemies-light-orcs-v2.tsj",
+    "assets/tiled/tilesets/photon-enemies-heavy-orcs-v2.tsj"
+  ]
+}

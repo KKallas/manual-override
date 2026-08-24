@@ -1,0 +1,131 @@
+{
+  "type": "tileset",
+  "version": "1.11",
+  "tiledversion": "1.12.2",
+  "name": "photon-yard-z-pixel-v2-center-roads",
+  "tilewidth": 320,
+  "tileheight": 320,
+  "tilecount": 2,
+  "columns": 0,
+  "grid": {
+    "orientation": "orthogonal",
+    "width": 320,
+    "height": 320
+  },
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "pack_id",
+      "type": "string",
+      "value": "photon-yard-z-pixel-v2"
+    },
+    {
+      "name": "style",
+      "type": "string",
+      "value": "1990s British Amiga/DOS top-down strategy pixel art"
+    },
+    {
+      "name": "nearest_neighbor",
+      "type": "bool",
+      "value": true
+    }
+  ],
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/center-bottom-left-adapter.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/center-bottom-left-adapter"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "E,W"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "seam_role",
+          "type": "string",
+          "value": "lower-center-left-transition"
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "image": "../../game-art/z-pixel-v2/normalized/roads/center-bottom-right-adapter.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/center-bottom-right-adapter"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "E,W"
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        },
+        {
+          "name": "seam_role",
+          "type": "string",
+          "value": "lower-center-right-transition"
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ]
+    }
+  ]
+}

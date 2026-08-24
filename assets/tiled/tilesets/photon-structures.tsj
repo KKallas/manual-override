@@ -1,0 +1,417 @@
+{
+  "columns": 0,
+  "grid": {
+    "height": 1,
+    "orientation": "orthogonal",
+    "width": 1
+  },
+  "margin": 0,
+  "name": "photon-structures",
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "source_category",
+      "type": "string",
+      "value": "structures"
+    }
+  ],
+  "spacing": 0,
+  "tilecount": 16,
+  "tiledversion": "1.12.2",
+  "tileheight": 320,
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/normalized/structures/machine-gun-dormant.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/machine-gun-dormant"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 1,
+      "image": "../../game-art/normalized/structures/flamethrower-dormant.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/flamethrower-dormant"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 2,
+      "image": "../../game-art/normalized/structures/mortar-dormant.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/mortar-dormant"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 3,
+      "image": "../../game-art/normalized/structures/extractor-dormant.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/extractor-dormant"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 4,
+      "image": "../../game-art/normalized/structures/machine-gun-active-l1.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/machine-gun-active-l1"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 5,
+      "image": "../../game-art/normalized/structures/flamethrower-active-l1.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/flamethrower-active-l1"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 6,
+      "image": "../../game-art/normalized/structures/mortar-active-l1.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/mortar-active-l1"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 7,
+      "image": "../../game-art/normalized/structures/extractor-active-l1.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/extractor-active-l1"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 8,
+      "image": "../../game-art/normalized/structures/machine-gun-upgraded-l5.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/machine-gun-upgraded-l5"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 9,
+      "image": "../../game-art/normalized/structures/flamethrower-upgraded-l5.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/flamethrower-upgraded-l5"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 10,
+      "image": "../../game-art/normalized/structures/mortar-upgraded-l5.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/mortar-upgraded-l5"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 11,
+      "image": "../../game-art/normalized/structures/extractor-upgraded-l5.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/extractor-upgraded-l5"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 12,
+      "image": "../../game-art/normalized/structures/machine-gun-damaged.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/machine-gun-damaged"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 13,
+      "image": "../../game-art/normalized/structures/flamethrower-damaged.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/flamethrower-damaged"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 14,
+      "image": "../../game-art/normalized/structures/mortar-damaged.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/mortar-damaged"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 15,
+      "image": "../../game-art/normalized/structures/extractor-damaged.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "structures/extractor-damaged"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "structures"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "ArtAsset"
+    }
+  ],
+  "tilewidth": 320,
+  "transformations": {
+    "hflip": true,
+    "preferuntransformed": false,
+    "rotate": true,
+    "vflip": true
+  },
+  "type": "tileset",
+  "version": "1.11"
+}

@@ -1,0 +1,22 @@
+{
+  "valid": true,
+  "map": "/Users/kaur/Documents/ChatGPT/Tower defence/assets/tiled/levels/photon-yard.tmj",
+  "errors": [],
+  "warnings": [],
+  "counts": {
+    "ground_modules": 18,
+    "road_modules": 56,
+    "unique_road_assets": 5,
+    "sunken_road_modules": 56,
+    "sockets": 16,
+    "path_nodes": 9,
+    "path_edges": 8
+  },
+  "ground_coverage": 1.0,
+  "visible_reference_layers": [],
+  "topology": {
+    "approach": 4,
+    "back": 2,
+    "return": 2
+  }
+}

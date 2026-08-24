@@ -1,0 +1,643 @@
+{
+  "type": "tileset",
+  "version": "1.10",
+  "tiledversion": "1.12.2",
+  "name": "photon-yard-z-pixel-v2-targets",
+  "tilewidth": 320,
+  "tileheight": 320,
+  "tilecount": 16,
+  "columns": 0,
+  "grid": {
+    "orientation": "orthogonal",
+    "width": 320,
+    "height": 320
+  },
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "pack_id",
+      "type": "string",
+      "value": "photon-yard-z-pixel-v2"
+    },
+    {
+      "name": "style",
+      "type": "string",
+      "value": "1990s British Amiga/DOS top-down strategy pixel art"
+    },
+    {
+      "name": "nearest_neighbor",
+      "type": "bool",
+      "value": true
+    }
+  ],
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-neutral-inactive.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-neutral-inactive"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "neutral"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "inactive"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-green-inactive.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-green-inactive"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "green"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "inactive"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-purple-inactive.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-purple-inactive"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "purple"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "inactive"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-shared-inactive.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-shared-inactive"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "shared"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "inactive"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-neutral-detected.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-neutral-detected"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "neutral"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "detected"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-green-detected.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-green-detected"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "green"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "detected"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-purple-detected.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-purple-detected"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "purple"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "detected"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-shared-detected.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-shared-detected"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "shared"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "detected"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-neutral-active.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-neutral-active"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "neutral"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "active"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-green-active.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-green-active"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "green"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "active"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-purple-active.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-purple-active"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "purple"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "active"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-shared-active.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-shared-active"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "shared"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "active"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-neutral-stressed.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-neutral-stressed"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "neutral"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "stressed"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-green-stressed.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-green-stressed"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "green"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "stressed"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-purple-stressed.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-purple-stressed"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "purple"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "stressed"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "image": "../../game-art/z-pixel-v2/normalized/objectives/target-shared-stressed.png",
+      "imagewidth": 320,
+      "imageheight": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "objectives/target-shared-stressed"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "targets"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        },
+        {
+          "name": "pixel_filter",
+          "type": "string",
+          "value": "nearest"
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "shared"
+        },
+        {
+          "name": "activation_state",
+          "type": "string",
+          "value": "stressed"
+        }
+      ]
+    }
+  ]
+}

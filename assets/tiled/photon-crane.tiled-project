@@ -1,0 +1,342 @@
+{
+  "compatibilityVersion": "1.10",
+  "folders": [
+    "."
+  ],
+  "propertyTypes": [
+    {
+      "id": 1,
+      "name": "SocketOwner",
+      "storageType": "string",
+      "type": "enum",
+      "values": [
+        "green",
+        "purple",
+        "shared"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 2,
+      "name": "NodeKind",
+      "storageType": "string",
+      "type": "enum",
+      "values": [
+        "spawn",
+        "turnaround",
+        "junction",
+        "core"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 3,
+      "name": "RoutePhase",
+      "storageType": "string",
+      "type": "enum",
+      "values": [
+        "approach",
+        "back",
+        "return"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "id": 4,
+      "name": "StrategicValue",
+      "storageType": "string",
+      "type": "enum",
+      "values": [
+        "support",
+        "standard",
+        "high"
+      ],
+      "valuesAsFlags": false
+    },
+    {
+      "color": "#d7b867",
+      "drawFill": true,
+      "id": 10,
+      "members": [
+        {
+          "name": "level_id",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "max_active_enemies",
+          "type": "int",
+          "value": 1000
+        },
+        {
+          "name": "max_structures",
+          "type": "int",
+          "value": 8
+        },
+        {
+          "name": "wave_file",
+          "type": "file",
+          "value": ""
+        }
+      ],
+      "name": "PhotonLevel",
+      "type": "class",
+      "useAs": [
+        "map"
+      ]
+    },
+    {
+      "color": "#46ddff",
+      "drawFill": true,
+      "id": 11,
+      "members": [
+        {
+          "name": "node_id",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "node_kind",
+          "type": "string",
+          "value": "junction",
+          "propertytype": "NodeKind"
+        },
+        {
+          "name": "spawn_group",
+          "type": "string",
+          "value": ""
+        }
+      ],
+      "name": "PathNode",
+      "type": "class",
+      "useAs": [
+        "object"
+      ]
+    },
+    {
+      "color": "#29c5ff",
+      "drawFill": true,
+      "id": 12,
+      "members": [
+        {
+          "name": "edge_id",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "from_node",
+          "type": "object",
+          "value": 0
+        },
+        {
+          "name": "to_node",
+          "type": "object",
+          "value": 0
+        },
+        {
+          "name": "route_phase",
+          "type": "string",
+          "value": "approach",
+          "propertytype": "RoutePhase"
+        },
+        {
+          "name": "road_width",
+          "type": "float",
+          "value": 72.0
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "name": "PathEdge",
+      "type": "class",
+      "useAs": [
+        "object"
+      ]
+    },
+    {
+      "color": "#f4ca61",
+      "drawFill": true,
+      "id": 13,
+      "members": [
+        {
+          "name": "socket_id",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "shared",
+          "propertytype": "SocketOwner"
+        },
+        {
+          "name": "strategic_value",
+          "type": "string",
+          "value": "standard",
+          "propertytype": "StrategicValue"
+        },
+        {
+          "name": "resource_favored",
+          "type": "bool",
+          "value": false
+        }
+      ],
+      "name": "TowerSocket",
+      "type": "class",
+      "useAs": [
+        "object"
+      ]
+    },
+    {
+      "color": "#73e6a6",
+      "drawFill": true,
+      "id": 14,
+      "members": [
+        {
+          "name": "owner",
+          "type": "string",
+          "value": "shared",
+          "propertytype": "SocketOwner"
+        },
+        {
+          "name": "priority",
+          "type": "int",
+          "value": 0
+        }
+      ],
+      "name": "ReachZone",
+      "type": "class",
+      "useAs": [
+        "object"
+      ]
+    },
+    {
+      "color": "#66e9ff",
+      "drawFill": true,
+      "id": 15,
+      "members": [
+        {
+          "name": "socket_a",
+          "type": "object",
+          "value": 0
+        },
+        {
+          "name": "socket_b",
+          "type": "object",
+          "value": 0
+        },
+        {
+          "name": "requires_active_towers",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "name": "GateHint",
+      "type": "class",
+      "useAs": [
+        "object"
+      ]
+    },
+    {
+      "color": "#ffac4b",
+      "drawFill": true,
+      "id": 16,
+      "members": [
+        {
+          "name": "socket_ref",
+          "type": "object",
+          "value": 0
+        },
+        {
+          "name": "team",
+          "type": "string",
+          "value": "shared",
+          "propertytype": "SocketOwner"
+        },
+        {
+          "name": "tower_type",
+          "type": "string",
+          "value": "machine_gun"
+        }
+      ],
+      "name": "StarterStructure",
+      "type": "class",
+      "useAs": [
+        "object"
+      ]
+    },
+    {
+      "color": "#b99b68",
+      "drawFill": true,
+      "id": 17,
+      "members": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "grid_column",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "name": "grid_row",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 320
+        }
+      ],
+      "name": "GroundModule",
+      "type": "class",
+      "useAs": [
+        "object"
+      ]
+    },
+    {
+      "color": "#e7c98b",
+      "drawFill": true,
+      "id": 18,
+      "members": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "grid_column",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "name": "grid_row",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 160
+        }
+      ],
+      "name": "RoadModule",
+      "type": "class",
+      "useAs": [
+        "object"
+      ]
+    }
+  ],
+  "type": "project"
+}

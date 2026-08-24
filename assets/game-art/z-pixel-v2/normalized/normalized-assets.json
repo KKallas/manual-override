@@ -1,0 +1,1167 @@
+{
+  "schema_version": 1,
+  "source_manifest": "assets/game-art/z-pixel-v2/asset-pack.json",
+  "normalized_size": 320,
+  "assets": [
+    {
+      "asset_id": "roads/straight-horizontal",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/straight-horizontal.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/straight-horizontal.png",
+      "category": "roads",
+      "mode": "alpha-crop-contain",
+      "ports": "E,W",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        320
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.009648
+    },
+    {
+      "asset_id": "roads/straight-vertical",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/straight-vertical.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/straight-vertical.png",
+      "category": "roads",
+      "mode": "alpha-crop-contain",
+      "ports": "N,S",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        320
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.009814
+    },
+    {
+      "asset_id": "roads/corner-ne",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/corner-ne.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/corner-ne.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "E,S",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        320
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.010967
+    },
+    {
+      "asset_id": "roads/corner-es",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/corner-es.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/corner-es.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "S,W",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        320
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.014414
+    },
+    {
+      "asset_id": "roads/corner-sw",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/corner-sw.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/corner-sw.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        320
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.009912
+    },
+    {
+      "asset_id": "roads/corner-wn",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/corner-wn.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/corner-wn.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        320
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.010205
+    },
+    {
+      "asset_id": "roads/junction-t-new",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/junction-t-new.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/junction-t-new.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "N,E,S,W",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        320
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.008916
+    },
+    {
+      "asset_id": "roads/junction-t-nes",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/junction-t-nes.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/junction-t-nes.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "N,E,S,W",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        320
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.011514
+    },
+    {
+      "asset_id": "roads/junction-t-esw",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/junction-t-esw.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/junction-t-esw.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "E,S,W",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        259
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.006338
+    },
+    {
+      "asset_id": "roads/junction-t-nsw",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/junction-t-nsw.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/junction-t-nsw.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "N,S,W",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        259
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.004922
+    },
+    {
+      "asset_id": "roads/junction-cross",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/junction-cross.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/junction-cross.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "N,E,S,W",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        259
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.005537
+    },
+    {
+      "asset_id": "roads/junction-y",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/junction-y.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/junction-y.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        259
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.010361
+    },
+    {
+      "asset_id": "roads/uturn-left",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/uturn-left.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/uturn-left.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        320
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.008301
+    },
+    {
+      "asset_id": "roads/uturn-right",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/uturn-right.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/uturn-right.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        320
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.007188
+    },
+    {
+      "asset_id": "roads/s-bend",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/s-bend.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/s-bend.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        320
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.006846
+    },
+    {
+      "asset_id": "roads/four-to-two-merge",
+      "source": "assets/game-art/z-pixel-v2/sprites/roads/four-to-two-merge.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/roads/four-to-two-merge.png",
+      "category": "roads",
+      "mode": "alpha-crop-footprint",
+      "ports": "",
+      "source_crop_bbox": [
+        0,
+        0,
+        320,
+        320
+      ],
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.013437
+    },
+    {
+      "asset_id": "objectives/target-neutral-inactive",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-neutral-inactive.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-neutral-inactive.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.658887
+    },
+    {
+      "asset_id": "objectives/target-green-inactive",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-green-inactive.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-green-inactive.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.672363
+    },
+    {
+      "asset_id": "objectives/target-purple-inactive",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-purple-inactive.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-purple-inactive.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.666133
+    },
+    {
+      "asset_id": "objectives/target-shared-inactive",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-shared-inactive.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-shared-inactive.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.652031
+    },
+    {
+      "asset_id": "objectives/target-neutral-detected",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-neutral-detected.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-neutral-detected.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.657842
+    },
+    {
+      "asset_id": "objectives/target-green-detected",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-green-detected.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-green-detected.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.651875
+    },
+    {
+      "asset_id": "objectives/target-purple-detected",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-purple-detected.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-purple-detected.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.664268
+    },
+    {
+      "asset_id": "objectives/target-shared-detected",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-shared-detected.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-shared-detected.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.677559
+    },
+    {
+      "asset_id": "objectives/target-neutral-active",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-neutral-active.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-neutral-active.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.574746
+    },
+    {
+      "asset_id": "objectives/target-green-active",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-green-active.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-green-active.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.599463
+    },
+    {
+      "asset_id": "objectives/target-purple-active",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-purple-active.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-purple-active.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.605146
+    },
+    {
+      "asset_id": "objectives/target-shared-active",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-shared-active.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-shared-active.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.576699
+    },
+    {
+      "asset_id": "objectives/target-neutral-stressed",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-neutral-stressed.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-neutral-stressed.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.646426
+    },
+    {
+      "asset_id": "objectives/target-green-stressed",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-green-stressed.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-green-stressed.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.65208
+    },
+    {
+      "asset_id": "objectives/target-purple-stressed",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-purple-stressed.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-purple-stressed.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.633525
+    },
+    {
+      "asset_id": "objectives/target-shared-stressed",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/target-shared-stressed.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/target-shared-stressed.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.645166
+    },
+    {
+      "asset_id": "structures/machine-gun-dormant",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/machine-gun-dormant.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/machine-gun-dormant.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.727451
+    },
+    {
+      "asset_id": "structures/flamethrower-dormant",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/flamethrower-dormant.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/flamethrower-dormant.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.714424
+    },
+    {
+      "asset_id": "structures/mortar-dormant",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/mortar-dormant.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/mortar-dormant.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.717861
+    },
+    {
+      "asset_id": "structures/photon-detonator-dormant",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/photon-detonator-dormant.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/photon-detonator-dormant.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.720879
+    },
+    {
+      "asset_id": "structures/machine-gun-active-l1",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/machine-gun-active-l1.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/machine-gun-active-l1.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.699268
+    },
+    {
+      "asset_id": "structures/flamethrower-active-l1",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/flamethrower-active-l1.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/flamethrower-active-l1.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.688301
+    },
+    {
+      "asset_id": "structures/mortar-active-l1",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/mortar-active-l1.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/mortar-active-l1.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.705859
+    },
+    {
+      "asset_id": "structures/photon-detonator-active-l1",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/photon-detonator-active-l1.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/photon-detonator-active-l1.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.727305
+    },
+    {
+      "asset_id": "structures/machine-gun-upgraded-l5",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/machine-gun-upgraded-l5.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/machine-gun-upgraded-l5.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.631865
+    },
+    {
+      "asset_id": "structures/flamethrower-upgraded-l5",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/flamethrower-upgraded-l5.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/flamethrower-upgraded-l5.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.621045
+    },
+    {
+      "asset_id": "structures/mortar-upgraded-l5",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/mortar-upgraded-l5.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/mortar-upgraded-l5.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.651133
+    },
+    {
+      "asset_id": "structures/photon-detonator-upgraded-l5",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/photon-detonator-upgraded-l5.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/photon-detonator-upgraded-l5.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.664521
+    },
+    {
+      "asset_id": "structures/machine-gun-damaged",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/machine-gun-damaged.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/machine-gun-damaged.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.689912
+    },
+    {
+      "asset_id": "structures/flamethrower-damaged",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/flamethrower-damaged.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/flamethrower-damaged.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.710732
+    },
+    {
+      "asset_id": "structures/mortar-damaged",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/mortar-damaged.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/mortar-damaged.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.673809
+    },
+    {
+      "asset_id": "structures/photon-detonator-damaged",
+      "source": "assets/game-art/z-pixel-v2/sprites/structures/photon-detonator-damaged.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/structures/photon-detonator-damaged.png",
+      "category": "structures",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.70127
+    },
+    {
+      "asset_id": "objectives/core-full",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/core-full.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/core-full.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.567383
+    },
+    {
+      "asset_id": "objectives/core-stressed",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/core-stressed.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/core-stressed.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.555205
+    },
+    {
+      "asset_id": "objectives/core-critical",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/core-critical.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/core-critical.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.560283
+    },
+    {
+      "asset_id": "objectives/core-destroyed",
+      "source": "assets/game-art/z-pixel-v2/sprites/objectives/core-destroyed.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/objectives/core-destroyed.png",
+      "category": "objectives",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.527354
+    },
+    {
+      "asset_id": "ground/gunmetal-clean",
+      "source": "assets/game-art/z-pixel-v2/sprites/ground/gunmetal-clean.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/ground/gunmetal-clean.png",
+      "category": "ground",
+      "mode": "footprint",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.0
+    },
+    {
+      "asset_id": "ground/concrete-cracked",
+      "source": "assets/game-art/z-pixel-v2/sprites/ground/concrete-cracked.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/ground/concrete-cracked.png",
+      "category": "ground",
+      "mode": "footprint",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.0
+    },
+    {
+      "asset_id": "ground/service-panels",
+      "source": "assets/game-art/z-pixel-v2/sprites/ground/service-panels.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/ground/service-panels.png",
+      "category": "ground",
+      "mode": "footprint",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.0
+    },
+    {
+      "asset_id": "ground/energy-conduits",
+      "source": "assets/game-art/z-pixel-v2/sprites/ground/energy-conduits.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/ground/energy-conduits.png",
+      "category": "ground",
+      "mode": "footprint",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.0
+    },
+    {
+      "asset_id": "effects/force-wall-stable",
+      "source": "assets/game-art/z-pixel-v2/sprites/effects/force-wall-stable.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/effects/force-wall-stable.png",
+      "category": "effects",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.762637
+    },
+    {
+      "asset_id": "effects/force-wall-stressed",
+      "source": "assets/game-art/z-pixel-v2/sprites/effects/force-wall-stressed.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/effects/force-wall-stressed.png",
+      "category": "effects",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.745879
+    },
+    {
+      "asset_id": "effects/force-wall-coop",
+      "source": "assets/game-art/z-pixel-v2/sprites/effects/force-wall-coop.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/effects/force-wall-coop.png",
+      "category": "effects",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.770508
+    },
+    {
+      "asset_id": "effects/force-wall-breaking",
+      "source": "assets/game-art/z-pixel-v2/sprites/effects/force-wall-breaking.png",
+      "normalized": "assets/game-art/z-pixel-v2/normalized/effects/force-wall-breaking.png",
+      "category": "effects",
+      "mode": "contain",
+      "ports": "",
+      "source_crop_bbox": null,
+      "source_size": [
+        320,
+        320
+      ],
+      "normalized_size": [
+        320,
+        320
+      ],
+      "transparent_fraction": 0.746016
+    }
+  ]
+}

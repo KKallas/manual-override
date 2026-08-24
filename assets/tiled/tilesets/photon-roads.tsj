@@ -1,0 +1,542 @@
+{
+  "columns": 0,
+  "grid": {
+    "height": 1,
+    "orientation": "orthogonal",
+    "width": 1
+  },
+  "margin": 0,
+  "name": "photon-roads",
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "source_category",
+      "type": "string",
+      "value": "roads"
+    }
+  ],
+  "spacing": 0,
+  "tilecount": 16,
+  "tiledversion": "1.12.2",
+  "tileheight": 320,
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/normalized-sunken/roads/straight-horizontal.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/straight-horizontal"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "E,W"
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 1,
+      "image": "../../game-art/normalized-sunken/roads/straight-vertical.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/straight-vertical"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N,S"
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 2,
+      "image": "../../game-art/normalized-sunken/roads/corner-ne.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/corner-ne"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "E,S"
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 3,
+      "image": "../../game-art/normalized-sunken/roads/corner-es.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/corner-es"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "S,W"
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 4,
+      "image": "../../game-art/normalized-sunken/roads/corner-sw.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/corner-sw"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 5,
+      "image": "../../game-art/normalized-sunken/roads/corner-wn.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/corner-wn"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 6,
+      "image": "../../game-art/normalized-sunken/roads/junction-t-new.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/junction-t-new"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N,E,S,W"
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 7,
+      "image": "../../game-art/normalized-sunken/roads/junction-t-nes.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/junction-t-nes"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N,E,S,W"
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 8,
+      "image": "../../game-art/normalized-sunken/roads/junction-t-esw.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/junction-t-esw"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "E,S,W"
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 9,
+      "image": "../../game-art/normalized-sunken/roads/junction-t-nsw.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/junction-t-nsw"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N,S,W"
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 10,
+      "image": "../../game-art/normalized-sunken/roads/junction-cross.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/junction-cross"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N,E,S,W"
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 11,
+      "image": "../../game-art/normalized-sunken/roads/junction-y.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/junction-y"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 12,
+      "image": "../../game-art/normalized-sunken/roads/uturn-left.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/uturn-left"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 13,
+      "image": "../../game-art/normalized-sunken/roads/uturn-right.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/uturn-right"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 14,
+      "image": "../../game-art/normalized-sunken/roads/s-bend.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/s-bend"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    },
+    {
+      "id": 15,
+      "image": "../../game-art/normalized-sunken/roads/four-to-two-merge.png",
+      "imageheight": 320,
+      "imagewidth": 320,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/four-to-two-merge"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        }
+      ],
+      "type": "ArtAsset"
+    }
+  ],
+  "tilewidth": 320,
+  "transformations": {
+    "hflip": true,
+    "preferuntransformed": false,
+    "rotate": true,
+    "vflip": true
+  },
+  "type": "tileset",
+  "version": "1.11"
+}

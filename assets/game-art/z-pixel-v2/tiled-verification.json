@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "tiled_version": "1.12.2",
+  "verified_on": "2026-08-23",
+  "status": "pass",
+  "operation": "JSON tileset round-trip",
+  "tilesets": [
+    "assets/tiled/tilesets/z-pixel-v2-roads.tsj",
+    "assets/tiled/tilesets/z-pixel-v2-targets.tsj",
+    "assets/tiled/tilesets/z-pixel-v2-towers.tsj",
+    "assets/tiled/tilesets/z-pixel-v2-core.tsj",
+    "assets/tiled/tilesets/z-pixel-v2-ground.tsj",
+    "assets/tiled/tilesets/z-pixel-v2-force-fields.tsj"
+  ],
+  "diagnostics": []
+}

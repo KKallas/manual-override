@@ -1,0 +1,506 @@
+{
+  "columns": 0,
+  "grid": {
+    "height": 1,
+    "orientation": "orthogonal",
+    "width": 1
+  },
+  "margin": 0,
+  "name": "photon-enemies-light-orcs-v2",
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "source_category",
+      "type": "string",
+      "value": "enemies-light-orcs-v2"
+    },
+    {
+      "name": "visual_style",
+      "type": "string",
+      "value": "miniature green orc pixel art"
+    }
+  ],
+  "spacing": 0,
+  "tilecount": 12,
+  "tiledversion": "1.12.2",
+  "tileheight": 362,
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/sprites/enemies-light-orcs-v2/grunt-walk-01.png",
+      "imageheight": 362,
+      "imagewidth": 362,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "enemies-light-orcs-v2/grunt-walk-01"
+        },
+        {
+          "name": "enemy_role",
+          "type": "string",
+          "value": "grunt"
+        },
+        {
+          "name": "animation",
+          "type": "string",
+          "value": "walk"
+        },
+        {
+          "name": "animation_frame",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "enemies-light-orcs-v2"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "EnemySprite"
+    },
+    {
+      "id": 1,
+      "image": "../../game-art/sprites/enemies-light-orcs-v2/runner-walk-01.png",
+      "imageheight": 362,
+      "imagewidth": 362,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "enemies-light-orcs-v2/runner-walk-01"
+        },
+        {
+          "name": "enemy_role",
+          "type": "string",
+          "value": "runner"
+        },
+        {
+          "name": "animation",
+          "type": "string",
+          "value": "walk"
+        },
+        {
+          "name": "animation_frame",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "enemies-light-orcs-v2"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "EnemySprite"
+    },
+    {
+      "id": 2,
+      "image": "../../game-art/sprites/enemies-light-orcs-v2/breaker-walk-01.png",
+      "imageheight": 362,
+      "imagewidth": 362,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "enemies-light-orcs-v2/breaker-walk-01"
+        },
+        {
+          "name": "enemy_role",
+          "type": "string",
+          "value": "breaker"
+        },
+        {
+          "name": "animation",
+          "type": "string",
+          "value": "walk"
+        },
+        {
+          "name": "animation_frame",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "enemies-light-orcs-v2"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "EnemySprite"
+    },
+    {
+      "id": 3,
+      "image": "../../game-art/sprites/enemies-light-orcs-v2/grunt-walk-02.png",
+      "imageheight": 362,
+      "imagewidth": 362,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "enemies-light-orcs-v2/grunt-walk-02"
+        },
+        {
+          "name": "enemy_role",
+          "type": "string",
+          "value": "grunt"
+        },
+        {
+          "name": "animation",
+          "type": "string",
+          "value": "walk"
+        },
+        {
+          "name": "animation_frame",
+          "type": "int",
+          "value": 2
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "enemies-light-orcs-v2"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "EnemySprite"
+    },
+    {
+      "id": 4,
+      "image": "../../game-art/sprites/enemies-light-orcs-v2/runner-walk-02.png",
+      "imageheight": 362,
+      "imagewidth": 362,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "enemies-light-orcs-v2/runner-walk-02"
+        },
+        {
+          "name": "enemy_role",
+          "type": "string",
+          "value": "runner"
+        },
+        {
+          "name": "animation",
+          "type": "string",
+          "value": "walk"
+        },
+        {
+          "name": "animation_frame",
+          "type": "int",
+          "value": 2
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "enemies-light-orcs-v2"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "EnemySprite"
+    },
+    {
+      "id": 5,
+      "image": "../../game-art/sprites/enemies-light-orcs-v2/breaker-walk-02.png",
+      "imageheight": 362,
+      "imagewidth": 362,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "enemies-light-orcs-v2/breaker-walk-02"
+        },
+        {
+          "name": "enemy_role",
+          "type": "string",
+          "value": "breaker"
+        },
+        {
+          "name": "animation",
+          "type": "string",
+          "value": "walk"
+        },
+        {
+          "name": "animation_frame",
+          "type": "int",
+          "value": 2
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "enemies-light-orcs-v2"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "EnemySprite"
+    },
+    {
+      "id": 6,
+      "image": "../../game-art/sprites/enemies-light-orcs-v2/grunt-walk-03.png",
+      "imageheight": 362,
+      "imagewidth": 362,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "enemies-light-orcs-v2/grunt-walk-03"
+        },
+        {
+          "name": "enemy_role",
+          "type": "string",
+          "value": "grunt"
+        },
+        {
+          "name": "animation",
+          "type": "string",
+          "value": "walk"
+        },
+        {
+          "name": "animation_frame",
+          "type": "int",
+          "value": 3
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "enemies-light-orcs-v2"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "EnemySprite"
+    },
+    {
+      "id": 7,
+      "image": "../../game-art/sprites/enemies-light-orcs-v2/runner-walk-03.png",
+      "imageheight": 362,
+      "imagewidth": 362,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "enemies-light-orcs-v2/runner-walk-03"
+        },
+        {
+          "name": "enemy_role",
+          "type": "string",
+          "value": "runner"
+        },
+        {
+          "name": "animation",
+          "type": "string",
+          "value": "walk"
+        },
+        {
+          "name": "animation_frame",
+          "type": "int",
+          "value": 3
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "enemies-light-orcs-v2"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "EnemySprite"
+    },
+    {
+      "id": 8,
+      "image": "../../game-art/sprites/enemies-light-orcs-v2/breaker-walk-03.png",
+      "imageheight": 362,
+      "imagewidth": 362,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "enemies-light-orcs-v2/breaker-walk-03"
+        },
+        {
+          "name": "enemy_role",
+          "type": "string",
+          "value": "breaker"
+        },
+        {
+          "name": "animation",
+          "type": "string",
+          "value": "walk"
+        },
+        {
+          "name": "animation_frame",
+          "type": "int",
+          "value": 3
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "enemies-light-orcs-v2"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "EnemySprite"
+    },
+    {
+      "id": 9,
+      "image": "../../game-art/sprites/enemies-light-orcs-v2/grunt-walk-04.png",
+      "imageheight": 362,
+      "imagewidth": 362,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "enemies-light-orcs-v2/grunt-walk-04"
+        },
+        {
+          "name": "enemy_role",
+          "type": "string",
+          "value": "grunt"
+        },
+        {
+          "name": "animation",
+          "type": "string",
+          "value": "walk"
+        },
+        {
+          "name": "animation_frame",
+          "type": "int",
+          "value": 4
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "enemies-light-orcs-v2"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "EnemySprite"
+    },
+    {
+      "id": 10,
+      "image": "../../game-art/sprites/enemies-light-orcs-v2/runner-walk-04.png",
+      "imageheight": 362,
+      "imagewidth": 362,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "enemies-light-orcs-v2/runner-walk-04"
+        },
+        {
+          "name": "enemy_role",
+          "type": "string",
+          "value": "runner"
+        },
+        {
+          "name": "animation",
+          "type": "string",
+          "value": "walk"
+        },
+        {
+          "name": "animation_frame",
+          "type": "int",
+          "value": 4
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "enemies-light-orcs-v2"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "EnemySprite"
+    },
+    {
+      "id": 11,
+      "image": "../../game-art/sprites/enemies-light-orcs-v2/breaker-walk-04.png",
+      "imageheight": 362,
+      "imagewidth": 362,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "enemies-light-orcs-v2/breaker-walk-04"
+        },
+        {
+          "name": "enemy_role",
+          "type": "string",
+          "value": "breaker"
+        },
+        {
+          "name": "animation",
+          "type": "string",
+          "value": "walk"
+        },
+        {
+          "name": "animation_frame",
+          "type": "int",
+          "value": 4
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "enemies-light-orcs-v2"
+        },
+        {
+          "name": "normalized",
+          "type": "bool",
+          "value": true
+        }
+      ],
+      "type": "EnemySprite"
+    }
+  ],
+  "tilewidth": 362,
+  "transformations": {
+    "hflip": true,
+    "preferuntransformed": false,
+    "rotate": true,
+    "vflip": true
+  },
+  "type": "tileset",
+  "version": "1.11"
+}

@@ -1,0 +1,118 @@
+{
+  "type": "tileset",
+  "version": "1.11",
+  "tiledversion": "1.12.2",
+  "name": "photon-yard-z-pixel-v2-core-plaza",
+  "tilewidth": 512,
+  "tileheight": 512,
+  "tilecount": 1,
+  "columns": 0,
+  "grid": {
+    "orientation": "orthogonal",
+    "width": 512,
+    "height": 512
+  },
+  "objectalignment": "center",
+  "properties": [
+    {
+      "name": "pack_id",
+      "type": "string",
+      "value": "photon-yard-z-pixel-v2"
+    },
+    {
+      "name": "nearest_neighbor",
+      "type": "bool",
+      "value": true
+    },
+    {
+      "name": "purpose",
+      "type": "string",
+      "value": "open multi-attacker access around central core"
+    },
+    {
+      "name": "edge_style",
+      "type": "string",
+      "value": "recessed industrial curb with paired lane openings"
+    },
+    {
+      "name": "corner_vertical_stubs",
+      "type": "bool",
+      "value": false
+    },
+    {
+      "name": "curb_end_profile",
+      "type": "string",
+      "value": "32px stepped taper"
+    }
+  ],
+  "tiles": [
+    {
+      "id": 0,
+      "image": "../../game-art/z-pixel-v2/normalized-seam-safe/roads/core-access-plaza.png",
+      "imagewidth": 512,
+      "imageheight": 512,
+      "properties": [
+        {
+          "name": "asset_id",
+          "type": "string",
+          "value": "roads/core-access-plaza"
+        },
+        {
+          "name": "module_family",
+          "type": "string",
+          "value": "roads"
+        },
+        {
+          "name": "normalized_size",
+          "type": "int",
+          "value": 512
+        },
+        {
+          "name": "ports",
+          "type": "string",
+          "value": "N,E,S,W"
+        },
+        {
+          "name": "seam_safe",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "snap_step",
+          "type": "int",
+          "value": 32
+        },
+        {
+          "name": "visual_depth",
+          "type": "string",
+          "value": "sunken"
+        },
+        {
+          "name": "open_center",
+          "type": "bool",
+          "value": true
+        },
+        {
+          "name": "edge_depth_source_px",
+          "type": "int",
+          "value": 40
+        },
+        {
+          "name": "edge_openings",
+          "type": "string",
+          "value": "W:0-141,360-512;E:0-141,360-512"
+        },
+        {
+          "name": "corner_vertical_stubs",
+          "type": "bool",
+          "value": false
+        },
+        {
+          "name": "curb_end_profile",
+          "type": "string",
+          "value": "32px-stepped-taper"
+        }
+      ]
+    }
+  ]
+}
