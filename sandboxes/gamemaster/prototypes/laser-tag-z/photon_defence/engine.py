@@ -14,35 +14,35 @@ from typing import Any, Callable
 
 
 MAX_ACTIVE_ENEMIES = 1000
-COLLISION_PADDING = 0.35
-COLLISION_STEP = 6.0
-COLLISION_CELL_SIZE = 64.0
-JUNCTION_CLEARANCE = 38.0
-JUNCTION_FLOW_WINDOW = 1.0
-FLOW_SPAWN_OFFSETS = (0.0, -20.0, 20.0, -10.0, 10.0, -15.0, 15.0, -5.0, 5.0)
-FLOW_CORRIDOR_RADIUS = 10.0
-FLOW_NEIGHBOR_MARGIN = 13.0
-FLOW_SEPARATION_WEIGHT = 1.35
-FLOW_INERTIA_WEIGHT = 0.28
-FLOW_WANDER_WEIGHT = 0.12
-FLOW_STEER_ANGLES = (0.0, 0.2, -0.2, 0.38, -0.38, 0.58, -0.58, 0.82, -0.82, 1.08, -1.08)
+COLLISION_PADDING = 0.05
+COLLISION_CELL_SIZE = 24.0
+FLOW_SPAWN_OFFSETS = (
+    0.0, -9.0, 9.0, -18.0, 18.0, -27.0, 27.0,
+    -4.5, 4.5, -13.5, 13.5, -22.5, 22.5,
+)
+FLOW_CORRIDOR_RADIUS = 28.0
+FLOW_NEIGHBOR_MARGIN = 5.0
+PARTICLE_STEERING_RESPONSE = 7.5
+PARTICLE_PRESSURE_WEIGHT = 0.9
+PARTICLE_WANDER_WEIGHT = 0.32
+PARTICLE_SOLVER_ITERATIONS = 8
+PARTICLE_MAX_SPEED_SCALE = 1.35
+PATH_WAYPOINT_RADIUS = 8.0
 CORNER_RADIUS = 30.0
 CORNER_SAMPLES = 6
-CORE_ORBIT_HALF_SIZES = (84.0, 108.0)
-CORE_ORBIT_FLOW_RADIUS = 2.0
-CORE_ORBIT_CORNER_RADIUS = 28.0
-CORE_ORBIT_SPEED = 38.0
-CORE_ORBIT_ENTRY_BUFFER = 1.0
-CORE_ORBIT_ADMISSION_LOOKAHEAD = CORE_ORBIT_SPEED * 0.01
-CORE_HOLDING_ADMISSION_RADIUS = 15.0
+CORE_BASIN_HALF_SIZE = 112.0
+CORE_KEEP_OUT_HALF_SIZE = 74.0
+CORE_BASIN_SPEED = 40.0
+CORE_ENTRY_SEARCH_COUNT = 64
+CORE_HOLDING_ADMISSION_RADIUS = 18.0
 ATOM_OWNERS = {100: "green", 101: "green", 102: "purple", 103: "purple"}
 TOWER_TYPES = {"machine_gun", "flamethrower", "mortar"}
 DEFAULT_LOADOUT = {100: "machine_gun", 101: "flamethrower", 102: "machine_gun", 103: "mortar"}
 ENEMY_STATS = {
-    "grunt": {"hp": 70.0, "speed": 62.0, "core_dps": 6.0, "collision_radius": 22.0 / 3.0},
-    "runner": {"hp": 46.0, "speed": 104.0, "core_dps": 4.0, "collision_radius": 22.0 / 3.0},
-    "breaker": {"hp": 130.0, "speed": 50.0, "core_dps": 10.0, "collision_radius": 22.0 / 3.0},
-    "brute": {"hp": 240.0, "speed": 34.0, "core_dps": 16.0, "collision_radius": 28.0 / 3.0},
+    "grunt": {"hp": 70.0, "speed": 62.0, "core_dps": 6.0, "collision_radius": 2.2},
+    "runner": {"hp": 46.0, "speed": 104.0, "core_dps": 4.0, "collision_radius": 2.2},
+    "breaker": {"hp": 130.0, "speed": 50.0, "core_dps": 10.0, "collision_radius": 2.2},
+    "brute": {"hp": 240.0, "speed": 34.0, "core_dps": 16.0, "collision_radius": 2.8},
 }
 TOWER_STATS = {
     "machine_gun": {"range": 285.0, "rate": 6.0, "damage": 13.0},
@@ -74,6 +74,17 @@ def _distance_point_to_segment(px: float, py: float, ax: float, ay: float, bx: f
         return math.hypot(px - ax, py - ay)
     t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
     return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+
+
+def _closest_point_on_segment(
+    px: float, py: float, ax: float, ay: float, bx: float, by: float
+) -> tuple[float, float, float]:
+    dx, dy = bx - ax, by - ay
+    length_sq = dx * dx + dy * dy
+    if length_sq <= 1e-12:
+        return ax, ay, 0.0
+    t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / length_sq))
+    return ax + dx * t, ay + dy * t, t
 
 
 def _tile_draw_offset(alignment: str, width: float, height: float) -> tuple[float, float]:
@@ -158,48 +169,6 @@ def _rounded_polyline(
     return rounded
 
 
-def _rounded_square_loop(
-    center_x: float, center_y: float, half_size: float
-) -> list[tuple[float, float]]:
-    """Build one clockwise circulation lane around the square core."""
-    corner = min(CORE_ORBIT_CORNER_RADIUS, half_size)
-    points = [(center_x - half_size + corner, center_y - half_size)]
-    corners = (
-        (center_x + half_size - corner, center_y - half_size + corner, -math.pi / 2.0, 0.0),
-        (center_x + half_size - corner, center_y + half_size - corner, 0.0, math.pi / 2.0),
-        (center_x - half_size + corner, center_y + half_size - corner, math.pi / 2.0, math.pi),
-        (center_x - half_size + corner, center_y - half_size + corner, math.pi, math.pi * 1.5),
-    )
-
-    def append_line(target: tuple[float, float]) -> None:
-        start_x, start_y = points[-1]
-        distance = math.hypot(target[0] - start_x, target[1] - start_y)
-        steps = max(1, math.ceil(distance / 14.0))
-        for step in range(1, steps + 1):
-            ratio = step / steps
-            points.append((
-                start_x + (target[0] - start_x) * ratio,
-                start_y + (target[1] - start_y) * ratio,
-            ))
-
-    for arc_x, arc_y, start_angle, end_angle in corners:
-        if start_angle == -math.pi / 2.0:
-            tangent = (arc_x, center_y - half_size)
-        elif start_angle == 0.0:
-            tangent = (center_x + half_size, arc_y)
-        elif start_angle == math.pi / 2.0:
-            tangent = (arc_x, center_y + half_size)
-        else:
-            tangent = (center_x - half_size, arc_y)
-        append_line(tangent)
-        for sample in range(1, CORNER_SAMPLES + 1):
-            angle = start_angle + (end_angle - start_angle) * sample / CORNER_SAMPLES
-            points.append((arc_x + corner * math.cos(angle), arc_y + corner * math.sin(angle)))
-    if points[-1] != points[0]:
-        points.append(points[0])
-    return points
-
-
 class _CollisionGrid:
     """Small spatial hash used for collision checks at the 1000-orc cap."""
 
@@ -248,6 +217,8 @@ class _CollisionGrid:
         for offset_y in (-1, 0, 1):
             for offset_x in (-1, 0, 1):
                 for other_id in self.cells.get((cell_x + offset_x, cell_y + offset_y), ()):
+                    if other_id == enemy_id:
+                        continue
                     other_x, other_y, other_radius = self.entries[other_id]
                     dx, dy = x - other_x, y - other_y
                     distance = math.hypot(dx, dy)
@@ -395,7 +366,6 @@ class DefenseEngine:
             self.enemies: dict[int, dict[str, Any]] = {}
             self.next_enemy_id = 1
             self.track_cursor: dict[str, int] = defaultdict(int)
-            self.junction_reservations: dict[tuple[float, float], dict[str, Any]] = {}
             self.pressure_bank = 0
             self.pressure_queue: list[dict[str, Any]] = []
             self.kills = 0
@@ -630,6 +600,7 @@ class DefenseEngine:
         remaining_lanes = list(lanes)
         lane = None
         flow_offset = 0.0
+        spawn_x = spawn_y = 0.0
         while remaining_lanes:
             values = [float(weights.get(candidate, 1.0)) for candidate in remaining_lanes]
             candidate = self._rng.choices(remaining_lanes, weights=values, k=1)[0]
@@ -658,226 +629,357 @@ class DefenseEngine:
         hp = stats["hp"] * float(self.settings["enemy_health_multiplier"])
         enemy_id = self.next_enemy_id
         self.next_enemy_id += 1
-        orbit_index = enemy_id % len(CORE_ORBIT_HALF_SIZES)
-        path, orbit_path, orbit_entry, orbit_entry_segment = self._paths_to_core_orbit(
-            lane, flow_offset, orbit_index
-        )
-        initial_dx, initial_dy = path[1][0] - path[0][0], path[1][1] - path[0][1]
+        path = self._path_to_core_basin(lane)
+        initial_dx, initial_dy = path[1][0] - spawn_x, path[1][1] - spawn_y
         initial_length = math.hypot(initial_dx, initial_dy)
-        self.enemies[enemy_id] = {"id": enemy_id, "enemy_type": enemy_type, "lane": lane, "track": flow_offset, "orbit_index": orbit_index, "x": path[0][0], "y": path[0][1], "hp": hp, "max_hp": hp, "speed": stats["speed"] * float(self.settings["enemy_speed_multiplier"]) * self._rng.uniform(0.94, 1.06), "core_dps": stats["core_dps"] * float(self.settings["enemy_core_damage_multiplier"]), "collision_radius": radius, "collision_group": None, "facing_x": initial_dx / initial_length, "facing_y": initial_dy / initial_length, "flow_phase": self._rng.uniform(0.0, math.pi * 2.0), "flow_rate": self._rng.uniform(0.72, 1.28), "steer_sign": -1.0 if enemy_id % 2 else 1.0, "blocked_steps": 0, "path": path, "orbit_path": orbit_path, "orbit_entry": orbit_entry, "orbit_entry_segment": orbit_entry_segment, "segment": 0, "attacking": False, "progress": 0.0}
+        speed = (
+            stats["speed"] * float(self.settings["enemy_speed_multiplier"])
+            * self._rng.uniform(0.94, 1.06)
+        )
+        self.enemies[enemy_id] = {
+            "id": enemy_id,
+            "enemy_type": enemy_type,
+            "lane": lane,
+            "track": flow_offset,
+            "orbit_index": enemy_id % 4,
+            "x": spawn_x,
+            "y": spawn_y,
+            "hp": hp,
+            "max_hp": hp,
+            "speed": speed,
+            "core_dps": stats["core_dps"]
+            * float(self.settings["enemy_core_damage_multiplier"]),
+            "collision_radius": radius,
+            "facing_x": initial_dx / initial_length,
+            "facing_y": initial_dy / initial_length,
+            "vx": initial_dx / initial_length * speed,
+            "vy": initial_dy / initial_length * speed,
+            "flow_phase": self._rng.uniform(0.0, math.pi * 2.0),
+            "flow_rate": self._rng.uniform(0.72, 1.28),
+            "basin_radius": self._rng.uniform(
+                CORE_KEEP_OUT_HALF_SIZE + radius + 1.0,
+                CORE_BASIN_HALF_SIZE - radius - 1.0,
+            ),
+            "basin_direction": -1.0 if enemy_id % 7 == 0 else 1.0,
+            "blocked_steps": 0,
+            "path": path,
+            "segment": 0,
+            "attacking": False,
+            "progress": 0.0,
+        }
         return True
 
-    def _paths_to_core_orbit(
-        self, lane: str, track_offset: float, orbit_index: int
-    ) -> tuple[
-        list[tuple[float, float]], list[tuple[float, float]], tuple[float, float], int
-    ]:
-        side = "top" if lane.startswith("top") else "bottom"
+    def _path_to_core_basin(self, lane: str) -> list[tuple[float, float]]:
         core_x, core_y = float(self.level.core["x"]), float(self.level.core["y"])
-        half_size = CORE_ORBIT_HALF_SIZES[orbit_index]
-        loop = _rounded_square_loop(core_x, core_y, half_size)
-        if side == "top":
-            desired_entry = (
-                core_x - half_size + CORE_ORBIT_CORNER_RADIUS,
-                core_y - half_size,
-            )
-        else:
-            desired_entry = (
-                core_x - half_size,
-                core_y + half_size - CORE_ORBIT_CORNER_RADIUS,
-            )
-        orbit_entry_segment = min(
-            range(len(loop) - 1),
-            key=lambda index: math.hypot(
-                loop[index][0] - desired_entry[0], loop[index][1] - desired_entry[1]
-            ),
-        )
-        orbit_path = loop
-        entry_x, entry_y = orbit_path[orbit_entry_segment]
-
         arrival_y = float(self.level.paths[lane][-2][1])
-        approach_end_x = core_x - 240.0
         road_centerline = [tuple(point) for point in self.level.paths[lane][:-2]]
-        road_centerline.append((approach_end_x, arrival_y))
-        approach = _offset_polyline(road_centerline, track_offset)
-        # Keep a broad, continuously offset approach, then let the local
-        # separation solver queue outside the live core circulation. Admission
-        # only happens when the destination has a full hard-disc gap.
-        holding_x = core_x - max(CORE_ORBIT_HALF_SIZES) - 24.0
-        holding_point = (holding_x, entry_y + track_offset * 0.35)
-        approach.append(holding_point)
-        return (
-            _rounded_polyline(approach), orbit_path, (entry_x, entry_y),
-            orbit_entry_segment,
-        )
-
-    def _release_cleared_junctions(self) -> None:
-        for junction, reservation in list(self.junction_reservations.items()):
-            occupied = any(
-                enemy["hp"] > 0 and not enemy["attacking"]
-                and enemy["lane"] == reservation["lane"]
-                and math.hypot(enemy["x"] - junction[0], enemy["y"] - junction[1])
-                < JUNCTION_CLEARANCE
-                for enemy in self.enemies.values()
-            )
-            if not occupied:
-                self.junction_reservations.pop(junction, None)
-
-    def _junction_blocks(self, enemy: dict[str, Any], candidate_x: float, candidate_y: float) -> bool:
-        for junction in self.level.junctions:
-            candidate_distance = math.hypot(candidate_x - junction[0], candidate_y - junction[1])
-            if candidate_distance >= JUNCTION_CLEARANCE:
-                continue
-            current_distance = math.hypot(enemy["x"] - junction[0], enemy["y"] - junction[1])
-            reservation = self.junction_reservations.get(junction)
-            if reservation is None:
-                reservation = {"lane": enemy["lane"], "acquired_at": self.sim_time}
-                self.junction_reservations[junction] = reservation
-            if reservation["lane"] != enemy["lane"]:
-                return True
-            expired = self.sim_time - float(reservation["acquired_at"]) >= JUNCTION_FLOW_WINDOW
-            if expired and current_distance >= JUNCTION_CLEARANCE:
-                return True
-        return False
+        road_centerline.append((core_x - CORE_BASIN_HALF_SIZE - 18.0, arrival_y))
+        return _rounded_polyline(road_centerline)
 
     @staticmethod
-    def _inside_flow_corridor(
-        enemy: dict[str, Any], candidate_x: float, candidate_y: float
-    ) -> bool:
-        """Keep lateral steering inside a narrow tube around the authored route."""
+    def _nearest_road_point(
+        enemy: dict[str, Any], x: float, y: float
+    ) -> tuple[float, float, int, float, float]:
         path = enemy["path"]
         segment = int(enemy["segment"])
-        indexes = range(max(0, segment - 2), min(len(path) - 1, segment + 5))
-        radius = CORE_ORBIT_FLOW_RADIUS if enemy["attacking"] else FLOW_CORRIDOR_RADIUS
-        return any(
-            _distance_point_to_segment(
-                candidate_x, candidate_y,
-                path[index][0], path[index][1],
+        best = (path[segment][0], path[segment][1], segment, 0.0, math.inf)
+        for index in range(max(0, segment - 3), min(len(path) - 1, segment + 8)):
+            point_x, point_y, ratio = _closest_point_on_segment(
+                x, y, path[index][0], path[index][1],
                 path[index + 1][0], path[index + 1][1],
-            ) <= radius
-            for index in indexes
+            )
+            distance = math.hypot(x - point_x, y - point_y)
+            if distance < best[4]:
+                best = point_x, point_y, index, ratio, distance
+        return best
+
+    def _constrain_road_particle(self, enemy: dict[str, Any]) -> None:
+        point_x, point_y, index, ratio, distance = self._nearest_road_point(
+            enemy, enemy["x"], enemy["y"]
         )
+        if index > enemy["segment"] and ratio > 0.2:
+            enemy["segment"] = index
+        if distance <= FLOW_CORRIDOR_RADIUS or distance <= 1e-9:
+            return
+        normal_x = (enemy["x"] - point_x) / distance
+        normal_y = (enemy["y"] - point_y) / distance
+        enemy["x"] = point_x + normal_x * FLOW_CORRIDOR_RADIUS
+        enemy["y"] = point_y + normal_y * FLOW_CORRIDOR_RADIUS
+        outward_speed = enemy["vx"] * normal_x + enemy["vy"] * normal_y
+        if outward_speed > 0.0:
+            enemy["vx"] -= normal_x * outward_speed * 1.35
+            enemy["vy"] -= normal_y * outward_speed * 1.35
 
-    def _advance_enemy(
-        self, enemy: dict[str, Any], remaining: float, grid: _CollisionGrid,
-        *, check_junctions: bool = True, clearance_radius: float | None = None,
-    ) -> float:
+    def _constrain_basin_particle(self, enemy: dict[str, Any]) -> None:
+        center_x, center_y = float(self.level.core["x"]), float(self.level.core["y"])
+        radius = enemy["collision_radius"]
+        outer = CORE_BASIN_HALF_SIZE - radius
+        enemy["x"] = max(center_x - outer, min(center_x + outer, enemy["x"]))
+        enemy["y"] = max(center_y - outer, min(center_y + outer, enemy["y"]))
+
+        dx, dy = enemy["x"] - center_x, enemy["y"] - center_y
+        inner = CORE_KEEP_OUT_HALF_SIZE + radius
+        if abs(dx) >= inner or abs(dy) >= inner:
+            return
+        choices = (
+            (inner - abs(dx), "x"),
+            (inner - abs(dy), "y"),
+        )
+        _, axis = min(choices)
+        if axis == "x":
+            sign = -1.0 if dx < 0.0 or (dx == 0.0 and enemy["vx"] < 0.0) else 1.0
+            enemy["x"] = center_x + sign * inner
+            if enemy["vx"] * sign < 0.0:
+                enemy["vx"] *= -0.2
+        else:
+            sign = -1.0 if dy < 0.0 or (dy == 0.0 and enemy["vy"] < 0.0) else 1.0
+            enemy["y"] = center_y + sign * inner
+            if enemy["vy"] * sign < 0.0:
+                enemy["vy"] *= -0.2
+
+    def _constrain_particle(self, enemy: dict[str, Any]) -> None:
+        if enemy["attacking"]:
+            self._constrain_basin_particle(enemy)
+        else:
+            self._constrain_road_particle(enemy)
+
+    def _update_road_progress(self, enemy: dict[str, Any]) -> None:
         path = enemy["path"]
-        moving_radius = clearance_radius or enemy["collision_radius"]
-        while remaining > 1e-9 and enemy["segment"] < len(path) - 1:
+        while enemy["segment"] < len(path) - 1:
+            start_x, start_y = path[enemy["segment"]]
             target_x, target_y = path[enemy["segment"] + 1]
-            dx, dy = target_x - enemy["x"], target_y - enemy["y"]
-            distance = math.hypot(dx, dy)
-            if distance <= 1e-9:
-                enemy["x"], enemy["y"] = target_x, target_y
-                enemy["segment"] += 1
-                continue
-            guide_x, guide_y = dx / distance, dy / distance
-            step = min(remaining, distance, COLLISION_STEP)
-            pressure_x, pressure_y = grid.pressure(
-                enemy["x"], enemy["y"], moving_radius, enemy["id"]
+            segment_x, segment_y = target_x - start_x, target_y - start_y
+            length_sq = segment_x * segment_x + segment_y * segment_y
+            target_distance = math.hypot(enemy["x"] - target_x, enemy["y"] - target_y)
+            projection = (
+                ((enemy["x"] - start_x) * segment_x + (enemy["y"] - start_y) * segment_y)
+                / length_sq if length_sq > 1e-9 else 1.0
             )
-            wander = math.sin(
-                self.sim_time * enemy.get("flow_rate", 1.0) + enemy.get("flow_phase", 0.0)
-            )
-            steer_x = (
-                guide_x
-                + enemy.get("facing_x", guide_x) * FLOW_INERTIA_WEIGHT
-                + pressure_x * FLOW_SEPARATION_WEIGHT
-                - guide_y * wander * FLOW_WANDER_WEIGHT
-            )
-            steer_y = (
-                guide_y
-                + enemy.get("facing_y", guide_y) * FLOW_INERTIA_WEIGHT
-                + pressure_y * FLOW_SEPARATION_WEIGHT
-                + guide_x * wander * FLOW_WANDER_WEIGHT
-            )
-            steer_length = math.hypot(steer_x, steer_y)
-            if steer_length <= 1e-9:
-                steer_x, steer_y = guide_x, guide_y
-            else:
-                steer_x, steer_y = steer_x / steer_length, steer_y / steer_length
-            if steer_x * guide_x + steer_y * guide_y < 0.22:
-                steer_x, steer_y = guide_x + steer_x * 0.25, guide_y + steer_y * 0.25
-                steer_length = math.hypot(steer_x, steer_y)
-                steer_x, steer_y = steer_x / steer_length, steer_y / steer_length
-
-            start_x, start_y = enemy["x"], enemy["y"]
-            moved = False
-            reached_target = False
-            steer_sign = enemy.get("steer_sign", 1.0)
-            for raw_angle in FLOW_STEER_ANGLES:
-                angle = raw_angle * steer_sign
-                cosine, sine = math.cos(angle), math.sin(angle)
-                heading_x = steer_x * cosine - steer_y * sine
-                heading_y = steer_x * sine + steer_y * cosine
-                if heading_x * guide_x + heading_y * guide_y < 0.12:
-                    continue
-                if distance <= step + 1e-9 and raw_angle == 0.0:
-                    candidate_x, candidate_y = target_x, target_y
-                    candidate_reaches_target = True
-                else:
-                    candidate_x = start_x + heading_x * step
-                    candidate_y = start_y + heading_y * step
-                    candidate_reaches_target = False
-                if not self._inside_flow_corridor(enemy, candidate_x, candidate_y):
-                    continue
-                if check_junctions and self._junction_blocks(enemy, candidate_x, candidate_y):
-                    continue
-                if grid.collides(candidate_x, candidate_y, moving_radius):
-                    continue
-                enemy["x"], enemy["y"] = candidate_x, candidate_y
-                moved = True
-                reached_target = candidate_reaches_target
-                break
-
-            if not moved:
-                low, high = 0.0, step
-                for _ in range(10):
-                    trial = (low + high) / 2.0
-                    trial_x = start_x + guide_x * trial
-                    trial_y = start_y + guide_y * trial
-                    if (
-                        (check_junctions and self._junction_blocks(enemy, trial_x, trial_y))
-                        or grid.collides(trial_x, trial_y, moving_radius)
-                    ):
-                        high = trial
-                    else:
-                        low = trial
-                if low > 1e-4:
-                    enemy["x"] = start_x + guide_x * low
-                    enemy["y"] = start_y + guide_y * low
-                    moved = True
-
-            travelled = math.hypot(enemy["x"] - start_x, enemy["y"] - start_y)
-            if travelled <= 1e-4:
-                enemy["blocked_steps"] = enemy.get("blocked_steps", 0) + 1
-                enemy["steer_sign"] = -steer_sign
-                break
-            enemy["blocked_steps"] = 0
-            enemy["facing_x"] = (enemy["x"] - start_x) / travelled
-            enemy["facing_y"] = (enemy["y"] - start_y) / travelled
-            remaining = max(0.0, remaining - travelled)
-            if reached_target:
-                enemy["x"], enemy["y"] = target_x, target_y
-                enemy["segment"] += 1
-                continue
-
-            segment_x = target_x - path[enemy["segment"]][0]
-            segment_y = target_y - path[enemy["segment"]][1]
-            segment_length_sq = segment_x * segment_x + segment_y * segment_y
-            passed = segment_length_sq > 1e-9 and (
-                (enemy["x"] - path[enemy["segment"]][0]) * segment_x
-                + (enemy["y"] - path[enemy["segment"]][1]) * segment_y
-            ) / segment_length_sq >= 0.985
-            if (
-                enemy["segment"] < len(path) - 2
-                and passed
-                and math.hypot(enemy["x"] - target_x, enemy["y"] - target_y)
-                <= FLOW_CORRIDOR_RADIUS
+            if target_distance <= PATH_WAYPOINT_RADIUS or (
+                projection >= 0.96 and target_distance <= FLOW_CORRIDOR_RADIUS * 1.25
             ):
                 enemy["segment"] += 1
-        return remaining
+                continue
+            break
+        enemy["progress"] = enemy["segment"] / max(1, len(path) - 1)
+
+    def _road_particle_velocity(
+        self, enemy: dict[str, Any], grid: _CollisionGrid, dt: float, slow: float
+    ) -> None:
+        self._update_road_progress(enemy)
+        path = enemy["path"]
+        if enemy["segment"] >= len(path) - 1:
+            enemy["vx"] *= 0.7
+            enemy["vy"] *= 0.7
+            return
+        target_x, target_y = path[enemy["segment"] + 1]
+        dx, dy = target_x - enemy["x"], target_y - enemy["y"]
+        distance = max(1e-9, math.hypot(dx, dy))
+        guide_x, guide_y = dx / distance, dy / distance
+        point_x, point_y, _, _, center_distance = self._nearest_road_point(
+            enemy, enemy["x"], enemy["y"]
+        )
+        recovery_x = (point_x - enemy["x"]) / max(FLOW_CORRIDOR_RADIUS, center_distance, 1.0)
+        recovery_y = (point_y - enemy["y"]) / max(FLOW_CORRIDOR_RADIUS, center_distance, 1.0)
+        pressure_x, pressure_y = grid.pressure(
+            enemy["x"], enemy["y"], enemy["collision_radius"], enemy["id"]
+        )
+        wander = math.sin(
+            self.sim_time * enemy["flow_rate"] * 1.7 + enemy["flow_phase"]
+        )
+        desired_x = (
+            guide_x - guide_y * wander * PARTICLE_WANDER_WEIGHT
+            + recovery_x * 0.75 + pressure_x * PARTICLE_PRESSURE_WEIGHT
+        )
+        desired_y = (
+            guide_y + guide_x * wander * PARTICLE_WANDER_WEIGHT
+            + recovery_y * 0.75 + pressure_y * PARTICLE_PRESSURE_WEIGHT
+        )
+        if desired_x * guide_x + desired_y * guide_y < 0.25:
+            desired_x += guide_x
+            desired_y += guide_y
+        length = max(1e-9, math.hypot(desired_x, desired_y))
+        target_speed = enemy["speed"] * slow
+        desired_x, desired_y = desired_x / length * target_speed, desired_y / length * target_speed
+        response = 1.0 - math.exp(-PARTICLE_STEERING_RESPONSE * dt)
+        enemy["vx"] += (desired_x - enemy["vx"]) * response
+        enemy["vy"] += (desired_y - enemy["vy"]) * response
+
+    def _basin_particle_velocity(
+        self, enemy: dict[str, Any], grid: _CollisionGrid, dt: float
+    ) -> None:
+        center_x, center_y = float(self.level.core["x"]), float(self.level.core["y"])
+        dx, dy = enemy["x"] - center_x, enemy["y"] - center_y
+        if abs(dx) >= abs(dy):
+            normal_x, normal_y = (-1.0 if dx < 0.0 else 1.0), 0.0
+        else:
+            normal_x, normal_y = 0.0, (-1.0 if dy < 0.0 else 1.0)
+        tangent_x = -normal_y * enemy["basin_direction"]
+        tangent_y = normal_x * enemy["basin_direction"]
+        square_radius = max(abs(dx), abs(dy))
+        radial = max(-0.8, min(0.8, (enemy["basin_radius"] - square_radius) / 16.0))
+        noise_x = math.sin(self.sim_time * enemy["flow_rate"] * 1.9 + enemy["flow_phase"])
+        noise_y = math.cos(self.sim_time * enemy["flow_rate"] * 1.37 - enemy["flow_phase"] * 1.61)
+        pressure_x, pressure_y = grid.pressure(
+            enemy["x"], enemy["y"], enemy["collision_radius"], enemy["id"]
+        )
+        desired_x = (
+            tangent_x + normal_x * radial * 0.9 + noise_x * 0.42
+            + pressure_x * PARTICLE_PRESSURE_WEIGHT
+        )
+        desired_y = (
+            tangent_y + normal_y * radial * 0.9 + noise_y * 0.42
+            + pressure_y * PARTICLE_PRESSURE_WEIGHT
+        )
+        length = max(1e-9, math.hypot(desired_x, desired_y))
+        speed_variation = 0.86 + (enemy["id"] * 0.61803398875 % 1.0) * 0.28
+        target_speed = CORE_BASIN_SPEED * speed_variation
+        desired_x, desired_y = desired_x / length * target_speed, desired_y / length * target_speed
+        response = 1.0 - math.exp(-4.8 * dt)
+        enemy["vx"] += (desired_x - enemy["vx"]) * response
+        enemy["vy"] += (desired_y - enemy["vy"]) * response
+
+    def _find_basin_entry(
+        self, enemy: dict[str, Any], grid: _CollisionGrid
+    ) -> tuple[float, float] | None:
+        center_x, center_y = float(self.level.core["x"]), float(self.level.core["y"])
+        radius = enemy["collision_radius"]
+        x = center_x - CORE_BASIN_HALF_SIZE + radius + 0.5
+        low = center_y - CORE_BASIN_HALF_SIZE + radius + 0.5
+        high = center_y + CORE_BASIN_HALF_SIZE - radius - 0.5
+        base = 0.18 if enemy["lane"].startswith("top") else 0.82
+        for attempt in range(CORE_ENTRY_SEARCH_COUNT):
+            fraction = (base + attempt * 0.618033988749895 + enemy["id"] * 0.037) % 1.0
+            y = low + (high - low) * fraction
+            if not grid.collides(x, y, radius):
+                return x, y
+        return None
+
+    def _admit_ready_particles(self, living: list[dict[str, Any]]) -> None:
+        grid = _CollisionGrid(living)
+        ready = sorted(
+            (enemy for enemy in living if not enemy["attacking"]),
+            key=lambda item: (item["progress"], item["id"]), reverse=True,
+        )
+        for enemy in ready:
+            self._update_road_progress(enemy)
+            path = enemy["path"]
+            distance = math.hypot(enemy["x"] - path[-1][0], enemy["y"] - path[-1][1])
+            if enemy["segment"] < len(path) - 1 and distance > CORE_HOLDING_ADMISSION_RADIUS:
+                continue
+            grid.remove(enemy["id"])
+            entry = self._find_basin_entry(enemy, grid)
+            if entry is None:
+                grid.add(enemy["id"], enemy["x"], enemy["y"], enemy["collision_radius"])
+                continue
+            enemy["attacking"] = True
+            enemy["x"], enemy["y"] = entry
+            enemy["vx"], enemy["vy"] = 0.0, -CORE_BASIN_SPEED
+            enemy["progress"] = 1.0
+            enemy["blocked_steps"] = 0
+            self.breaches += 1
+            grid.add(enemy["id"], enemy["x"], enemy["y"], enemy["collision_radius"])
+
+    def _resolve_particle_contacts(self, living: list[dict[str, Any]]) -> None:
+        by_id = {enemy["id"]: enemy for enemy in living}
+        for _ in range(PARTICLE_SOLVER_ITERATIONS):
+            cells: dict[tuple[int, int], list[int]] = defaultdict(list)
+            for enemy in living:
+                cell = (
+                    math.floor(enemy["x"] / COLLISION_CELL_SIZE),
+                    math.floor(enemy["y"] / COLLISION_CELL_SIZE),
+                )
+                cells[cell].append(enemy["id"])
+            contacts = 0
+            for enemy in living:
+                cell_x = math.floor(enemy["x"] / COLLISION_CELL_SIZE)
+                cell_y = math.floor(enemy["y"] / COLLISION_CELL_SIZE)
+                for offset_y in (-1, 0, 1):
+                    for offset_x in (-1, 0, 1):
+                        for other_id in cells.get((cell_x + offset_x, cell_y + offset_y), ()):
+                            if other_id <= enemy["id"]:
+                                continue
+                            other = by_id[other_id]
+                            dx, dy = other["x"] - enemy["x"], other["y"] - enemy["y"]
+                            distance = math.hypot(dx, dy)
+                            minimum = (
+                                enemy["collision_radius"] + other["collision_radius"]
+                                + COLLISION_PADDING
+                            )
+                            if distance >= minimum - 1e-6:
+                                continue
+                            if distance <= 1e-9:
+                                angle = (enemy["id"] * 2.399963229728653 + other_id) % (math.pi * 2.0)
+                                normal_x, normal_y = math.cos(angle), math.sin(angle)
+                            else:
+                                normal_x, normal_y = dx / distance, dy / distance
+                            # A small deterministic oblique component prevents
+                            # wall contacts from crystallizing into one-dimensional
+                            # rows; compression then spills into the open basin.
+                            jitter = math.sin(
+                                enemy["id"] * 12.9898 + other_id * 78.233
+                            ) * 0.24
+                            cosine, sine = math.cos(jitter), math.sin(jitter)
+                            normal_x, normal_y = (
+                                normal_x * cosine - normal_y * sine,
+                                normal_x * sine + normal_y * cosine,
+                            )
+                            correction = (minimum - distance) * 0.68
+                            enemy["x"] -= normal_x * correction
+                            enemy["y"] -= normal_y * correction
+                            other["x"] += normal_x * correction
+                            other["y"] += normal_y * correction
+                            self._constrain_particle(enemy)
+                            self._constrain_particle(other)
+                            contacts += 1
+            if contacts == 0:
+                break
+
+    def _integrate_particles(
+        self, living: list[dict[str, Any]], dt: float, slow_by_enemy: dict[int, float]
+    ) -> None:
+        grid = _CollisionGrid(living)
+        origins = {enemy["id"]: (enemy["x"], enemy["y"]) for enemy in living}
+        for enemy in living:
+            if enemy["attacking"]:
+                self._basin_particle_velocity(enemy, grid, dt)
+                speed_cap = CORE_BASIN_SPEED * PARTICLE_MAX_SPEED_SCALE
+            else:
+                self._road_particle_velocity(
+                    enemy, grid, dt, slow_by_enemy.get(enemy["id"], 1.0)
+                )
+                speed_cap = enemy["speed"] * PARTICLE_MAX_SPEED_SCALE
+            velocity = math.hypot(enemy["vx"], enemy["vy"])
+            if velocity > speed_cap:
+                enemy["vx"] *= speed_cap / velocity
+                enemy["vy"] *= speed_cap / velocity
+            enemy["x"] += enemy["vx"] * dt
+            enemy["y"] += enemy["vy"] * dt
+            self._constrain_particle(enemy)
+
+        self._resolve_particle_contacts(living)
+        for enemy in living:
+            origin_x, origin_y = origins[enemy["id"]]
+            actual_x = (enemy["x"] - origin_x) / dt
+            actual_y = (enemy["y"] - origin_y) / dt
+            limit = (
+                CORE_BASIN_SPEED if enemy["attacking"] else enemy["speed"]
+            ) * PARTICLE_MAX_SPEED_SCALE
+            actual_speed = math.hypot(actual_x, actual_y)
+            if actual_speed > limit:
+                actual_x *= limit / actual_speed
+                actual_y *= limit / actual_speed
+            enemy["vx"] = enemy["vx"] * 0.35 + actual_x * 0.65
+            enemy["vy"] = enemy["vy"] * 0.35 + actual_y * 0.65
+            movement = math.hypot(enemy["x"] - origin_x, enemy["y"] - origin_y)
+            if movement > 0.08:
+                enemy["facing_x"] = (enemy["x"] - origin_x) / movement
+                enemy["facing_y"] = (enemy["y"] - origin_y) / movement
+                enemy["blocked_steps"] = 0
+            else:
+                enemy["blocked_steps"] += 1
+            if not enemy["attacking"]:
+                self._update_road_progress(enemy)
 
     def _gates(self) -> list[dict[str, Any]]:
         order = [tag for tag in self.activation_order if tag in self.placements]
@@ -895,7 +997,6 @@ class DefenseEngine:
                 return
             self.sim_time += dt
             self._spawn_due()
-            self._release_cleared_junctions()
             gates = self._gates()
             dead: set[int] = set()
             slow_by_enemy: dict[int, float] = {}
@@ -908,86 +1009,26 @@ class DefenseEngine:
                 if enemy["hp"] <= 0:
                     dead.add(enemy["id"])
                 slow_by_enemy[enemy["id"]] = slow
-            collision_grid = _CollisionGrid(list(self.enemies.values()))
-            ordered = sorted(
-                self.enemies.values(),
-                key=lambda item: (
-                    bool(item["attacking"]),
-                    (
-                        float(item["segment"]) / max(1, len(item["path"]) - 1)
-                        if item["attacking"] else float(item["progress"])
-                    ),
-                    item["id"],
-                ),
-                reverse=True,
+            living = [
+                enemy for enemy in self.enemies.values()
+                if enemy["id"] not in dead and enemy["hp"] > 0.0
+            ]
+            maximum_speed = max(
+                (
+                    CORE_BASIN_SPEED if enemy["attacking"]
+                    else enemy["speed"] * slow_by_enemy.get(enemy["id"], 1.0)
+                )
+                for enemy in living
+            ) if living else 0.0
+            substeps = max(1, min(5, math.ceil(maximum_speed * dt / 8.0)))
+            sub_dt = dt / substeps
+            for _ in range(substeps):
+                self._admit_ready_particles(living)
+                self._integrate_particles(living, sub_dt, slow_by_enemy)
+            self._admit_ready_particles(living)
+            self.core_hp -= sum(
+                enemy["core_dps"] * dt for enemy in living if enemy["attacking"]
             )
-            for enemy in ordered:
-                if enemy["id"] in dead:
-                    continue
-                if enemy["attacking"]:
-                    self.core_hp -= enemy["core_dps"] * dt
-                    collision_grid.remove(enemy["id"])
-                    if enemy["segment"] >= len(enemy["path"]) - 1:
-                        enemy["x"], enemy["y"] = enemy["path"][0]
-                        enemy["segment"] = 0
-                    leftover = self._advance_enemy(
-                        enemy, CORE_ORBIT_SPEED * dt, collision_grid,
-                        check_junctions=False,
-                    )
-                    if enemy["segment"] >= len(enemy["path"]) - 1:
-                        enemy["x"], enemy["y"] = enemy["path"][0]
-                        enemy["segment"] = 0
-                        if leftover > 1e-9:
-                            self._advance_enemy(
-                                enemy, leftover, collision_grid,
-                                check_junctions=False,
-                            )
-                    collision_grid.add(
-                        enemy["id"], enemy["x"], enemy["y"], enemy["collision_radius"],
-                    )
-                    continue
-                collision_grid.remove(enemy["id"])
-                remaining = enemy["speed"] * slow_by_enemy[enemy["id"]] * dt
-                path = enemy["path"]
-                entry_radius = None
-                if enemy["segment"] >= len(path) - 2:
-                    entry_radius = enemy["collision_radius"] + CORE_ORBIT_ENTRY_BUFFER
-                self._advance_enemy(
-                    enemy, remaining, collision_grid, clearance_radius=entry_radius
-                )
-                enemy["progress"] = enemy["segment"] / max(1, len(path) - 1)
-                holding_distance = math.hypot(
-                    enemy["x"] - path[-1][0], enemy["y"] - path[-1][1]
-                )
-                if (
-                    enemy["segment"] >= len(path) - 1
-                    or (
-                        enemy["segment"] >= len(path) - 2
-                        and holding_distance <= CORE_HOLDING_ADMISSION_RADIUS
-                    )
-                ):
-                    entry_x, entry_y = enemy["orbit_entry"]
-                    admission_radius = (
-                        enemy["collision_radius"] + CORE_ORBIT_ENTRY_BUFFER
-                        + CORE_ORBIT_ADMISSION_LOOKAHEAD
-                    )
-                    orbit_clear = all(
-                        other["id"] == enemy["id"]
-                        or math.hypot(entry_x - other["x"], entry_y - other["y"])
-                        >= admission_radius + other["collision_radius"] + COLLISION_PADDING
-                        for other in self.enemies.values()
-                    )
-                    if orbit_clear:
-                        enemy["attacking"] = True
-                        enemy["collision_group"] = None
-                        enemy["path"] = enemy["orbit_path"]
-                        enemy["segment"] = enemy["orbit_entry_segment"]
-                        enemy["x"], enemy["y"] = enemy["path"][enemy["segment"]]
-                        enemy["progress"] = 1.0
-                        self.breaches += 1
-                collision_grid.add(
-                    enemy["id"], enemy["x"], enemy["y"], enemy["collision_radius"],
-                )
             self._fire_towers(dt, dead)
             for enemy_id in dead:
                 if self.enemies.pop(enemy_id, None):

@@ -18,9 +18,10 @@ sys.path.insert(0, str(PROTOTYPE))
 from photon_defence import DefenseEngine, SettingsStore  # noqa: E402
 from photon_defence.engine import (  # noqa: E402
     COLLISION_PADDING,
+    CORE_BASIN_HALF_SIZE,
+    CORE_KEEP_OUT_HALF_SIZE,
     ENEMY_STATS,
     FLOW_SPAWN_OFFSETS,
-    _CollisionGrid,
 )
 
 
@@ -83,7 +84,7 @@ class LaserTagZEngineTests(unittest.TestCase):
         self.assertNotIn("enemy.hp", enemy_renderer)
         self.assertNotIn("barWidth", enemy_renderer)
 
-    def test_three_orcs_fit_across_a_lane_and_face_their_motion(self):
+    def test_particle_orcs_spawn_across_a_lane_and_face_their_motion(self):
         weights = {"top_inner": 1.0}
         self.assertTrue(all(self.engine._spawn_enemy("brute", weights) for _ in range(3)))
         enemies = list(self.engine.enemies.values())
@@ -95,24 +96,36 @@ class LaserTagZEngineTests(unittest.TestCase):
             max(enemy["y"] for enemy in enemies) - min(enemy["y"] for enemy in enemies),
             max(FLOW_SPAWN_OFFSETS[:3]) - min(FLOW_SPAWN_OFFSETS[:3]),
         )
-        self.assertAlmostEqual(ENEMY_STATS["brute"]["collision_radius"], 28.0 / 3.0)
+        self.assertAlmostEqual(ENEMY_STATS["brute"]["collision_radius"], 2.8)
 
         enemy = enemies[0]
+        self.engine.enemies = {enemy["id"]: enemy}
+        enemy["speed"] = 240.0
+        enemy["vx"] = 240.0
+        enemy["vy"] = 0.0
         self.assertAlmostEqual(enemy["facing_x"], 1.0)
         self.assertAlmostEqual(enemy["facing_y"], 0.0)
         diagonal_heading_seen = False
-        for _ in range(40):
-            self.engine._advance_enemy(enemy, 6.0, _CollisionGrid([]))
+        for _ in range(80):
+            self.engine.sim_time += 0.05
+            self.engine._integrate_particles([enemy], 0.05, {enemy["id"]: 1.0})
             diagonal_heading_seen |= abs(enemy["facing_x"]) > 0.1 and abs(enemy["facing_y"]) > 0.1
             if enemy["facing_y"] > 0.9:
                 break
         self.assertTrue(diagonal_heading_seen)
         self.assertGreater(enemy["facing_y"], 0.9)
 
-        self.assertTrue(self.engine._spawn_enemy("grunt", {"bottom_inner": 1.0}))
-        upward_enemy = self.engine.enemies[max(self.engine.enemies)]
-        for _ in range(40):
-            self.engine._advance_enemy(upward_enemy, 6.0, _CollisionGrid([]))
+        upward_engine = DefenseEngine(MAP_PATH, WAVES_PATH)
+        self.assertTrue(upward_engine._spawn_enemy("grunt", {"bottom_inner": 1.0}))
+        upward_enemy = upward_engine.enemies[max(upward_engine.enemies)]
+        upward_enemy["speed"] = 240.0
+        upward_enemy["vx"] = 240.0
+        upward_enemy["vy"] = 0.0
+        for _ in range(80):
+            upward_engine.sim_time += 0.05
+            upward_engine._integrate_particles(
+                [upward_enemy], 0.05, {upward_enemy["id"]: 1.0}
+            )
             if upward_enemy["facing_y"] < -0.9:
                 break
         self.assertLess(upward_enemy["facing_y"], -0.9)
@@ -198,9 +211,6 @@ class LaserTagZEngineTests(unittest.TestCase):
         self.assertGreaterEqual(
             len({enemy["track"] for enemy in self.engine.enemies.values()}), 5
         )
-        self.assertTrue(
-            all(enemy["collision_group"] is None for enemy in self.engine.enemies.values())
-        )
 
         attackers = [enemy for enemy in self.engine.snapshot()["enemies"] if enemy["attacking"]]
         self.assertGreaterEqual(len(attackers), 3)
@@ -225,7 +235,7 @@ class LaserTagZEngineTests(unittest.TestCase):
             self.engine.step(0.1)
         self.assertGreater(self.engine.breaches, breaches_before)
 
-    def test_full_wave_drains_junctions_and_refills_core_flow(self):
+    def test_full_wave_drains_routes_into_particle_basin(self):
         dense = DefenseEngine(MAP_PATH, WAVES_PATH)
         dense.start({
             "wave_count": 1,
@@ -237,15 +247,60 @@ class LaserTagZEngineTests(unittest.TestCase):
             dense.step(0.1)
         state = dense.snapshot()
         self.assertEqual(state["active_enemies"], 118)
-        self.assertGreaterEqual(state["breaches"], 50)
-        self.assertEqual({enemy["orbit_index"] for enemy in state["enemies"] if enemy["attacking"]}, {0, 1})
+        self.assertEqual(state["breaches"], 118)
+        self.assertTrue(all(enemy["attacking"] for enemy in state["enemies"]))
+        self.assertLess(max(enemy["blocked_steps"] for enemy in dense.enemies.values()), 10)
 
-        breaches_before = dense.breaches
-        for enemy in [enemy for enemy in dense.enemies.values() if enemy["attacking"]][:5]:
-            enemy["hp"] = 0.0
-        for _ in range(600):
+    def test_center_particle_basin_holds_four_times_the_old_ring_capacity(self):
+        dense = DefenseEngine(MAP_PATH, WAVES_PATH)
+        dense.start({
+            "wave_count": 2,
+            "wave_interval_s": 0.1,
+            "enemy_speed_multiplier": 4.0,
+            "release_rate_multiplier": 1000.0,
+            "max_active_enemies": 1000,
+            "core_hp": 1_000_000_000_000.0,
+        })
+        for _ in range(180):
             dense.step(0.1)
-        self.assertGreaterEqual(dense.breaches, breaches_before + 5)
+
+        attackers = [enemy for enemy in dense.enemies.values() if enemy["attacking"]]
+        self.assertGreaterEqual(len(attackers), 280)
+        self.assertEqual(len(attackers), dense.breaches)
+        self.assertFalse([enemy for enemy in dense.enemies.values() if not enemy["attacking"]])
+
+        core_x, core_y = float(dense.level.core["x"]), float(dense.level.core["y"])
+        square_radii = set()
+        for enemy in attackers:
+            dx, dy = abs(enemy["x"] - core_x), abs(enemy["y"] - core_y)
+            radius = enemy["collision_radius"]
+            self.assertLessEqual(max(dx, dy), CORE_BASIN_HALF_SIZE - radius + 0.02)
+            self.assertTrue(
+                dx >= CORE_KEEP_OUT_HALF_SIZE + radius - 0.02
+                or dy >= CORE_KEEP_OUT_HALF_SIZE + radius - 0.02
+            )
+            square_radii.add(round(max(dx, dy), 1))
+        self.assertGreater(len(square_radii), 80)
+
+        for index, enemy in enumerate(attackers):
+            for other in attackers[index + 1:]:
+                distance = math.hypot(enemy["x"] - other["x"], enemy["y"] - other["y"])
+                minimum = (
+                    enemy["collision_radius"] + other["collision_radius"]
+                    + COLLISION_PADDING
+                )
+                self.assertGreaterEqual(distance + 0.03, minimum)
+
+        before = {enemy["id"]: (enemy["x"], enemy["y"]) for enemy in attackers}
+        for _ in range(5):
+            dense.step(0.1)
+        moved = sum(
+            math.hypot(enemy["x"] - before[enemy["id"]][0], enemy["y"] - before[enemy["id"]][1])
+            > 0.5
+            for enemy in dense.enemies.values()
+            if enemy["id"] in before
+        )
+        self.assertGreater(moved, len(before) * 0.9)
 
     def test_physical_placement_requires_matching_enabled_released_arm(self):
         tags = [
