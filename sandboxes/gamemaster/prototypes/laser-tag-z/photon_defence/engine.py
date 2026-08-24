@@ -25,17 +25,26 @@ FLOW_NEIGHBOR_MARGIN = 5.0
 PARTICLE_STEERING_RESPONSE = 7.5
 PARTICLE_PRESSURE_WEIGHT = 0.9
 PARTICLE_WANDER_WEIGHT = 0.32
-PARTICLE_SOLVER_ITERATIONS = 12
+PARTICLE_SOLVER_ITERATIONS = 18
 PARTICLE_MAX_SPEED_SCALE = 1.35
 PATH_WAYPOINT_RADIUS = 8.0
 CORNER_RADIUS = 30.0
 CORNER_SAMPLES = 6
 CORE_BASIN_HALF_SIZE = 112.0
-# Alpha bounds of the 144 px central_core_square_base Tiled object. Keeping
-# separate axes lets particles touch the visible rectangular base instead of
-# orbiting its larger nominal object box.
-CORE_KEEP_OUT_HALF_WIDTH = 55.5
-CORE_KEEP_OUT_HALF_HEIGHT = 62.25
+# Eight outward half-planes measured from the opaque alpha silhouette of the
+# 144 px central_core_square_base Tiled object. Diagonal normals preserve its
+# 45-degree corners; limits are relative to the authored core node.
+CORE_OCTAGON_PLANES = (
+    (1.0, 0.0, 43.5),     # right
+    (-1.0, 0.0, 52.0),    # left
+    (0.0, 1.0, 40.5),     # bottom
+    (0.0, -1.0, 52.0),    # top
+    (1.0, 1.0, 69.0),     # bottom-right
+    (-1.0, -1.0, 89.25),  # top-left
+    (1.0, -1.0, 80.25),   # top-right
+    (-1.0, 1.0, 77.5),    # bottom-left
+)
+CORE_OCTAGON_MAX_AXIS_EXTENT = 52.0
 CORE_BASIN_SPEED = 40.0
 CORE_ENTRY_DISTANCE = 9.0
 ATOM_OWNERS = {100: "green", 101: "green", 102: "purple", 103: "purple"}
@@ -88,6 +97,22 @@ def _closest_point_on_segment(
         return ax, ay, 0.0
     t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / length_sq))
     return ax + dx * t, ay + dy * t, t
+
+
+def _core_octagon_face(
+    dx: float, dy: float, radius: float = 0.0
+) -> tuple[int, float, float, float]:
+    """Return the nearest outward core face and body-to-face clearance."""
+    best = (0, 1.0, 0.0, -math.inf)
+    for index, (normal_x, normal_y, limit) in enumerate(CORE_OCTAGON_PLANES):
+        length = math.hypot(normal_x, normal_y)
+        unit_x, unit_y = normal_x / length, normal_y / length
+        clearance = (
+            normal_x * dx + normal_y * dy - limit
+        ) / length - radius
+        if clearance > best[3]:
+            best = index, unit_x, unit_y, clearance
+    return best
 
 
 def _tile_draw_offset(alignment: str, width: float, height: float) -> tuple[float, float]:
@@ -639,13 +664,12 @@ class DefenseEngine:
             stats["speed"] * float(self.settings["enemy_speed_multiplier"])
             * self._rng.uniform(0.94, 1.06)
         )
-        basin_inner = min(
-            CORE_KEEP_OUT_HALF_WIDTH, CORE_KEEP_OUT_HALF_HEIGHT
-        ) + radius + 0.5
-        basin_outer = CORE_BASIN_HALF_SIZE - radius - 1.0
-        basin_radius = basin_inner + (
-            basin_outer - basin_inner
-        ) * self._rng.random() ** 1.65
+        basin_outer_margin = (
+            CORE_BASIN_HALF_SIZE - CORE_OCTAGON_MAX_AXIS_EXTENT - radius - 1.0
+        )
+        basin_margin = 0.25 + (
+            basin_outer_margin - 0.25
+        ) * self._rng.random() ** 2.6
         self.enemies[enemy_id] = {
             "id": enemy_id,
             "enemy_type": enemy_type,
@@ -666,7 +690,7 @@ class DefenseEngine:
             "vy": initial_dy / initial_length * speed,
             "flow_phase": self._rng.uniform(0.0, math.pi * 2.0),
             "flow_rate": self._rng.uniform(0.72, 1.28),
-            "basin_radius": basin_radius,
+            "basin_margin": basin_margin,
             "basin_direction": -1.0 if enemy_id % 7 == 0 else 1.0,
             "blocked_steps": 0,
             "path": path,
@@ -732,25 +756,15 @@ class DefenseEngine:
         enemy["y"] = max(center_y - outer, min(center_y + outer, enemy["y"]))
 
         dx, dy = enemy["x"] - center_x, enemy["y"] - center_y
-        inner_x = CORE_KEEP_OUT_HALF_WIDTH + radius
-        inner_y = CORE_KEEP_OUT_HALF_HEIGHT + radius
-        if abs(dx) >= inner_x or abs(dy) >= inner_y:
+        _, normal_x, normal_y, clearance = _core_octagon_face(dx, dy, radius)
+        if clearance >= 0.0:
             return
-        choices = (
-            (inner_x - abs(dx), "x"),
-            (inner_y - abs(dy), "y"),
-        )
-        _, axis = min(choices)
-        if axis == "x":
-            sign = -1.0 if dx < 0.0 or (dx == 0.0 and enemy["vx"] < 0.0) else 1.0
-            enemy["x"] = center_x + sign * inner_x
-            if enemy["vx"] * sign < 0.0:
-                enemy["vx"] *= -0.2
-        else:
-            sign = -1.0 if dy < 0.0 or (dy == 0.0 and enemy["vy"] < 0.0) else 1.0
-            enemy["y"] = center_y + sign * inner_y
-            if enemy["vy"] * sign < 0.0:
-                enemy["vy"] *= -0.2
+        enemy["x"] -= normal_x * clearance
+        enemy["y"] -= normal_y * clearance
+        inward_speed = enemy["vx"] * normal_x + enemy["vy"] * normal_y
+        if inward_speed < 0.0:
+            enemy["vx"] -= normal_x * inward_speed * 1.2
+            enemy["vy"] -= normal_y * inward_speed * 1.2
 
     def _constrain_particle(self, enemy: dict[str, Any]) -> None:
         if enemy["attacking"]:
@@ -831,14 +845,14 @@ class DefenseEngine:
     ) -> None:
         center_x, center_y = float(self.level.core["x"]), float(self.level.core["y"])
         dx, dy = enemy["x"] - center_x, enemy["y"] - center_y
-        if abs(dx) >= abs(dy):
-            normal_x, normal_y = (-1.0 if dx < 0.0 else 1.0), 0.0
-        else:
-            normal_x, normal_y = 0.0, (-1.0 if dy < 0.0 else 1.0)
+        _, normal_x, normal_y, clearance = _core_octagon_face(
+            dx, dy, enemy["collision_radius"]
+        )
         tangent_x = -normal_y * enemy["basin_direction"]
         tangent_y = normal_x * enemy["basin_direction"]
-        square_radius = max(abs(dx), abs(dy))
-        radial = max(-0.8, min(0.8, (enemy["basin_radius"] - square_radius) / 16.0))
+        radial = max(
+            -1.1, min(1.1, (enemy["basin_margin"] - clearance) / 8.0)
+        )
         noise_x = math.sin(self.sim_time * enemy["flow_rate"] * 1.9 + enemy["flow_phase"])
         noise_y = math.cos(self.sim_time * enemy["flow_rate"] * 1.37 - enemy["flow_phase"] * 1.61)
         pressure_x, pressure_y = grid.pressure(
@@ -856,7 +870,7 @@ class DefenseEngine:
         speed_variation = 0.86 + (enemy["id"] * 0.61803398875 % 1.0) * 0.28
         target_speed = CORE_BASIN_SPEED * speed_variation
         desired_x, desired_y = desired_x / length * target_speed, desired_y / length * target_speed
-        response = 1.0 - math.exp(-4.8 * dt)
+        response = 1.0 - math.exp(-14.0 * dt)
         enemy["vx"] += (desired_x - enemy["vx"]) * response
         enemy["vy"] += (desired_y - enemy["vy"]) * response
 
