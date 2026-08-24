@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import tempfile
@@ -46,6 +47,27 @@ class LaserTagZEngineTests(unittest.TestCase):
         self.assertIn("selected.source.objectalignment", game_html)
         self.assertIn("tileObjectCenter(socket)", game_html)
         self.assertNotIn("socket.x+socket.width/2", game_html)
+
+    def test_all_orc_walk_frames_are_distinct_and_animation_is_rendered(self):
+        for enemy_type, group in (
+            ("grunt", "enemies-light-orcs-v2"),
+            ("runner", "enemies-light-orcs-v2"),
+            ("breaker", "enemies-light-orcs-v2"),
+            ("brute", "enemies-heavy-orcs-v2"),
+        ):
+            hashes = {
+                hashlib.sha256(
+                    (ROOT / "assets/game-art/sprites" / group / f"{enemy_type}-walk-{frame:02}.png").read_bytes()
+                ).hexdigest()
+                for frame in range(1, 5)
+            }
+            self.assertEqual(len(hashes), 4)
+
+        game_html = (PROTOTYPE / "game.html").read_text(encoding="utf-8")
+        self.assertIn("`enemy:${type}:${frame}`", game_html)
+        self.assertIn("Math.floor(visualTime*8", game_html)
+        self.assertIn("requestAnimationFrame(gameRenderLoop)", game_html)
+        self.assertIn("function renderCoreHealth", game_html)
 
     def test_virtual_placements_make_force_field_and_survive_start(self):
         self.engine.set_virtual_play(True)
