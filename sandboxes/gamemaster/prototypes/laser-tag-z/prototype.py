@@ -482,6 +482,13 @@ def game():
     return response
 
 
+@bp.route("/screen")
+def tower_defence_screen():
+    response = send_from_directory(HERE, "screen.html")
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
+
+
 @bp.route("/stats")
 def stats():
     response = send_from_directory(HERE, "stats.html")
@@ -494,6 +501,20 @@ def tower_defence_settings_page():
     if "gamemaster" not in _roles():
         return jsonify({"ok": False, "error": "gamemaster required"}), 403
     response = send_from_directory(HERE, "settings.html")
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
+
+
+@bp.route("/tower-defence-view.js")
+def tower_defence_view_script():
+    response = send_from_directory(HERE, "tower-defence-view.js")
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
+
+
+@bp.route("/camera-arm-overlay.js")
+def camera_arm_overlay_script():
+    response = send_from_directory(HERE, "camera-arm-overlay.js")
     response.headers["Cache-Control"] = "no-store, max-age=0"
     return response
 

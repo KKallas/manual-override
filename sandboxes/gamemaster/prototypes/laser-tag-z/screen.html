@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Laser Tag Z · Game Screen</title>
+<link rel="stylesheet" href="/theme.css">
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:#f4f8ff;font-family:system-ui,sans-serif}
+.viewport{position:fixed;inset:0;display:grid;place-items:center;background:#000}
+.stage{position:relative;width:min(100vw,176.6667vh);height:min(100vh,56.6038vw);overflow:hidden;background:#020407}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.status{position:absolute;top:14px;left:50%;z-index:3;max-width:min(90vw,640px);transform:translateX(-50%);padding:8px 13px;border:1px solid #ffffff35;border-radius:8px;background:#05080de8;box-shadow:0 8px 28px #000a;text-align:center;font-size:13px;font-weight:800;transition:opacity .2s}.status.ready{opacity:0}.status.error{border-color:#ff536799;color:#ffb1bb}
+</style>
+</head>
+<body>
+<main class="viewport" aria-label="Laser Tag Z external Tower Defense game screen">
+  <section class="stage">
+    <canvas id="mapCanvas" width="1696" height="960" aria-label="Registered modular Tower Defense playfield"></canvas>
+    <canvas id="gameCanvas" width="1696" height="960" aria-label="Live Tower Defense towers, force fields, orcs, and core health"></canvas>
+    <div id="status" class="status" role="status" aria-live="polite">Loading Tower Defense game feed…</div>
+  </section>
+</main>
+<script src="tower-defence-view.js"></script>
+<script>
+const ROOT=location.pathname.split('/p/')[0],SELF=`${ROOT}/p/laser-tag-z`,status=document.getElementById('status');
+async function json(url){const response=await fetch(url),text=await response.text();let data={};try{data=text?JSON.parse(text):{}}catch(_){}if(!response.ok)throw Error(data.error||text||`HTTP ${response.status}`);return data}
+const defenceView=TowerDefenceView.create({root:SELF,mapCanvas:document.getElementById('mapCanvas'),gameCanvas:document.getElementById('gameCanvas'),fetchJson:json});
+function applyState(state){defenceView.applyState(state);status.textContent=`${state.paused?'Paused':state.phase||'Setup'} · Wave ${state.wave||0} / ${state.wave_count||0} · ${state.active_enemies||0} orcs`;status.className='status ready'}
+async function boot(){try{const [level,state]=await Promise.all([defenceView.loadLevel(),json(`${SELF}/api/defence/state`)]);applyState(state);document.title=`Laser Tag Z · ${level.levelId}`}catch(error){status.textContent=`Game feed unavailable: ${error.message}`;status.className='status error'}}
+const gameEvents=new EventSource(`${SELF}/api/defence/events`);gameEvents.onmessage=event=>{try{applyState(JSON.parse(event.data))}catch(_){}};gameEvents.onerror=()=>{status.textContent='Game feed reconnecting…';status.className='status'};
+window.addEventListener('beforeunload',()=>{gameEvents.close();defenceView.destroy()});
+boot();
+</script>
+</body>
+</html>

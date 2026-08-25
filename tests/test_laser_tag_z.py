@@ -53,9 +53,11 @@ class LaserTagZEngineTests(unittest.TestCase):
             self.assertEqual((socket["x"], socket["y"]), (float(obj["x"]), float(obj["y"])))
 
         game_html = (PROTOTYPE / "game.html").read_text(encoding="utf-8")
-        self.assertIn("selected.source.objectalignment", game_html)
-        self.assertIn("tileObjectCenter(socket)", game_html)
-        self.assertNotIn("socket.x+socket.width/2", game_html)
+        renderer_js = (PROTOTYPE / "tower-defence-view.js").read_text(encoding="utf-8")
+        self.assertIn('src="tower-defence-view.js"', game_html)
+        self.assertIn("selected.source.objectalignment", renderer_js)
+        self.assertIn("tileObjectCenter(socket)", renderer_js)
+        self.assertNotIn("socket.x+socket.width/2", renderer_js)
 
     def test_all_orc_walk_frames_are_distinct_and_animation_is_rendered(self):
         for enemy_type, group in (
@@ -72,14 +74,14 @@ class LaserTagZEngineTests(unittest.TestCase):
             }
             self.assertEqual(len(hashes), 4)
 
-        game_html = (PROTOTYPE / "game.html").read_text(encoding="utf-8")
-        self.assertIn("`enemy:${type}:${frame}`", game_html)
-        self.assertIn("Math.floor(visualTime*8", game_html)
-        self.assertIn("Math.atan2(facingY,facingX)-Math.PI/2", game_html)
-        self.assertIn("size=(enemy.enemy_type==='brute'?56:44)/3", game_html)
-        self.assertIn("requestAnimationFrame(gameRenderLoop)", game_html)
-        self.assertIn("function renderCoreHealth", game_html)
-        enemy_renderer = game_html.split("function drawEnemy", 1)[1].split(
+        renderer_js = (PROTOTYPE / "tower-defence-view.js").read_text(encoding="utf-8")
+        self.assertIn("`enemy:${type}:${frame}`", renderer_js)
+        self.assertIn("Math.floor(visualTime * 8", renderer_js)
+        self.assertIn("Math.atan2(facingY, facingX) - Math.PI / 2", renderer_js)
+        self.assertIn('enemy.enemy_type === "brute" ? 56 : 44', renderer_js)
+        self.assertIn("requestAnimationFrame(gameRenderLoop)", renderer_js)
+        self.assertIn("function renderCoreHealth", renderer_js)
+        enemy_renderer = renderer_js.split("function drawEnemy", 1)[1].split(
             "function renderGame", 1
         )[0]
         self.assertNotIn("enemy.hp", enemy_renderer)
@@ -383,6 +385,62 @@ class LaserTagZSettingsTests(unittest.TestCase):
             second["enemy_speed_multiplier"] = 2.0
             store.update(second)
             self.assertEqual(engine.snapshot()["settings"]["enemy_speed_multiplier"], 0.5)
+
+
+class LaserTagZDisplayTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.game_html = (PROTOTYPE / "game.html").read_text(encoding="utf-8")
+        cls.screen_html = (PROTOTYPE / "screen.html").read_text(encoding="utf-8")
+        cls.renderer_js = (PROTOTYPE / "tower-defence-view.js").read_text(encoding="utf-8")
+        cls.arm_overlay_js = (PROTOTYPE / "camera-arm-overlay.js").read_text(encoding="utf-8")
+        cls.prototype_py = (PROTOTYPE / "prototype.py").read_text(encoding="utf-8")
+
+    def test_physical_and_virtual_modes_use_mutually_exclusive_feeds(self):
+        self.assertIn(".stage>img{object-fit:contain}", self.game_html)
+        self.assertIn(".stage:not(.virtual) .map-layer", self.game_html)
+        self.assertIn(".stage:not(.virtual) .game-layer", self.game_html)
+        self.assertIn(".stage.virtual>img", self.game_html)
+        self.assertIn(".stage.virtual .tracking-layer", self.game_html)
+        self.assertIn(".stage.virtual .arm-overlay-layer", self.game_html)
+        self.assertIn("if(enabled)stopCameraView()", self.game_html)
+        self.assertIn("else{armOverlay.loadCalibration()", self.game_html)
+        self.assertIn("defenceView.applyState(state)", self.game_html)
+
+    def test_external_screen_is_clean_and_uses_the_shared_live_renderer(self):
+        self.assertIn("Open game screen ↗", self.game_html)
+        self.assertIn("$('screenLink').href=`${SELF}/screen`", self.game_html)
+        self.assertIn('@bp.route("/screen")', self.prototype_py)
+        self.assertIn("tower-defence-view.js", self.screen_html)
+        self.assertIn("TowerDefenceView.create", self.screen_html)
+        self.assertIn("/api/defence/events", self.screen_html)
+        self.assertNotIn("corrected-stream", self.screen_html)
+        self.assertNotIn("<button", self.screen_html)
+        self.assertNotIn("function renderGame", self.game_html)
+        self.assertNotIn("function renderGame", self.screen_html)
+        self.assertIn("function renderGame", self.renderer_js)
+
+    def test_arm_overlay_reuses_calibration_and_fails_closed(self):
+        self.assertIn('src="camera-arm-overlay.js"', self.game_html)
+        self.assertIn("/api/calibration2", self.game_html)
+        self.assertIn("/api/defence/arms", self.game_html)
+        self.assertIn("setInterval(pollArmState,200)", self.game_html)
+        self.assertIn("staleMs:1500", self.game_html)
+        self.assertIn("point.pose.set", self.arm_overlay_js)
+        self.assertIn("samples.length < 6", self.arm_overlay_js)
+        self.assertIn("state.connected !== true", self.arm_overlay_js)
+        self.assertIn("performance.now() - receivedAt > staleMs", self.arm_overlay_js)
+        self.assertIn('label.textContent = `${side.toUpperCase()} ARM`', self.arm_overlay_js)
+        self.assertIn('layer.style.display = "none"', self.arm_overlay_js)
+        self.assertIn('layer.style.display = nodes.length ? "" : "none"', self.arm_overlay_js)
+
+    def test_arm_overlay_has_no_robot_command_path(self):
+        self.assertNotIn("fetch(", self.arm_overlay_js)
+        self.assertNotIn("XMLHttpRequest", self.arm_overlay_js)
+        self.assertNotIn("WebSocket", self.arm_overlay_js)
+        self.assertNotIn("pump_mode", self.arm_overlay_js)
+        self.assertNotIn("/api/move", self.arm_overlay_js)
+        self.assertNotIn('method: "POST"', self.arm_overlay_js)
 
 
 if __name__ == "__main__":

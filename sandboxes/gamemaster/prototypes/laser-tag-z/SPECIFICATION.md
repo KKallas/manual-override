@@ -7,18 +7,54 @@ original Laser Tag X prototype, routes, settings, logs, score history, and page
 assets remain unchanged. Laser Tag Z owns its own mutable settings and log
 paths.
 
-Laser Tag Z replaces only the Laser Tag X gamefield and gameplay overlay. The
-live corrected overhead camera stays visible as the bottom battlefield layer,
-with the registered map, gameplay sprites, force fields, and tracking outlines
-drawn transparently above it.
+Laser Tag Z replaces only the Laser Tag X gamefield and gameplay overlay. It
+retains Laser Tag X's corrected overhead camera, frame-current ArUco tracking,
+and read-only calibrated arm visualization for physical play. The Tower Defense
+map and gameplay are a separate visual feed and never replace or weaken the
+existing robot-control and safety boundaries.
 
 ## Gamemaster pages
 
 - `game`, labeled **Tower Defense**, is the default page.
 - `settings`, labeled **Tower Defense settings**, tunes future runs.
 - `stats`, labeled **Score history**, reads Laser Tag Z storage only.
+- `screen` is a clean external Tower Defense display launched from `game`; it is
+  not a separate navigation tab in the Gamemaster manifest.
 
 Mutating routes require the authenticated `gamemaster` role.
+
+## Display topology and mode switching
+
+The Gamemaster page and external game display are two views of the same
+server-authoritative Tower Defense state.
+
+With **Virtual play** unchecked, the Gamemaster stage shows only the corrected
+overhead camera, frame-current ArUco outlines, and both calibrated robot-arm
+overlays. The registered Tower Defense map, towers, force fields, orcs, and core
+health are hidden in that stage. The camera is contained without cropping so
+all overlays share its coordinate system.
+
+Each connected Green or Purple arm is projected from its live relay TCP pose
+through that arm's existing six-point Auto PP Cal 2 model. The overlay is a
+read-only line of red square cells from the calibrated base direction to the
+TCP, labeled by side. Invalid, disconnected, uncalibrated, or more than
+1.5-second-stale poses are removed rather than frozen. Rendering an arm never
+issues a robot command and never changes placement authority.
+
+The `game` page provides a button labeled **Open game screen ↗** that launches
+`screen` in a separate browser window or tab. That external screen fills its
+viewport with the complete 1696×960 Tower Defense feed: registered map,
+towers, force fields, animated orcs, and core health. It consumes the same
+state snapshot and Server-Sent Events stream as the Gamemaster page and remains
+usable in both physical and virtual modes. It contains no camera image and no
+operator controls.
+
+With **Virtual play** checked, the Gamemaster stage replaces the camera,
+tracking, and arm overlays with the same complete Tower Defense feed shown by
+the external screen. Toggling either direction does not reset the run,
+placements, wave clock, or external display. Hidden camera and arm-rendering
+clients may be suspended, but the server-side camera and physical-ingest safety
+path remain unchanged.
 
 ## Map and marker contract
 
