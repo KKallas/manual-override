@@ -26,8 +26,10 @@
 const ROOT=location.pathname.split('/p/')[0],SELF=`${ROOT}/p/laser-tag-z`,status=document.getElementById('status');
 async function json(url){const response=await fetch(url),text=await response.text();let data={};try{data=text?JSON.parse(text):{}}catch(_){}if(!response.ok)throw Error(data.error||text||`HTTP ${response.status}`);return data}
 const defenceView=TowerDefenceView.create({root:SELF,mapCanvas:document.getElementById('mapCanvas'),gameCanvas:document.getElementById('gameCanvas'),fetchJson:json});
-function applyState(state){defenceView.applyState(state);status.textContent=`${state.paused?'Paused':state.phase||'Setup'} · Wave ${state.wave||0} / ${state.wave_count||0} · ${state.active_enemies||0} orcs`;status.className='status ready'}
-async function boot(){try{const [level,state]=await Promise.all([defenceView.loadLevel(),json(`${SELF}/api/defence/state`)]);applyState(state);document.title=`Laser Tag Z · ${level.levelId}`}catch(error){status.textContent=`Game feed unavailable: ${error.message}`;status.className='status error'}}
+let levelRevision=null,levelReloading=false;
+async function reloadLevel(){if(levelReloading)return;levelReloading=true;try{const level=await defenceView.loadLevel();levelRevision=level.revision;document.title=`Laser Tag Z · ${level.levelId}`}catch(error){status.textContent=`Level reload failed: ${error.message}`;status.className='status error'}finally{levelReloading=false}}
+function applyState(state){defenceView.applyState(state);status.textContent=`${state.paused?'Paused':state.phase||'Setup'} · Wave ${state.wave||0} / ${state.wave_count||0} · ${state.active_enemies||0} orcs`;status.className='status ready';if(levelRevision!==null&&Number(state.level_revision||1)!==levelRevision)reloadLevel()}
+async function boot(){try{const [level,state]=await Promise.all([defenceView.loadLevel(),json(`${SELF}/api/defence/state`)]);levelRevision=level.revision;applyState(state);document.title=`Laser Tag Z · ${level.levelId}`}catch(error){status.textContent=`Game feed unavailable: ${error.message}`;status.className='status error'}}
 const gameEvents=new EventSource(`${SELF}/api/defence/events`);gameEvents.onmessage=event=>{try{applyState(JSON.parse(event.data))}catch(_){}};gameEvents.onerror=()=>{status.textContent='Game feed reconnecting…';status.className='status'};
 window.addEventListener('beforeunload',()=>{gameEvents.close();defenceView.destroy()});
 boot();

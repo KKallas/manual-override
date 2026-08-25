@@ -8191,15 +8191,15 @@
       "name": "09 Square Placement Spots (16)",
       "objects": [
         {
-          "height": 144,
+          "height": 208,
           "id": 146,
           "name": "socket_01",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 640,
-          "y": 152,
+          "width": 208,
+          "x": 643,
+          "y": 171,
           "gid": 22,
           "properties": [
             {
@@ -8250,15 +8250,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 147,
           "name": "socket_02",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 640,
-          "y": 328,
+          "width": 208,
+          "x": 483,
+          "y": 332,
           "gid": 22,
           "properties": [
             {
@@ -8309,15 +8309,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 148,
           "name": "socket_03",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 880,
-          "y": 8,
+          "width": 208,
+          "x": 955,
+          "y": 165,
           "gid": 14,
           "properties": [
             {
@@ -8368,15 +8368,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 149,
           "name": "socket_04",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 880,
-          "y": 152,
+          "width": 208,
+          "x": 801,
+          "y": 316,
           "gid": 14,
           "properties": [
             {
@@ -8427,15 +8427,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 150,
           "name": "socket_05",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 1120,
-          "y": 8,
+          "width": 208,
+          "x": 1126,
+          "y": 170,
           "gid": 22,
           "properties": [
             {
@@ -8486,15 +8486,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 151,
           "name": "socket_06",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 1120,
-          "y": 152,
+          "width": 208,
+          "x": 1284,
+          "y": 327,
           "gid": 22,
           "properties": [
             {
@@ -8545,15 +8545,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 152,
           "name": "socket_07",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 1360,
-          "y": 152,
+          "width": 208,
+          "x": 1118,
+          "y": 815,
           "gid": 15,
           "properties": [
             {
@@ -8604,15 +8604,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 153,
           "name": "socket_08",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 1360,
-          "y": 328,
+          "width": 208,
+          "x": 1445,
+          "y": 495,
           "gid": 15,
           "properties": [
             {
@@ -8663,15 +8663,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 154,
           "name": "socket_09",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 640,
-          "y": 632,
+          "width": 208,
+          "x": 162,
+          "y": 493,
           "gid": 21,
           "properties": [
             {
@@ -8722,15 +8722,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 155,
           "name": "socket_10",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 640,
-          "y": 808,
+          "width": 208,
+          "x": 480,
+          "y": 653,
           "gid": 21,
           "properties": [
             {
@@ -8781,15 +8781,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 156,
           "name": "socket_11",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 880,
-          "y": 808,
+          "width": 208,
+          "x": 642,
+          "y": 494,
           "gid": 13,
           "properties": [
             {
@@ -8840,15 +8840,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 157,
           "name": "socket_12",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 880,
-          "y": 952,
+          "width": 208,
+          "x": 809,
+          "y": 667,
           "gid": 13,
           "properties": [
             {
@@ -8899,15 +8899,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 158,
           "name": "socket_13",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 1120,
-          "y": 808,
+          "width": 208,
+          "x": 964,
+          "y": 811,
           "gid": 21,
           "properties": [
             {
@@ -8958,15 +8958,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 159,
           "name": "socket_14",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 1120,
-          "y": 952,
+          "width": 208,
+          "x": 643,
+          "y": 813,
           "gid": 21,
           "properties": [
             {
@@ -9017,15 +9017,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 160,
           "name": "socket_15",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 1360,
-          "y": 632,
+          "width": 208,
+          "x": 1059,
+          "y": 497,
           "gid": 15,
           "properties": [
             {
@@ -9076,15 +9076,15 @@
           ]
         },
         {
-          "height": 144,
+          "height": 208,
           "id": 161,
           "name": "socket_16",
           "rotation": 0,
           "type": "TowerSocket",
           "visible": true,
-          "width": 144,
-          "x": 1360,
-          "y": 808,
+          "width": 208,
+          "x": 1280,
+          "y": 656,
           "gid": 15,
           "properties": [
             {
@@ -9147,15 +9147,15 @@
       "name": "10 Force Field Walls",
       "objects": [
         {
-          "height": 190,
+          "height": 240.98237817064125,
           "id": 162,
           "name": "gate_visual_01_top_inner_a",
-          "rotation": 0,
+          "rotation": 44.8215090524464,
           "type": "ForceFieldWall",
           "visible": true,
           "width": 128,
-          "x": 640,
-          "y": 240,
+          "x": 563.0,
+          "y": 251.5,
           "gid": 48,
           "properties": [
             {
@@ -9206,15 +9206,15 @@
           ]
         },
         {
-          "height": 190,
+          "height": 229.67800073257357,
           "id": 164,
           "name": "gate_visual_02_top_outer_b",
-          "rotation": 0,
+          "rotation": 45.56354687081401,
           "type": "ForceFieldWall",
           "visible": false,
           "width": 128,
-          "x": 880,
-          "y": 80,
+          "x": 878.0,
+          "y": 240.5,
           "gid": 48,
           "properties": [
             {
@@ -9265,15 +9265,15 @@
           ]
         },
         {
-          "height": 190,
+          "height": 236.73975846265077,
           "id": 166,
           "name": "gate_visual_03_top_outer_c",
-          "rotation": 0,
+          "rotation": -45.18189075249718,
           "type": "ForceFieldWall",
           "visible": true,
           "width": 128,
-          "x": 1120,
-          "y": 80,
+          "x": 1205.0,
+          "y": 248.5,
           "gid": 48,
           "properties": [
             {
@@ -9324,15 +9324,15 @@
           ]
         },
         {
-          "height": 190,
+          "height": 471.5248627123995,
           "id": 168,
           "name": "gate_visual_04_top_inner_d",
-          "rotation": 0,
+          "rotation": -134.3801316712858,
           "type": "ForceFieldWall",
           "visible": false,
           "width": 128,
-          "x": 1360,
-          "y": 240,
+          "x": 1281.5,
+          "y": 655.0,
           "gid": 50,
           "properties": [
             {
@@ -9383,15 +9383,15 @@
           ]
         },
         {
-          "height": 190,
+          "height": 369.9831456684431,
           "id": 170,
           "name": "gate_visual_05_bottom_inner_a",
-          "rotation": 0,
+          "rotation": -63.290989880850006,
           "type": "ForceFieldWall",
           "visible": true,
           "width": 128,
-          "x": 640,
-          "y": 720,
+          "x": 321.0,
+          "y": 573.0,
           "gid": 48,
           "properties": [
             {
@@ -9442,15 +9442,15 @@
           ]
         },
         {
-          "height": 190,
+          "height": 254.45373775427157,
           "id": 172,
           "name": "gate_visual_06_bottom_outer_b",
-          "rotation": 0,
+          "rotation": -43.9890029476696,
           "type": "ForceFieldWall",
           "visible": false,
           "width": 128,
-          "x": 880,
-          "y": 880,
+          "x": 725.5,
+          "y": 580.5,
           "gid": 48,
           "properties": [
             {
@@ -9501,15 +9501,15 @@
           ]
         },
         {
-          "height": 190,
+          "height": 335.00623046912966,
           "id": 174,
           "name": "gate_visual_07_bottom_outer_c",
-          "rotation": 0,
+          "rotation": 89.64302156926772,
           "type": "ForceFieldWall",
           "visible": true,
           "width": 128,
-          "x": 1120,
-          "y": 880,
+          "x": 803.5,
+          "y": 812.0,
           "gid": 48,
           "properties": [
             {
@@ -9560,15 +9560,15 @@
           ]
         },
         {
-          "height": 190,
+          "height": 286.2535582871232,
           "id": 176,
           "name": "gate_visual_08_bottom_inner_d",
-          "rotation": 0,
+          "rotation": -54.2666072407592,
           "type": "ForceFieldWall",
           "visible": false,
           "width": 128,
-          "x": 1360,
-          "y": 720,
+          "x": 1169.5,
+          "y": 576.5,
           "gid": 50,
           "properties": [
             {
@@ -9621,7 +9621,7 @@
       ],
       "opacity": 1,
       "type": "objectgroup",
-      "visible": true,
+      "visible": false,
       "x": 0,
       "y": 0
     },
@@ -9638,16 +9638,16 @@
           "type": "GateHint",
           "visible": true,
           "width": 0,
-          "x": 640,
-          "y": 152,
+          "x": 643.0,
+          "y": 171.0,
           "polyline": [
             {
               "x": 0,
               "y": 0
             },
             {
-              "x": 0,
-              "y": 176
+              "x": -160.0,
+              "y": 161.0
             }
           ],
           "properties": [
@@ -9691,16 +9691,16 @@
           "type": "GateHint",
           "visible": true,
           "width": 0,
-          "x": 880,
-          "y": 8,
+          "x": 955.0,
+          "y": 165.0,
           "polyline": [
             {
               "x": 0,
               "y": 0
             },
             {
-              "x": 0,
-              "y": 144
+              "x": -154.0,
+              "y": 151.0
             }
           ],
           "properties": [
@@ -9744,16 +9744,16 @@
           "type": "GateHint",
           "visible": true,
           "width": 0,
-          "x": 1120,
-          "y": 8,
+          "x": 1126.0,
+          "y": 170.0,
           "polyline": [
             {
               "x": 0,
               "y": 0
             },
             {
-              "x": 0,
-              "y": 144
+              "x": 158.0,
+              "y": 157.0
             }
           ],
           "properties": [
@@ -9797,16 +9797,16 @@
           "type": "GateHint",
           "visible": true,
           "width": 0,
-          "x": 1360,
-          "y": 152,
+          "x": 1118.0,
+          "y": 815.0,
           "polyline": [
             {
               "x": 0,
               "y": 0
             },
             {
-              "x": 0,
-              "y": 176
+              "x": 327.0,
+              "y": -320.0
             }
           ],
           "properties": [
@@ -9850,16 +9850,16 @@
           "type": "GateHint",
           "visible": true,
           "width": 0,
-          "x": 640,
-          "y": 632,
+          "x": 162.0,
+          "y": 493.0,
           "polyline": [
             {
               "x": 0,
               "y": 0
             },
             {
-              "x": 0,
-              "y": 176
+              "x": 318.0,
+              "y": 160.0
             }
           ],
           "properties": [
@@ -9903,16 +9903,16 @@
           "type": "GateHint",
           "visible": true,
           "width": 0,
-          "x": 880,
-          "y": 808,
+          "x": 642.0,
+          "y": 494.0,
           "polyline": [
             {
               "x": 0,
               "y": 0
             },
             {
-              "x": 0,
-              "y": 144
+              "x": 167.0,
+              "y": 173.0
             }
           ],
           "properties": [
@@ -9956,16 +9956,16 @@
           "type": "GateHint",
           "visible": true,
           "width": 0,
-          "x": 1120,
-          "y": 808,
+          "x": 964.0,
+          "y": 811.0,
           "polyline": [
             {
               "x": 0,
               "y": 0
             },
             {
-              "x": 0,
-              "y": 144
+              "x": -321.0,
+              "y": 2.0
             }
           ],
           "properties": [
@@ -10009,16 +10009,16 @@
           "type": "GateHint",
           "visible": true,
           "width": 0,
-          "x": 1360,
-          "y": 632,
+          "x": 1059.0,
+          "y": 497.0,
           "polyline": [
             {
               "x": 0,
               "y": 0
             },
             {
-              "x": 0,
-              "y": 176
+              "x": 221.0,
+              "y": 159.0
             }
           ],
           "properties": [
@@ -10540,6 +10540,11 @@
       "name": "force_field_candidate_count",
       "type": "int",
       "value": 8
+    },
+    {
+      "name": "layout_revision",
+      "type": "int",
+      "value": 5
     },
     {
       "name": "left_mid_passthrough",

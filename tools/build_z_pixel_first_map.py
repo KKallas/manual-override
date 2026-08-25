@@ -24,6 +24,7 @@ MAP_H = 960
 TILE = 32
 ROAD_STEP = 160
 ROAD_DRAW = 160
+SOCKET_SIZE = 208
 
 
 def write_json(path: Path, value: Any) -> None:
@@ -490,8 +491,8 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
                 "TowerSocket",
                 x,
                 y,
-                144,
-                144,
+                SOCKET_SIZE,
+                SOCKET_SIZE,
                 gids[asset_id],
                 props(
                     prop("active_preview", active_preview),
@@ -547,7 +548,7 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
                     prop("socket_b", gate["socket_b"]["id"], "object"),
                     prop("wear_seconds", 18.0, "float"),
                 ),
-                visible=gate["active_preview"],
+                visible=False,
             )
         )
         gate_logic.append(
@@ -566,9 +567,8 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
             )
         )
 
-    # The objective uses the same 144px square footprint as every physical-tag
-    # target. A smaller photon crown keeps it visually distinct without hiding
-    # the two final arrival lanes above and below it.
+    # The core retains its compact 144px footprint while the editable physical-
+    # tag targets use a larger 208px footprint to fill their road-corner pads.
     mega_tower = [
         factory.tile_object(
             "central_core_square_base",
@@ -712,7 +712,7 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
         object_layer(7, "07 Path Nodes (hidden)", nodes, visible=False, color="#46ddff"),
         object_layer(8, "08 Gameplay Zones (hidden)", zones, visible=False, color="#e05d62"),
         object_layer(9, "09 Square Placement Spots (16)", sockets),
-        object_layer(10, "10 Force Field Walls", gate_visuals),
+        object_layer(10, "10 Force Field Walls", gate_visuals, visible=False),
         object_layer(11, "11 Force Field Gate Logic (hidden)", gate_logic, visible=False, color="#66e9ff"),
         object_layer(12, "12 Central Square Core", mega_tower),
         object_layer(13, "13 Camera Registration (hidden)", camera_registration, visible=False, color="#f2e85c"),
@@ -745,6 +745,7 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
             prop("fixed_aruco_max", 55),
             prop("fixed_aruco_min", 40),
             prop("level_id", "z_pixel_first_map_01"),
+            prop("layout_revision", 1),
             prop("left_mid_passthrough", True),
             prop("max_active_enemies", 1000),
             prop("max_structures", 8),
@@ -923,6 +924,8 @@ def validate_map(
     )
     if socket_markers != list(range(40, 56)):
         errors.append(f"tower sockets must use consecutive ArUco IDs 40-55, got {socket_markers}")
+    if any(socket["width"] != SOCKET_SIZE or socket["height"] != SOCKET_SIZE for socket in sockets):
+        errors.append(f"all tower sockets must use the default {SOCKET_SIZE}x{SOCKET_SIZE} footprint")
 
     staging_objects = layer_by_name["14 Activation Unit Staging"]["objects"]
     activator_ids = sorted(
@@ -941,7 +944,7 @@ def validate_map(
     core_objects = layer_by_name["12 Central Square Core"]["objects"]
     core_base = next((item for item in core_objects if item["name"] == "central_core_square_base"), None)
     if core_base is None or core_base["width"] != 144 or core_base["height"] != 144:
-        errors.append("central core must keep the same 144x144 square footprint as the placement targets")
+        errors.append("central core must retain its authored 144x144 square footprint")
 
     gameplay_zones = layer_by_name["08 Gameplay Zones (hidden)"]["objects"]
     arrival_clearance = next((item for item in gameplay_zones if item["name"] == "central_core_arrival_clearance"), None)

@@ -12,6 +12,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Callable
 
+from .level_layout import layout_revision
+
 
 MAX_ACTIVE_ENEMIES = 1000
 COLLISION_PADDING = 0.05
@@ -49,7 +51,7 @@ CORE_BASIN_SPEED = 40.0
 CORE_ENTRY_DISTANCE = 9.0
 ATOM_OWNERS = {100: "green", 101: "green", 102: "purple", 103: "purple"}
 TOWER_TYPES = {"machine_gun", "flamethrower", "mortar"}
-DEFAULT_LOADOUT = {100: "machine_gun", 101: "flamethrower", 102: "machine_gun", 103: "mortar"}
+DEFAULT_LOADOUT = {100: "machine_gun", 101: "flamethrower", 102: "mortar", 103: "reserve"}
 ENEMY_STATS = {
     "grunt": {"hp": 70.0, "speed": 62.0, "core_dps": 6.0, "collision_radius": 2.2},
     "runner": {"hp": 46.0, "speed": 104.0, "core_dps": 4.0, "collision_radius": 2.2},
@@ -57,10 +59,12 @@ ENEMY_STATS = {
     "brute": {"hp": 240.0, "speed": 34.0, "core_dps": 16.0, "collision_radius": 2.8},
 }
 TOWER_STATS = {
-    "machine_gun": {"range": 285.0, "rate": 6.0, "damage": 13.0},
-    "flamethrower": {"range": 185.0, "rate": 4.0, "damage": 10.0},
-    "mortar": {"range": 500.0, "min_range": 110.0, "rate": 0.8, "damage": 62.0, "splash": 105.0},
+    "machine_gun": {"near_range": 190.0, "far_range": 360.0, "wide_half_angle": 55.0, "narrow_half_angle": 12.0, "rate": 6.0},
+    "flamethrower": {"near_range": 130.0, "far_range": 235.0, "wide_half_angle": 65.0, "narrow_half_angle": 18.0, "rate": 4.0},
+    "mortar": {"min_range": 110.0, "max_range": 500.0, "near_splash": 72.0, "far_splash": 155.0, "rate": 0.8},
 }
+FIELD_CONTACT_DISTANCE = 24.0
+TOWER_ATTACK_RADIUS = 68.0
 DEFAULT_SETTINGS = {
     "wave_count": 12,
     "wave_interval_s": 45.0,
@@ -71,6 +75,14 @@ DEFAULT_SETTINGS = {
     "release_rate_multiplier": 1.0,
     "force_field_damage_per_s": 8.0,
     "force_field_slow": 0.55,
+    "force_field_hit_capacity": 50,
+    "machine_gun_damage": 13.0,
+    "flamethrower_damage": 10.0,
+    "flamethrower_burn_damage_per_s": 4.0,
+    "flamethrower_burn_duration_s": 3.0,
+    "mortar_damage": 62.0,
+    "mortar_far_damage_multiplier": 0.55,
+    "defense_unit_health_percent": 15.0,
     "core_hp": 10000.0,
     "max_active_enemies": MAX_ACTIVE_ENEMIES,
 }
@@ -86,6 +98,48 @@ def _distance_point_to_segment(px: float, py: float, ax: float, ay: float, bx: f
         return math.hypot(px - ax, py - ay)
     t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
     return math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+
+
+def _angle_delta(angle: float, reference: float) -> float:
+    return (angle - reference + math.pi) % (math.pi * 2.0) - math.pi
+
+
+def _segments_intersect(
+    ax: float, ay: float, bx: float, by: float,
+    cx: float, cy: float, dx: float, dy: float,
+) -> bool:
+    if max(ax, bx) + 1e-6 < min(cx, dx) or max(cx, dx) + 1e-6 < min(ax, bx):
+        return False
+    if max(ay, by) + 1e-6 < min(cy, dy) or max(cy, dy) + 1e-6 < min(ay, by):
+        return False
+
+    def orientation(px: float, py: float, qx: float, qy: float, rx: float, ry: float) -> float:
+        return (qx - px) * (ry - py) - (qy - py) * (rx - px)
+
+    first = orientation(ax, ay, bx, by, cx, cy)
+    second = orientation(ax, ay, bx, by, dx, dy)
+    third = orientation(cx, cy, dx, dy, ax, ay)
+    fourth = orientation(cx, cy, dx, dy, bx, by)
+    return first * second <= 1e-6 and third * fourth <= 1e-6
+
+
+def _segment_intersects_square(
+    ax: float, ay: float, bx: float, by: float,
+    center_x: float, center_y: float, size: float,
+) -> bool:
+    half = size / 2.0
+    left, right = center_x - half, center_x + half
+    top, bottom = center_y - half, center_y + half
+    if left <= ax <= right and top <= ay <= bottom:
+        return True
+    if left <= bx <= right and top <= by <= bottom:
+        return True
+    return any((
+        _segments_intersect(ax, ay, bx, by, left, top, right, top),
+        _segments_intersect(ax, ay, bx, by, right, top, right, bottom),
+        _segments_intersect(ax, ay, bx, by, right, bottom, left, bottom),
+        _segments_intersect(ax, ay, bx, by, left, bottom, left, top),
+    ))
 
 
 def _closest_point_on_segment(
@@ -268,6 +322,7 @@ class LevelModel:
     def __init__(self, map_path: str | Path) -> None:
         self.map_path = Path(map_path)
         self.data = json.loads(self.map_path.read_text(encoding="utf-8"))
+        self.layout_revision = layout_revision(self.data)
         self.width = int(self.data["width"] * self.data["tilewidth"])
         self.height = int(self.data["height"] * self.data["tileheight"])
         self.tileset_alignments: list[tuple[int, str]] = []
@@ -288,13 +343,15 @@ class LevelModel:
         self.core = next(node for node in self.nodes.values() if node.get("node_kind") == "core")
         self.spawns = {node["spawn_group"]: node for node in self.nodes.values() if node.get("node_kind") == "spawn"}
         self.edges: dict[int, list[dict[str, Any]]] = {}
+        self.edge_by_id: dict[str, dict[str, Any]] = {}
         for obj in layers["06 Enemy Path Graph (hidden)"]["objects"]:
             props = _properties(obj)
             points = [(float(obj["x"]) + float(point["x"]), float(obj["y"]) + float(point["y"])) for point in obj.get("polyline", [])]
             if not points:
                 points = [(self.nodes[props["from_node"]]["x"], self.nodes[props["from_node"]]["y"]), (self.nodes[props["to_node"]]["x"], self.nodes[props["to_node"]]["y"])]
-            edge = {"to": int(props["to_node"]), "cost": float(props.get("base_cost", 1.0)), "points": points, "edge_id": props.get("edge_id", obj["name"])}
-            self.edges.setdefault(int(props["from_node"]), []).append(edge)
+            edge = {"from": int(props["from_node"]), "to": int(props["to_node"]), "cost": float(props.get("base_cost", 1.0)), "points": points, "edge_id": str(props.get("edge_id", obj["name"]))}
+            self.edges.setdefault(edge["from"], []).append(edge)
+            self.edge_by_id[edge["edge_id"]] = edge
         self.paths = {group: self._shortest_path(self._node_id(node)) for group, node in self.spawns.items()}
         self.junctions = {
             (float(node["x"]), float(node["y"]))
@@ -307,7 +364,7 @@ class LevelModel:
             props = _properties(obj)
             socket_id, marker = str(props["socket_id"]), int(props["aruco_id"])
             x, y = self._tile_object_center(obj)
-            socket = {"socket_id": socket_id, "aruco_id": marker, "owner": props["owner"], "x": x, "y": y}
+            socket = {"socket_id": socket_id, "aruco_id": marker, "owner": props["owner"], "x": x, "y": y, "size": float(obj.get("width", 208))}
             self.sockets[socket_id] = socket
             self.socket_by_marker[marker] = socket_id
         if sorted(self.socket_by_marker) != list(range(40, 56)):
@@ -333,7 +390,10 @@ class LevelModel:
             float(obj["y"]) + local_x * sin + local_y * cos,
         )
 
-    def _shortest_path(self, start_id: int) -> list[tuple[float, float]]:
+    def _shortest_path(
+        self, start_id: int, blocked_edges: set[str] | frozenset[str] | None = None
+    ) -> list[tuple[float, float]]:
+        blocked_edges = blocked_edges or set()
         core_id = self._node_id(self.core)
         distances = {start_id: 0.0}
         previous: dict[int, tuple[int, dict[str, Any]]] = {}
@@ -345,6 +405,8 @@ class LevelModel:
             if node_id == core_id:
                 break
             for edge in self.edges.get(node_id, []):
+                if edge["edge_id"] in blocked_edges:
+                    continue
                 candidate = distance + edge["cost"]
                 if candidate < distances.get(edge["to"], math.inf):
                     distances[edge["to"]] = candidate
@@ -364,6 +426,25 @@ class LevelModel:
                 if not points or point != points[-1]:
                     points.append(point)
         return points
+
+    def path_from_node(
+        self, node_id: int, blocked_edges: set[str] | frozenset[str] | None = None
+    ) -> list[tuple[float, float]] | None:
+        try:
+            return self._shortest_path(int(node_id), blocked_edges)
+        except ValueError:
+            return None
+
+    def edges_crossed_by_segment(
+        self, ax: float, ay: float, bx: float, by: float
+    ) -> set[str]:
+        crossed: set[str] = set()
+        for edge in self.edge_by_id.values():
+            for start, end in zip(edge["points"], edge["points"][1:]):
+                if _segments_intersect(ax, ay, bx, by, start[0], start[1], end[0], end[1]):
+                    crossed.add(edge["edge_id"])
+                    break
+        return crossed
 
 
 class DefenseEngine:
@@ -401,6 +482,7 @@ class DefenseEngine:
             self.placements: dict[int, dict[str, Any]] = {}
             self.activation_order: list[int] = []
             self.loadout = dict(DEFAULT_LOADOUT)
+            self.force_fields: dict[str, dict[str, Any]] = {}
             self.marker_cache: dict[int, dict[str, Any]] = {}
             self.physical_candidates: dict[int, dict[str, Any]] = {}
             self.events: list[dict[str, Any]] = []
@@ -410,6 +492,20 @@ class DefenseEngine:
 
     def set_physical_source(self, callback: Callable[[], tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]]) -> None:
         self._physical_source = callback
+
+    def reload_level(self) -> None:
+        """Reload setup geometry after a validated Gamemaster layout edit."""
+        with self.lock:
+            if self.phase != "setup":
+                raise ValueError("turret positions can only be changed before a run")
+            next_level = LevelModel(self.level.map_path)
+            virtual_play = self.virtual_play
+            loadout = dict(self.loadout)
+            self.level = next_level
+            self.reset()
+            self.virtual_play = virtual_play
+            self.loadout = loadout
+            self._changed()
 
     def start_background(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -452,8 +548,14 @@ class DefenseEngine:
                 self.settings.update(settings)
             self.settings["max_active_enemies"] = min(MAX_ACTIVE_ENEMIES, int(self.settings["max_active_enemies"]))
             self.core_max_hp = self.core_hp = float(self.settings["core_hp"])
+            tower_max_hp = self._tower_max_hp()
+            for tower in self.placements.values():
+                tower["max_hp"] = tower_max_hp
+                tower["hp"] = tower_max_hp
+                tower["destroyed"] = False
             self.phase = "running"
             self.run_started_at = time.time()
+            self._rebuild_force_fields(reset=True)
             self._launch_wave(1)
             self._event("run_started", wave=1)
         self._changed()
@@ -473,10 +575,43 @@ class DefenseEngine:
 
     def set_loadout(self, atom_tag_id: int, tower_type: str) -> None:
         atom_tag_id = int(atom_tag_id)
-        if atom_tag_id not in ATOM_OWNERS or tower_type not in TOWER_TYPES:
-            raise ValueError("invalid Atom tag or tower type")
+        expected = DEFAULT_LOADOUT.get(atom_tag_id)
+        if expected is None or str(tower_type) != expected:
+            raise ValueError("Atom roles are fixed: 100 machine gun, 101 flamethrower, 102 mortar, 103 reserve")
         with self.lock:
-            self.loadout[atom_tag_id] = tower_type
+            self.loadout[atom_tag_id] = expected
+
+    def _tower_max_hp(self) -> float:
+        return max(1.0, self.core_max_hp * float(self.settings["defense_unit_health_percent"]) / 100.0)
+
+    def _repair_tower(self, tower: dict[str, Any], repair_tag: int) -> None:
+        if not tower.get("destroyed"):
+            raise ValueError("only a destroyed defense unit can be reset")
+        tower["max_hp"] = self._tower_max_hp()
+        tower["hp"] = tower["max_hp"]
+        tower["destroyed"] = False
+        tower["cooldown"] = 0.0
+        atom_tag_id = int(tower["atom_tag_id"])
+        self.activation_order = [tag for tag in self.activation_order if tag != atom_tag_id] + [atom_tag_id]
+        self._event("tower_repaired", atom_tag_id=atom_tag_id, repair_tag=repair_tag, socket_id=tower["socket_id"])
+        self._rebuild_force_fields()
+
+    def set_tower_aim(self, atom_tag_id: int, angle_degrees: float, spread: float) -> None:
+        atom_tag_id = int(atom_tag_id)
+        with self.lock:
+            tower = self.placements.get(atom_tag_id)
+            if not tower:
+                raise ValueError("defense unit is not placed")
+            if tower.get("destroyed"):
+                raise ValueError("destroyed defense unit must be reset before aiming")
+            angle = float(angle_degrees)
+            reach = float(spread)
+            if not math.isfinite(angle) or not math.isfinite(reach) or not 0.0 <= reach <= 1.0:
+                raise ValueError("aim angle must be finite and reach must be between 0 and 1")
+            tower["aim_angle"] = math.radians(angle % 360.0)
+            tower["aim_spread"] = reach
+            self._event("tower_aimed", atom_tag_id=atom_tag_id, angle=round(angle % 360.0, 2), reach=round(reach, 3))
+        self._changed()
 
     def place(self, atom_tag_id: int, socket_id: str | None, tower_type: str | None = None, *, source: str, team: str | None = None) -> None:
         atom_tag_id = int(atom_tag_id)
@@ -490,10 +625,23 @@ class DefenseEngine:
         if source not in {"virtual", "physical"}:
             raise ValueError("invalid placement source")
         with self.lock:
+            if atom_tag_id == 103:
+                if socket_id is None:
+                    return
+                target = next(
+                    (tower for tower in self.placements.values() if tower["socket_id"] == socket_id),
+                    None,
+                )
+                if target is None:
+                    raise ValueError("reserve Atom 103 can only reset a destroyed defense unit")
+                self._repair_tower(target, atom_tag_id)
+                self._changed()
+                return
             if socket_id is None:
                 if atom_tag_id in self.placements:
                     old = self.placements.pop(atom_tag_id)
                     self.activation_order = [tag for tag in self.activation_order if tag != atom_tag_id]
+                    self._rebuild_force_fields()
                     self._event("tower_removed", atom_tag_id=atom_tag_id, socket_id=old["socket_id"], source=source)
                     self._changed()
                 return
@@ -505,12 +653,25 @@ class DefenseEngine:
             for placed_tag, placed in self.placements.items():
                 if placed_tag != atom_tag_id and placed["socket_id"] == socket_id:
                     raise ValueError("socket is already occupied")
-            kind = tower_type or self.loadout[atom_tag_id]
-            if kind not in TOWER_TYPES:
-                raise ValueError("invalid tower type")
+            kind = DEFAULT_LOADOUT[atom_tag_id]
+            if tower_type not in (None, "", kind):
+                raise ValueError(f"Atom {atom_tag_id} always activates {kind.replace('_', ' ')}")
+            existing = self.placements.get(atom_tag_id)
+            if existing and existing["socket_id"] == socket_id:
+                if existing.get("destroyed"):
+                    self._repair_tower(existing, atom_tag_id)
+                else:
+                    self.activation_order = [tag for tag in self.activation_order if tag != atom_tag_id] + [atom_tag_id]
+                    self._rebuild_force_fields()
+                    self._event("tower_reactivated", atom_tag_id=atom_tag_id, socket_id=socket_id, source=source)
+                self._changed()
+                return
             self.loadout[atom_tag_id] = kind
-            self.placements[atom_tag_id] = {"atom_tag_id": atom_tag_id, "owner": owner, "socket_id": socket_id, "aruco_id": socket["aruco_id"], "tower_type": kind, "x": socket["x"], "y": socket["y"], "cooldown": 0.0, "last_fire_at": None, "source": source}
+            aim_angle = math.atan2(float(self.level.core["y"]) - socket["y"], float(self.level.core["x"]) - socket["x"])
+            max_hp = self._tower_max_hp()
+            self.placements[atom_tag_id] = {"atom_tag_id": atom_tag_id, "owner": owner, "socket_id": socket_id, "aruco_id": socket["aruco_id"], "tower_type": kind, "x": socket["x"], "y": socket["y"], "cooldown": 0.0, "last_fire_at": None, "last_fire_target": None, "source": source, "aim_angle": aim_angle, "aim_spread": 0.5, "hp": max_hp, "max_hp": max_hp, "destroyed": False}
             self.activation_order = [tag for tag in self.activation_order if tag != atom_tag_id] + [atom_tag_id]
+            self._rebuild_force_fields()
             self._event("tower_placed", atom_tag_id=atom_tag_id, socket_id=socket_id, tower_type=kind, source=source)
         self._changed()
 
@@ -697,6 +858,8 @@ class DefenseEngine:
             "segment": 0,
             "attacking": False,
             "progress": 0.0,
+            "burn_until": 0.0,
+            "burn_damage_per_s": 0.0,
         }
         return True
 
@@ -990,14 +1153,192 @@ class DefenseEngine:
             if not enemy["attacking"]:
                 self._update_road_progress(enemy)
 
+    def _tower_targeting(self, tower: dict[str, Any]) -> dict[str, float]:
+        spread = max(0.0, min(1.0, float(tower.get("aim_spread", 0.5))))
+        angle = float(tower.get("aim_angle", 0.0))
+        kind = tower["tower_type"]
+        stats = TOWER_STATS[kind]
+        if kind == "mortar":
+            distance = stats["min_range"] + (stats["max_range"] - stats["min_range"]) * spread
+            radius = stats["near_splash"] + (stats["far_splash"] - stats["near_splash"]) * spread
+            multiplier = 1.0 + (float(self.settings["mortar_far_damage_multiplier"]) - 1.0) * spread
+            return {
+                "angle": angle,
+                "angle_degrees": math.degrees(angle) % 360.0,
+                "spread": spread,
+                "target_x": tower["x"] + math.cos(angle) * distance,
+                "target_y": tower["y"] + math.sin(angle) * distance,
+                "range": distance,
+                "blast_radius": radius,
+                "damage_multiplier": multiplier,
+            }
+        maximum_range = stats["far_range"] + (stats["near_range"] - stats["far_range"]) * spread
+        half_angle = stats["narrow_half_angle"] + (stats["wide_half_angle"] - stats["narrow_half_angle"]) * spread
+        return {
+            "angle": angle,
+            "angle_degrees": math.degrees(angle) % 360.0,
+            "spread": spread,
+            "range": maximum_range,
+            "half_angle": half_angle,
+        }
+
+    def _line_is_clear(self, first: dict[str, Any], second: dict[str, Any]) -> bool:
+        active_socket_ids = {
+            tower["socket_id"] for tower in self.placements.values()
+            if not tower.get("destroyed")
+        }
+        for socket in self.level.sockets.values():
+            if socket["socket_id"] in {first["socket_id"], second["socket_id"]}:
+                continue
+            if socket["socket_id"] in active_socket_ids:
+                continue
+            if _segment_intersects_square(
+                first["x"], first["y"], second["x"], second["y"],
+                socket["x"], socket["y"], socket["size"],
+            ):
+                return False
+        return True
+
+    def _field_has_route(self, blocked_edges: set[str]) -> bool:
+        return all(
+            self.level.path_from_node(edge["from"], blocked_edges) is not None
+            for edge_id in blocked_edges
+            for edge in (self.level.edge_by_id[edge_id],)
+        )
+
+    def _rebuild_force_fields(self, reset: bool = False) -> None:
+        previous = {} if reset else self.force_fields
+        order = [
+            tag for tag in self.activation_order
+            if tag in self.placements and not self.placements[tag].get("destroyed")
+        ]
+        rebuilt: dict[str, dict[str, Any]] = {}
+        cumulative_blocked: set[str] = set()
+        for first_tag, second_tag in zip(order, order[1:]):
+            first, second = self.placements[first_tag], self.placements[second_tag]
+            field_id = f"{first_tag}:{second_tag}"
+            if not self._line_is_clear(first, second):
+                continue
+            blocked_edges = self.level.edges_crossed_by_segment(
+                first["x"], first["y"], second["x"], second["y"]
+            )
+            if blocked_edges and not self._field_has_route(cumulative_blocked | blocked_edges):
+                continue
+            existing = previous.get(field_id, {})
+            rebuilt[field_id] = {
+                "field_id": field_id,
+                "from_tag": first_tag,
+                "to_tag": second_tag,
+                "ax": first["x"],
+                "ay": first["y"],
+                "bx": second["x"],
+                "by": second["y"],
+                "blocked_edges": sorted(blocked_edges),
+                "hits": int(existing.get("hits", 0)),
+                "capacity": int(self.settings["force_field_hit_capacity"]),
+                "broken": bool(existing.get("broken", False)),
+                "last_hit_at": existing.get("last_hit_at"),
+                "broken_at": existing.get("broken_at"),
+                "impacted_enemy_ids": set(existing.get("impacted_enemy_ids", set())),
+            }
+            cumulative_blocked.update(blocked_edges)
+        self.force_fields = rebuilt
+
+    def _active_blocked_edges(self) -> set[str]:
+        return {
+            edge_id
+            for field in self.force_fields.values()
+            if not field["broken"]
+            for edge_id in field["blocked_edges"]
+        }
+
+    def _reroute_enemy(self, enemy: dict[str, Any]) -> bool:
+        blocked_edges = self._active_blocked_edges()
+        velocity_x, velocity_y = float(enemy.get("vx", 0.0)), float(enemy.get("vy", 0.0))
+        candidates = []
+        for node_id, node in self.level.nodes.items():
+            if node is self.level.core:
+                continue
+            dx, dy = float(node["x"]) - enemy["x"], float(node["y"]) - enemy["y"]
+            distance = math.hypot(dx, dy)
+            behind = dx * velocity_x + dy * velocity_y <= 0.0
+            path = self.level.path_from_node(node_id, blocked_edges)
+            if path is not None:
+                candidates.append((0 if behind else 1, distance, node_id, path))
+        if not candidates:
+            return False
+        _, _, node_id, path = min(candidates, key=lambda item: (item[0], item[1], item[2]))
+        node = self.level.nodes[node_id]
+        enemy["path"] = [
+            (enemy["x"], enemy["y"]),
+            (float(node["x"]), float(node["y"])),
+            *path[1:],
+        ]
+        enemy["segment"] = 0
+        enemy["progress"] = 0.0
+        enemy["attacking"] = False
+        reversal = float(self.settings["force_field_slow"])
+        enemy["vx"] *= -reversal
+        enemy["vy"] *= -reversal
+        self._event("orc_rerouted", enemy_id=enemy["id"], node_id=node_id)
+        return True
+
+    def _handle_force_fields(self, enemies: list[dict[str, Any]]) -> None:
+        for field in self.force_fields.values():
+            if field["broken"]:
+                continue
+            for enemy in enemies:
+                if enemy["id"] in field["impacted_enemy_ids"]:
+                    continue
+                distance = _distance_point_to_segment(
+                    enemy["x"], enemy["y"], field["ax"], field["ay"], field["bx"], field["by"]
+                )
+                if distance > FIELD_CONTACT_DISTANCE + enemy["collision_radius"]:
+                    continue
+                field["impacted_enemy_ids"].add(enemy["id"])
+                field["hits"] += 1
+                field["last_hit_at"] = self.sim_time
+                enemy["hp"] -= float(self.settings["force_field_damage_per_s"])
+                self._reroute_enemy(enemy)
+                self._event("force_field_hit", field_id=field["field_id"], enemy_id=enemy["id"], hits=field["hits"])
+                if field["hits"] >= field["capacity"]:
+                    field["broken"] = True
+                    field["broken_at"] = self.sim_time
+                    self._event("force_field_broken", field_id=field["field_id"])
+                    break
+
+    def _damage_towers(self, enemies: list[dict[str, Any]], dt: float) -> None:
+        destroyed = False
+        for tower in self.placements.values():
+            if tower.get("destroyed"):
+                continue
+            damage = sum(
+                enemy["core_dps"] * dt
+                for enemy in enemies
+                if math.hypot(enemy["x"] - tower["x"], enemy["y"] - tower["y"]) <= TOWER_ATTACK_RADIUS
+            )
+            if damage <= 0.0:
+                continue
+            tower["hp"] = max(0.0, tower["hp"] - damage)
+            if tower["hp"] <= 0.0:
+                tower["destroyed"] = True
+                destroyed = True
+                self._event("tower_destroyed", atom_tag_id=tower["atom_tag_id"], socket_id=tower["socket_id"])
+        if destroyed:
+            self._rebuild_force_fields()
+
     def _gates(self) -> list[dict[str, Any]]:
-        order = [tag for tag in self.activation_order if tag in self.placements]
-        if len(order) < 2:
+        if self.phase != "running":
             return []
-        pairs = list(zip(order, order[1:]))
-        if len(order) == 4:
-            pairs.append((order[-1], order[0]))
-        return [{"from_tag": a, "to_tag": b, "ax": self.placements[a]["x"], "ay": self.placements[a]["y"], "bx": self.placements[b]["x"], "by": self.placements[b]["y"]} for a, b in pairs]
+        return [
+            {
+                key: value for key, value in field.items()
+                if key != "impacted_enemy_ids"
+            }
+            for field in self.force_fields.values()
+            if not field["broken"]
+            or self.sim_time - float(field.get("broken_at") or 0.0) <= 0.65
+        ]
 
     def step(self, dt: float) -> None:
         dt = max(0.0, min(float(dt), 0.1))
@@ -1006,22 +1347,22 @@ class DefenseEngine:
                 return
             self.sim_time += dt
             self._spawn_due()
-            gates = self._gates()
             dead: set[int] = set()
-            slow_by_enemy: dict[int, float] = {}
             for enemy in self.enemies.values():
-                slow = 1.0
-                for gate in gates:
-                    if _distance_point_to_segment(enemy["x"], enemy["y"], gate["ax"], gate["ay"], gate["bx"], gate["by"]) <= 18.0:
-                        slow = min(slow, float(self.settings["force_field_slow"]))
-                        enemy["hp"] -= float(self.settings["force_field_damage_per_s"]) * dt
+                if self.sim_time < float(enemy.get("burn_until", 0.0)):
+                    enemy["hp"] -= float(enemy.get("burn_damage_per_s", 0.0)) * dt
                 if enemy["hp"] <= 0:
                     dead.add(enemy["id"])
-                slow_by_enemy[enemy["id"]] = slow
             living = [
                 enemy for enemy in self.enemies.values()
                 if enemy["id"] not in dead and enemy["hp"] > 0.0
             ]
+            self._handle_force_fields(living)
+            for enemy in living:
+                if enemy["hp"] <= 0.0:
+                    dead.add(enemy["id"])
+            living = [enemy for enemy in living if enemy["id"] not in dead]
+            slow_by_enemy = {enemy["id"]: 1.0 for enemy in living}
             maximum_speed = max(
                 (
                     CORE_BASIN_SPEED if enemy["attacking"]
@@ -1038,6 +1379,7 @@ class DefenseEngine:
             self.core_hp -= sum(
                 enemy["core_dps"] * dt for enemy in living if enemy["attacking"]
             )
+            self._damage_towers(living, dt)
             self._fire_towers(dt, dead)
             for enemy_id in dead:
                 if self.enemies.pop(enemy_id, None):
@@ -1054,36 +1396,71 @@ class DefenseEngine:
     def _fire_towers(self, dt: float, dead: set[int]) -> None:
         living = [enemy for enemy in self.enemies.values() if enemy["id"] not in dead and enemy["hp"] > 0]
         for tower in self.placements.values():
+            if tower.get("destroyed"):
+                continue
             stats = TOWER_STATS[tower["tower_type"]]
             tower["cooldown"] = max(0.0, tower["cooldown"] - dt)
             if tower["cooldown"] > 0:
                 continue
-            candidates = []
-            for enemy in living:
-                distance = math.hypot(enemy["x"] - tower["x"], enemy["y"] - tower["y"])
-                if distance <= stats["range"] and distance >= stats.get("min_range", 0.0):
-                    candidates.append((enemy["progress"], -distance, enemy))
-            if not candidates:
-                continue
-            target = max(candidates, key=lambda item: (item[0], item[1]))[2]
-            if tower["tower_type"] == "flamethrower":
-                hit = [enemy for enemy in living if math.hypot(enemy["x"] - target["x"], enemy["y"] - target["y"]) <= 72.0]
-            elif tower["tower_type"] == "mortar":
-                hit = [enemy for enemy in living if math.hypot(enemy["x"] - target["x"], enemy["y"] - target["y"]) <= stats["splash"]]
+            targeting = self._tower_targeting(tower)
+            kind = tower["tower_type"]
+            if kind == "mortar":
+                hit = [
+                    enemy for enemy in living
+                    if enemy["id"] not in dead
+                    and math.hypot(enemy["x"] - targeting["target_x"], enemy["y"] - targeting["target_y"])
+                    <= targeting["blast_radius"]
+                ]
+                if not hit:
+                    continue
+                target_x, target_y = targeting["target_x"], targeting["target_y"]
+                damage = float(self.settings["mortar_damage"]) * targeting["damage_multiplier"]
             else:
-                hit = [target]
+                candidates = []
+                for enemy in living:
+                    if enemy["id"] in dead:
+                        continue
+                    dx, dy = enemy["x"] - tower["x"], enemy["y"] - tower["y"]
+                    distance = math.hypot(dx, dy)
+                    angle = math.atan2(dy, dx)
+                    if distance <= targeting["range"] and abs(math.degrees(_angle_delta(angle, targeting["angle"]))) <= targeting["half_angle"]:
+                        candidates.append((enemy["progress"], -distance, enemy))
+                if not candidates:
+                    continue
+                target = max(candidates, key=lambda item: (item[0], item[1]))[2]
+                target_x, target_y = target["x"], target["y"]
+                if kind == "flamethrower":
+                    hit = [item[2] for item in candidates]
+                    damage = float(self.settings["flamethrower_damage"])
+                else:
+                    hit = [target]
+                    damage = float(self.settings["machine_gun_damage"])
             for enemy in hit:
-                enemy["hp"] -= stats["damage"]
+                enemy["hp"] -= damage
+                if kind == "flamethrower":
+                    enemy["burn_until"] = max(
+                        float(enemy.get("burn_until", 0.0)),
+                        self.sim_time + float(self.settings["flamethrower_burn_duration_s"]),
+                    )
+                    enemy["burn_damage_per_s"] = max(
+                        float(enemy.get("burn_damage_per_s", 0.0)),
+                        float(self.settings["flamethrower_burn_damage_per_s"]),
+                    )
                 if enemy["hp"] <= 0:
                     dead.add(enemy["id"])
             tower["cooldown"] = 1.0 / stats["rate"]
             tower["last_fire_at"] = self.sim_time
+            tower["last_fire_target"] = {"x": target_x, "y": target_y, "kind": kind}
 
     def snapshot(self) -> dict[str, Any]:
         with self.lock:
-            enemies = [{key: enemy[key] for key in ("id", "enemy_type", "lane", "track", "orbit_index", "x", "y", "hp", "max_hp", "collision_radius", "facing_x", "facing_y", "attacking", "progress")} for enemy in self.enemies.values()]
-            towers = [{key: tower[key] for key in ("atom_tag_id", "owner", "socket_id", "aruco_id", "tower_type", "x", "y", "last_fire_at", "source")} for tower in self.placements.values()]
-            return {"phase": self.phase, "paused": self.paused, "virtual_play": self.virtual_play, "sim_time": round(self.sim_time, 3), "wave": self.current_wave, "wave_count": int(self.settings["wave_count"]), "active_enemies": len(enemies), "max_active_enemies": int(self.settings["max_active_enemies"]), "pressure_bank": self.pressure_bank, "core_hp": round(self.core_hp, 2), "core_max_hp": round(self.core_max_hp, 2), "kills": self.kills, "breaches": self.breaches, "enemies": enemies, "towers": towers, "gates": self._gates(), "activation_order": list(self.activation_order), "loadout": {str(key): value for key, value in self.loadout.items()}, "settings": dict(self.settings), "events": list(self.events[-30:]), "server_time": time.time()}
+            enemies = [{key: enemy[key] for key in ("id", "enemy_type", "lane", "track", "orbit_index", "x", "y", "hp", "max_hp", "collision_radius", "facing_x", "facing_y", "attacking", "progress", "burn_until")} for enemy in self.enemies.values()]
+            towers = []
+            for tower in self.placements.values():
+                public = {key: tower.get(key) for key in ("atom_tag_id", "owner", "socket_id", "aruco_id", "tower_type", "x", "y", "last_fire_at", "last_fire_target", "source", "hp", "max_hp", "destroyed")}
+                public["targeting"] = self._tower_targeting(tower)
+                towers.append(public)
+            return {"phase": self.phase, "paused": self.paused, "virtual_play": self.virtual_play, "level_revision": self.level.layout_revision, "sim_time": round(self.sim_time, 3), "wave": self.current_wave, "wave_count": int(self.settings["wave_count"]), "active_enemies": len(enemies), "max_active_enemies": int(self.settings["max_active_enemies"]), "pressure_bank": self.pressure_bank, "core_hp": round(self.core_hp, 2), "core_max_hp": round(self.core_max_hp, 2), "kills": self.kills, "breaches": self.breaches, "enemies": enemies, "towers": towers, "gates": self._gates(), "activation_order": list(self.activation_order), "loadout": {str(key): value for key, value in self.loadout.items()}, "settings": dict(self.settings), "events": list(self.events[-30:]), "server_time": time.time()}
 
     def _event(self, kind: str, **detail: Any) -> None:
         self.events.append({"kind": kind, "at": round(self.sim_time, 3), **detail})

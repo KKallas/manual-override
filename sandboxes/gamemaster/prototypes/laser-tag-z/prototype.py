@@ -8,10 +8,16 @@ import threading
 import time
 import datetime as dt
 
-from flask import Blueprint, jsonify, request, send_file, send_from_directory
+from flask import Blueprint, Response, jsonify, request, send_file, send_from_directory
 
 import live
-from photon_defence import DefenseEngine, SettingsStore
+from photon_defence import (
+    DefenseEngine,
+    LevelModel,
+    SettingsStore,
+    SocketLayoutError,
+    update_socket_layout_file,
+)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
@@ -75,12 +81,14 @@ MANIFEST = {
 
 bp = Blueprint("laser_tag_z", __name__)
 _lock = threading.Lock()
+_socket_layout_lock = threading.Lock()
 _live = live.LiveState()
 _defence_live = live.LiveState()
 _hub_ctx = None
 _run = None
 _defence = DefenseEngine(LEVEL_PATH, WAVE_PATH)
 _defence_settings = SettingsStore(DEFENCE_SETTINGS_PATH)
+_aruco_marker_cache = {}
 
 
 def _load_ltx_game_mode():
@@ -530,6 +538,72 @@ def tower_defence_asset(filename):
 def tower_defence_level():
     response = send_file(LEVEL_PATH, mimetype="application/json")
     response.headers["Cache-Control"] = "no-store, max-age=0"
+    response.headers["X-Level-Revision"] = str(_defence.level.layout_revision)
+    return response
+
+
+@bp.route("/api/defence/layout", methods=["POST"])
+def tower_defence_layout():
+    if "gamemaster" not in _roles():
+        return jsonify({"ok": False, "error": "gamemaster required"}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        with _socket_layout_lock, _defence.lock:
+            if _defence.phase != "setup":
+                return jsonify({
+                    "ok": False,
+                    "error": "turret positions can only be changed before a run",
+                }), 409
+            revision, sockets = update_socket_layout_file(
+                LEVEL_PATH,
+                data.get("sockets"),
+                validate_candidate=LevelModel,
+            )
+            _defence.reload_level()
+    except (SocketLayoutError, TypeError, ValueError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    _defence_live.bump()
+    return jsonify({
+        "ok": True,
+        "level_revision": revision,
+        "sockets": sockets,
+        "state": _defence.snapshot(),
+    })
+
+
+def _aruco_marker_png(marker_id):
+    marker_id = int(marker_id)
+    if not 40 <= marker_id <= 55:
+        raise ValueError("fixed ArUco marker must be between 40 and 55")
+    cached = _aruco_marker_cache.get(marker_id)
+    if cached is not None:
+        return cached
+    try:
+        import cv2
+    except ImportError as exc:
+        raise RuntimeError("opencv is unavailable") from exc
+    dictionary_id = cv2.aruco.DICT_4X4_50 if marker_id <= 49 else cv2.aruco.DICT_4X4_100
+    dictionary = cv2.aruco.getPredefinedDictionary(dictionary_id)
+    marker = cv2.aruco.generateImageMarker(dictionary, marker_id, 192)
+    marker = cv2.copyMakeBorder(marker, 32, 32, 32, 32, cv2.BORDER_CONSTANT, value=255)
+    ok, buffer = cv2.imencode(".png", marker)
+    if not ok:
+        raise RuntimeError("could not encode ArUco marker")
+    encoded = buffer.tobytes()
+    _aruco_marker_cache[marker_id] = encoded
+    return encoded
+
+
+@bp.route("/api/defence/aruco/<int:marker_id>.png")
+def tower_defence_aruco_marker(marker_id):
+    try:
+        marker = _aruco_marker_png(marker_id)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 404
+    except RuntimeError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 503
+    response = Response(marker, mimetype="image/png")
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return response
 
 
@@ -655,6 +729,24 @@ def tower_defence_loadout():
     except (TypeError, ValueError) as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
     _defence_live.bump()
+    return jsonify({"ok": True, "state": _defence.snapshot()})
+
+
+@bp.route("/api/defence/aim", methods=["POST"])
+def tower_defence_aim():
+    if "gamemaster" not in _roles():
+        return jsonify({"ok": False, "error": "gamemaster required"}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        _defence.set_tower_aim(
+            int(data["atom_tag_id"]),
+            float(data["angle_degrees"]),
+            float(data["spread"]),
+        )
+    except KeyError:
+        return jsonify({"ok": False, "error": "atom_tag_id, angle_degrees, and spread required"}), 400
+    except (TypeError, ValueError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
     return jsonify({"ok": True, "state": _defence.snapshot()})
 
 

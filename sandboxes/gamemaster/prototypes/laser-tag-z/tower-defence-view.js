@@ -30,6 +30,7 @@
     });
     const images = new Map();
     const gameImages = new Map();
+    const markerImages = new Map();
     let level = null;
     let tilesets = [];
     let state = null;
@@ -37,6 +38,11 @@
     let lastGameRenderAt = 0;
     let animationFrame = 0;
     let destroyed = false;
+    let layoutEditing = false;
+    let selectedSocketId = null;
+    let selectedTowerTag = null;
+    const towerAimPreview = new Map();
+    let mapRenderQueued = false;
 
     mapCanvas.width = WIDTH;
     mapCanvas.height = HEIGHT;
@@ -59,8 +65,8 @@
       return promise;
     }
 
-    function towerImagePath(type) {
-      return `${root}/assets/game-art/z-pixel-v2/normalized/structures/${type.replace("_", "-")}-active-l1.png`;
+    function towerImagePath(type, stateName = "active-l1") {
+      return `${root}/assets/game-art/z-pixel-v2/normalized/structures/${type.replace("_", "-")}-${stateName}.png`;
     }
 
     function enemyImagePath(type, frame) {
@@ -68,10 +74,15 @@
       return `${root}/assets/game-art/sprites/${group}/${type}-walk-${String(frame).padStart(2, "0")}.png`;
     }
 
+    function combatEffectPath(name) {
+      return `${root}/assets/game-art/z-pixel-v2/normalized/effects/combat/${name}-v1.png`;
+    }
+
     async function loadGameImages() {
       const pending = [];
       for (const type of ["machine_gun", "flamethrower", "mortar"]) {
         pending.push(loadImage(towerImagePath(type)).then((image) => gameImages.set(`tower:${type}`, image)));
+        pending.push(loadImage(towerImagePath(type, "damaged")).then((image) => gameImages.set(`tower:${type}:damaged`, image)));
       }
       for (const type of ["grunt", "runner", "breaker", "brute"]) {
         for (let frame = 1; frame <= 4; frame += 1) {
@@ -79,6 +90,9 @@
             gameImages.set(`enemy:${type}:${frame}`, image);
           }));
         }
+      }
+      for (const effect of ["machine-gun-impact", "flame-burn", "mortar-impact", "force-field-impact"]) {
+        pending.push(loadImage(combatEffectPath(effect)).then((image) => gameImages.set(`effect:${effect}`, image)));
       }
       await Promise.all(pending);
     }
@@ -134,6 +148,48 @@
       context.restore();
     }
 
+    function socketLayer() {
+      return (level?.layers || []).find((item) => item.name.includes("Placement Spots"));
+    }
+
+    function socketObjects() {
+      return socketLayer()?.objects || [];
+    }
+
+    function updateGateGeometry() {
+      const sockets = new Map(socketObjects().map((object) => [Number(object.id), object]));
+      for (const layer of level?.layers || []) {
+        for (const object of layer.objects || []) {
+          if (!['ForceFieldWall', 'GateHint'].includes(object.type)) continue;
+          const properties = propertyMap(object);
+          const a = sockets.get(Number(properties.socket_a));
+          const b = sockets.get(Number(properties.socket_b));
+          if (!a || !b) continue;
+          const ax = Number(a.x), ay = Number(a.y), bx = Number(b.x), by = Number(b.y);
+          if (object.type === 'GateHint') {
+            object.x = ax;
+            object.y = ay;
+            object.polyline = [{ x: 0, y: 0 }, { x: bx - ax, y: by - ay }];
+            continue;
+          }
+          const dx = bx - ax, dy = by - ay;
+          object.x = (ax + bx) / 2;
+          object.y = (ay + by) / 2;
+          object.height = Math.max(32, Math.hypot(dx, dy) + 14);
+          object.rotation = Math.atan2(dy, dx) * 180 / Math.PI - 90;
+        }
+      }
+    }
+
+    function scheduleMapRender() {
+      if (mapRenderQueued || destroyed) return;
+      mapRenderQueued = true;
+      global.requestAnimationFrame(() => {
+        mapRenderQueued = false;
+        renderMap().catch(() => {});
+      });
+    }
+
     async function renderMap() {
       if (!level) return;
       const context = mapCanvas.getContext("2d");
@@ -169,19 +225,24 @@
         }
         context.restore();
       }
-      const sockets = (level.layers || []).find((layer) => layer.name.includes("Placement Spots"));
+      const sockets = socketLayer();
       if (!sockets) return;
-      context.font = "900 17px ui-monospace";
-      context.textAlign = "center";
-      context.textBaseline = "middle";
       for (const socket of sockets.objects || []) {
         const properties = propertyMap(socket);
         const center = tileObjectCenter(socket);
-        context.strokeStyle = "#000";
-        context.lineWidth = 5;
-        context.strokeText(`#${properties.aruco_id}`, center.x, center.y);
-        context.fillStyle = "#fff";
-        context.fillText(`#${properties.aruco_id}`, center.x, center.y);
+        const marker = markerImages.get(Number(properties.aruco_id));
+        if (!marker) continue;
+        const width = Number(socket.width || 208);
+        const height = Number(socket.height || width);
+        const markerSize = Math.max(42, Math.min(104, Math.round(Math.min(width, height) * 0.37)));
+        context.imageSmoothingEnabled = false;
+        context.drawImage(
+          marker,
+          Math.round(center.x - markerSize / 2),
+          Math.round(center.y - markerSize / 2),
+          markerSize,
+          markerSize,
+        );
       }
     }
 
@@ -227,6 +288,41 @@
       context.restore();
     }
 
+    function renderLayoutEditor(context) {
+      if (!layoutEditing) return;
+      const records = socketRecords();
+      context.save();
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      for (const socket of records) {
+        const selected = socket.socket_id === selectedSocketId;
+        const half = socket.size / 2;
+        context.strokeStyle = selected ? "#36dfff" : "#ffffffa6";
+        context.lineWidth = selected ? 4 : 2;
+        context.setLineDash(selected ? [] : [9, 7]);
+        context.strokeRect(socket.x - half, socket.y - half, socket.size, socket.size);
+        if (!selected) continue;
+        context.setLineDash([]);
+        context.fillStyle = "#36dfff";
+        context.strokeStyle = "#00131a";
+        context.lineWidth = 3;
+        context.fillRect(socket.x + half - 13, socket.y + half - 13, 26, 26);
+        context.strokeRect(socket.x + half - 13, socket.y + half - 13, 26, 26);
+        const label = `#${socket.aruco_id} · ${Math.round(socket.size)}px`;
+        context.font = "900 18px ui-monospace,monospace";
+        const labelWidth = context.measureText(label).width + 24;
+        const labelY = socket.y - half - 23;
+        context.fillStyle = "#041019e8";
+        context.strokeStyle = "#36dfff";
+        context.lineWidth = 2;
+        context.fillRect(socket.x - labelWidth / 2, labelY - 16, labelWidth, 32);
+        context.strokeRect(socket.x - labelWidth / 2, labelY - 16, labelWidth, 32);
+        context.fillStyle = "#fff";
+        context.fillText(label, socket.x, labelY + 1);
+      }
+      context.restore();
+    }
+
     function drawEnemy(context, enemy, visualTime) {
       const frame = 1 + (Math.floor(visualTime * 8 + Number(enemy.id || 0)) % 4);
       const image = gameImages.get(`enemy:${enemy.enemy_type}:${frame}`);
@@ -239,6 +335,12 @@
         context.translate(enemy.x, enemy.y);
         context.rotate(rotation);
         context.drawImage(image, -size / 2, -size / 2, size, size);
+        if (Number(enemy.burn_until || 0) > visualTime) {
+          const flicker = 0.7 + 0.3 * Math.sin(visualTime * 18 + Number(enemy.id));
+          const flame = gameImages.get("effect:flame-burn");
+          context.globalAlpha = flicker;
+          if (flame) context.drawImage(flame, -size * 0.85, -size * 1.5, size * 1.7, size * 1.7);
+        }
         context.restore();
         return;
       }
@@ -248,28 +350,140 @@
       context.fill();
     }
 
+    function towerTargeting(tower) {
+      const preview = towerAimPreview.get(Number(tower.atom_tag_id));
+      if (!preview) return tower.targeting || {};
+      const angle = Number(preview.angle) * Math.PI / 180;
+      const spread = Math.max(0, Math.min(1, Number(preview.spread)));
+      if (tower.tower_type === "mortar") {
+        const distance = 110 + (500 - 110) * spread;
+        return { angle, angle_degrees: preview.angle, spread, range: distance, target_x: tower.x + Math.cos(angle) * distance, target_y: tower.y + Math.sin(angle) * distance, blast_radius: 72 + (155 - 72) * spread };
+      }
+      const config = tower.tower_type === "flamethrower"
+        ? { near: 130, far: 235, narrow: 18, wide: 65 }
+        : { near: 190, far: 360, narrow: 12, wide: 55 };
+      return { angle, angle_degrees: preview.angle, spread, range: config.far + (config.near - config.far) * spread, half_angle: config.narrow + (config.wide - config.narrow) * spread };
+    }
+
+    function drawTargetingOverlay(context, tower) {
+      if (tower.destroyed) return;
+      const targeting = towerTargeting(tower);
+      const selected = Number(tower.atom_tag_id) === Number(selectedTowerTag);
+      const color = tower.owner === "green" ? "53,208,127" : "192,132,252";
+      context.save();
+      context.strokeStyle = `rgba(${color},${selected ? 0.9 : 0.28})`;
+      context.fillStyle = `rgba(${color},${selected ? 0.09 : 0.035})`;
+      context.lineWidth = selected ? 2.5 : 1.25;
+      context.setLineDash(selected ? [7, 5] : [4, 7]);
+      if (tower.tower_type === "mortar") {
+        context.beginPath();
+        context.moveTo(tower.x, tower.y);
+        context.lineTo(targeting.target_x, targeting.target_y);
+        context.stroke();
+        context.beginPath();
+        context.arc(targeting.target_x, targeting.target_y, targeting.blast_radius, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+      } else {
+        const half = Number(targeting.half_angle || 0) * Math.PI / 180;
+        const angle = Number(targeting.angle || 0);
+        const reach = Number(targeting.range || 0);
+        context.beginPath();
+        context.moveTo(tower.x, tower.y);
+        context.lineTo(tower.x + Math.cos(angle - half) * reach, tower.y + Math.sin(angle - half) * reach);
+        context.arc(tower.x, tower.y, reach, angle - half, angle + half);
+        context.closePath();
+        context.fill();
+        context.stroke();
+        context.beginPath();
+        context.moveTo(tower.x, tower.y);
+        context.lineTo(tower.x + Math.cos(angle) * reach, tower.y + Math.sin(angle) * reach);
+        context.stroke();
+      }
+      context.restore();
+    }
+
+    function drawCombatEffect(context, image, x, y, size, alpha = 1, rotation = 0, stretch = 1) {
+      if (!image) return;
+      context.save();
+      context.globalAlpha = Math.max(0, Math.min(1, alpha));
+      context.translate(x, y);
+      context.rotate(rotation);
+      context.drawImage(image, -size * stretch / 2, -size / 2, size * stretch, size);
+      context.restore();
+    }
+
+    function drawTowerFireEffect(context, tower, visualTime) {
+      const firedAt = Number(tower.last_fire_at);
+      const target = tower.last_fire_target;
+      if (!Number.isFinite(firedAt) || !target) return;
+      const age = visualTime - firedAt;
+      if (age < 0 || age > 0.45) return;
+      const tx = Number(target.x);
+      const ty = Number(target.y);
+      if (tower.tower_type === "mortar") {
+        drawCombatEffect(context, gameImages.get("effect:mortar-impact"), tx, ty, 118, 1 - age / 0.45);
+        return;
+      }
+      const dx = tx - tower.x;
+      const dy = ty - tower.y;
+      if (tower.tower_type === "flamethrower") {
+        if (age > 0.24) return;
+        const distance = Math.max(1, Math.hypot(dx, dy));
+        drawCombatEffect(
+          context,
+          gameImages.get("effect:flame-burn"),
+          tower.x + dx / 2,
+          tower.y + dy / 2,
+          64,
+          0.9 * (1 - age / 0.24),
+          Math.atan2(dy, dx),
+          Math.max(1, distance / 64),
+        );
+        return;
+      }
+      if (age <= 0.16) {
+        drawCombatEffect(context, gameImages.get("effect:machine-gun-impact"), tx, ty, 55, 1 - age / 0.16);
+      }
+    }
+
     function renderGame(now = performance.now()) {
       const context = gameCanvas.getContext("2d");
       context.clearRect(0, 0, WIDTH, HEIGHT);
       if (!state || !level) return;
       context.imageSmoothingEnabled = false;
       const visualTime = visualSimulationTime(now, state);
+      for (const tower of state.towers || []) drawTargetingOverlay(context, tower);
       context.save();
       context.lineCap = "round";
       for (const gate of state.gates || []) {
+        const durability = Math.max(0, Math.min(1, 1 - Number(gate.hits || 0) / Math.max(1, Number(gate.capacity || 1))));
         const pulse = 0.62 + 0.28 * Math.sin(visualTime * 5);
-        context.strokeStyle = `rgba(54,223,255,${pulse})`;
-        context.shadowColor = "#36dfff";
+        const broken = Boolean(gate.broken);
+        context.strokeStyle = broken ? `rgba(255,83,103,${pulse * 0.7})` : durability > 0.5 ? `rgba(54,223,255,${pulse})` : durability > 0.2 ? `rgba(255,179,71,${pulse})` : `rgba(255,83,103,${pulse})`;
+        context.shadowColor = durability > 0.5 ? "#36dfff" : durability > 0.2 ? "#ffb347" : "#ff5367";
         context.shadowBlur = 15;
-        context.lineWidth = 8;
+        context.lineWidth = broken ? 3 : 8;
+        context.setLineDash(broken ? [12, 13] : []);
         context.beginPath();
         context.moveTo(gate.ax, gate.ay);
         context.lineTo(gate.bx, gate.by);
         context.stroke();
+        const impactAge = visualTime - Number(gate.last_hit_at);
+        if (Number.isFinite(impactAge) && impactAge >= 0 && impactAge <= 0.42) {
+          drawCombatEffect(
+            context,
+            gameImages.get("effect:force-field-impact"),
+            (gate.ax + gate.bx) / 2,
+            (gate.ay + gate.by) / 2,
+            broken ? 105 : 72,
+            1 - impactAge / 0.42,
+          );
+        }
       }
       context.restore();
       for (const tower of state.towers || []) {
-        const image = gameImages.get(`tower:${tower.tower_type}`);
+        const image = gameImages.get(`tower:${tower.tower_type}${tower.destroyed?':damaged':''}`);
         if (image) context.drawImage(image, tower.x - 56, tower.y - 56, 112, 112);
         context.fillStyle = tower.owner === "green" ? "#35d07f" : "#c084fc";
         context.beginPath();
@@ -279,9 +493,16 @@
         context.font = "900 11px ui-monospace";
         context.textAlign = "center";
         context.fillText(String(tower.atom_tag_id), tower.x, tower.y + 51);
+        const healthRatio = Math.max(0, Math.min(1, Number(tower.hp || 0) / Math.max(1, Number(tower.max_hp || 1))));
+        context.fillStyle = "#240b10";
+        context.fillRect(tower.x - 43, tower.y - 65, 86, 7);
+        context.fillStyle = healthRatio > 0.5 ? "#35d07f" : healthRatio > 0.2 ? "#ffb347" : "#ff5367";
+        context.fillRect(tower.x - 43, tower.y - 65, 86 * healthRatio, 7);
       }
       for (const enemy of state.enemies || []) drawEnemy(context, enemy, visualTime);
+      for (const tower of state.towers || []) drawTowerFireEffect(context, tower, visualTime);
       renderCoreHealth(context, state);
+      renderLayoutEditor(context);
     }
 
     function gameRenderLoop(now) {
@@ -307,15 +528,26 @@
       }
       level = nextLevel;
       tilesets = nextTilesets;
+      markerImages.clear();
       const mapAssets = [...new Set(tilesets.flatMap((tileset) => (
         [...tileset.tiles.values()].map((tile) => tile.imageUrl)
       )))];
-      await Promise.all([Promise.all(mapAssets.map(loadImage)), loadGameImages()]);
+      const markerIds = socketObjects().map((socket) => Number(propertyMap(socket).aruco_id));
+      await Promise.all([
+        Promise.all(mapAssets.map(loadImage)),
+        loadGameImages(),
+        Promise.all(markerIds.map((markerId) => (
+          loadImage(`${root}/api/defence/aruco/${markerId}.png`)
+            .then((image) => markerImages.set(markerId, image))
+        ))),
+      ]);
       await renderMap();
       renderGame();
+      const properties = propertyMap(level);
       return {
         level,
-        levelId: propertyMap(level).level_id || "unknown",
+        levelId: properties.level_id || "unknown",
+        revision: Number(properties.layout_revision || 1),
         layerCount: (level.layers || []).length,
       };
     }
@@ -327,8 +559,7 @@
     }
 
     function socketRecords() {
-      const layer = (level?.layers || []).find((item) => item.name.includes("Placement Spots"));
-      return (layer?.objects || []).map((object) => {
+      return socketObjects().map((object) => {
         const properties = propertyMap(object);
         const center = tileObjectCenter(object);
         return {
@@ -337,8 +568,64 @@
           aruco_id: Number(properties.aruco_id),
           x: center.x,
           y: center.y,
+          size: Number(object.width || object.height || 208),
         };
       });
+    }
+
+    function socketAtPoint(x, y) {
+      return socketRecords()
+        .filter((socket) => (
+          Math.abs(socket.x - x) <= socket.size / 2
+          && Math.abs(socket.y - y) <= socket.size / 2
+        ))
+        .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0] || null;
+    }
+
+    function setSocketGeometry(socketId, geometry) {
+      const object = socketObjects().find((candidate) => (
+        String(propertyMap(candidate).socket_id) === String(socketId)
+      ));
+      if (!object) return null;
+      if (Number.isFinite(Number(geometry.x))) object.x = Number(geometry.x);
+      if (Number.isFinite(Number(geometry.y))) object.y = Number(geometry.y);
+      if (Number.isFinite(Number(geometry.size))) {
+        object.width = Number(geometry.size);
+        object.height = Number(geometry.size);
+      }
+      updateGateGeometry();
+      scheduleMapRender();
+      renderGame();
+      return socketRecords().find((socket) => socket.socket_id === String(socketId)) || null;
+    }
+
+    function setSocketLayout(records) {
+      for (const record of records || []) setSocketGeometry(record.socket_id, record);
+      updateGateGeometry();
+      scheduleMapRender();
+      renderGame();
+    }
+
+    function setLayoutEditing(enabled) {
+      layoutEditing = Boolean(enabled);
+      if (!layoutEditing) selectedSocketId = null;
+      renderGame();
+    }
+
+    function selectSocket(socketId) {
+      selectedSocketId = socketId == null ? null : String(socketId);
+      renderGame();
+    }
+
+    function selectTower(atomTagId) {
+      selectedTowerTag = atomTagId == null ? null : Number(atomTagId);
+      renderGame();
+    }
+
+    function previewTowerAim(atomTagId, angle, spread) {
+      if (atomTagId == null) return;
+      towerAimPreview.set(Number(atomTagId), { angle: Number(angle), spread: Number(spread) });
+      renderGame();
     }
 
     animationFrame = global.requestAnimationFrame(gameRenderLoop);
@@ -358,6 +645,13 @@
       loadLevel,
       renderGame,
       renderMap,
+      selectSocket,
+      selectTower,
+      previewTowerAim,
+      setLayoutEditing,
+      setSocketGeometry,
+      setSocketLayout,
+      socketAtPoint,
       socketRecords,
     };
   }

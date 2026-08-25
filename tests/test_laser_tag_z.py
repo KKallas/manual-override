@@ -24,6 +24,12 @@ from photon_defence.engine import (  # noqa: E402
     FLOW_SPAWN_OFFSETS,
     PARTICLE_MAX_SPEED_SCALE,
 )
+from photon_defence.level_layout import (  # noqa: E402
+    SocketLayoutError,
+    apply_socket_layout,
+    layout_revision,
+    socket_records,
+)
 
 
 MAP_PATH = ROOT / "assets/tiled/levels/z-pixel-first-map.tmj"
@@ -37,6 +43,40 @@ class LaserTagZEngineTests(unittest.TestCase):
     def test_level_has_exact_fixed_marker_range(self):
         self.assertEqual(sorted(self.engine.level.socket_by_marker), list(range(40, 56)))
         self.assertEqual(len(self.engine.level.sockets), 16)
+
+    def test_all_socket_visuals_use_the_large_default_footprint(self):
+        level = json.loads(MAP_PATH.read_text(encoding="utf-8"))
+        sockets = socket_records(level)
+        self.assertEqual({item["size"] for item in sockets}, {208.0})
+        self.assertGreaterEqual(layout_revision(level), 1)
+
+    def test_layout_edit_preserves_identity_and_updates_linked_gate(self):
+        level = json.loads(MAP_PATH.read_text(encoding="utf-8"))
+        submitted = socket_records(level)
+        submitted[0].update({"x": 672, "y": 184, "size": 240})
+        updated = apply_socket_layout(level, submitted)
+        records = socket_records(updated)
+        self.assertEqual(records[0]["aruco_id"], 40)
+        self.assertEqual(records[0]["owner"], "purple")
+        self.assertEqual((records[0]["x"], records[0]["y"], records[0]["size"]), (672.0, 184.0, 240.0))
+        self.assertEqual(layout_revision(updated), layout_revision(level) + 1)
+        gate_layer = next(layer for layer in updated["layers"] if layer["name"] == "10 Force Field Walls")
+        first_gate = gate_layer["objects"][0]
+        second = records[1]
+        self.assertEqual(
+            (first_gate["x"], first_gate["y"]),
+            ((records[0]["x"] + second["x"]) / 2, (records[0]["y"] + second["y"]) / 2),
+        )
+        self.assertGreater(first_gate["height"], 150)
+
+    def test_layout_edit_rejects_incomplete_or_out_of_range_geometry(self):
+        level = json.loads(MAP_PATH.read_text(encoding="utf-8"))
+        submitted = socket_records(level)
+        with self.assertRaises(SocketLayoutError):
+            apply_socket_layout(level, submitted[:-1])
+        submitted[0]["size"] = 400
+        with self.assertRaises(SocketLayoutError):
+            apply_socket_layout(level, submitted)
 
     def test_tiled_center_alignment_is_used_by_map_and_gameplay(self):
         level = json.loads(MAP_PATH.read_text(encoding="utf-8"))
@@ -140,31 +180,101 @@ class LaserTagZEngineTests(unittest.TestCase):
                 break
         self.assertLess(upward_enemy["facing_y"], -0.9)
 
-    def test_virtual_placements_make_force_field_and_survive_start(self):
+    def test_virtual_placements_use_fixed_atom_roles_and_fields_start_with_run(self):
         self.engine.set_virtual_play(True)
-        sockets = list(self.engine.level.sockets.values())
-        available = {
-            owner: [item["socket_id"] for item in sockets if item["owner"] == owner]
-            for owner in ("green", "purple", "shared")
-        }
-        for tag, owner, tower_type in (
-            (100, "green", "machine_gun"),
-            (101, "green", "flamethrower"),
-            (102, "purple", "machine_gun"),
-            (103, "purple", "mortar"),
-        ):
-            socket_id = (available[owner] or available["shared"]).pop()
-            self.engine.place(
-                tag, socket_id, tower_type, source="virtual", team=owner)
+        marker = self.engine.level.socket_by_marker
+        self.engine.place(100, marker[48], source="virtual", team="green")
+        self.engine.place(101, marker[49], source="virtual", team="green")
+        self.engine.place(102, marker[41], source="virtual", team="purple")
         before = self.engine.snapshot()
-        self.assertEqual(len(before["towers"]), 4)
-        self.assertEqual(len(before["gates"]), 4)
+        self.assertEqual(
+            [(tower["atom_tag_id"], tower["tower_type"]) for tower in before["towers"]],
+            [(100, "machine_gun"), (101, "flamethrower"), (102, "mortar")],
+        )
+        self.assertEqual(before["gates"], [])
+        self.assertEqual(len(self.engine.force_fields), 1)
+        with self.assertRaises(ValueError):
+            self.engine.place(103, marker[50], source="virtual", team="purple")
         self.engine.start()
         self.engine.step(0.05)
         after = self.engine.snapshot()
         self.assertTrue(after["virtual_play"])
-        self.assertEqual(len(after["towers"]), 4)
+        self.assertEqual(len(after["towers"]), 3)
+        self.assertEqual(len(after["gates"]), 1)
+        self.assertEqual(after["gates"][0]["capacity"], 50)
         self.assertGreaterEqual(after["active_enemies"], 1)
+
+    def test_force_field_counts_unique_impacts_breaks_and_reroutes(self):
+        self.engine.set_virtual_play(True)
+        marker = self.engine.level.socket_by_marker
+        self.engine.place(100, marker[48], source="virtual", team="green")
+        self.engine.place(101, marker[49], source="virtual", team="green")
+        self.engine.start({"force_field_hit_capacity": 2})
+        field = next(iter(self.engine.force_fields.values()))
+        midpoint = ((field["ax"] + field["bx"]) / 2, (field["ay"] + field["by"]) / 2)
+        enemies = []
+        for enemy_id in (9001, 9002):
+            enemies.append({
+                "id": enemy_id, "x": midpoint[0], "y": midpoint[1],
+                "vx": 60.0, "vy": 0.0, "collision_radius": 2.2,
+                "hp": 100.0, "core_dps": 1.0,
+            })
+        self.engine._handle_force_fields([enemies[0]])
+        self.engine._handle_force_fields([enemies[0]])
+        self.assertEqual(field["hits"], 1)
+        self.assertLess(enemies[0]["vx"], 0)
+        self.engine._handle_force_fields([enemies[1]])
+        self.assertTrue(field["broken"])
+        self.assertTrue(self.engine.snapshot()["gates"][0]["broken"])
+        self.engine.sim_time += 0.7
+        self.assertEqual(self.engine.snapshot()["gates"], [])
+
+    def test_defense_health_defaults_to_fifteen_percent_and_reserve_repairs(self):
+        self.engine.set_virtual_play(True)
+        socket_id = self.engine.level.socket_by_marker[48]
+        self.engine.place(100, socket_id, source="virtual", team="green")
+        self.engine.start({"core_hp": 20000.0, "defense_unit_health_percent": 15.0})
+        tower = self.engine.placements[100]
+        self.assertEqual((tower["hp"], tower["max_hp"]), (3000.0, 3000.0))
+        tower["hp"] = 1.0
+        self.engine._damage_towers([{
+            "x": tower["x"], "y": tower["y"], "core_dps": 20.0,
+        }], 0.1)
+        self.assertTrue(tower["destroyed"])
+        self.assertEqual(tower["hp"], 0.0)
+        self.engine.place(103, socket_id, source="virtual", team="purple")
+        self.assertFalse(tower["destroyed"])
+        self.assertEqual(tower["hp"], 3000.0)
+        self.assertNotIn(103, self.engine.placements)
+
+    def test_weapon_aiming_burn_duration_and_mortar_falloff(self):
+        self.engine.set_virtual_play(True)
+        marker = self.engine.level.socket_by_marker
+        self.engine.place(101, marker[48], source="virtual", team="green")
+        self.engine.start({"flamethrower_burn_duration_s": 3.0})
+        tower = self.engine.placements[101]
+        targeting = self.engine._tower_targeting(tower)
+        enemy = {
+            "id": 8001,
+            "x": tower["x"] + math.cos(targeting["angle"]) * 80,
+            "y": tower["y"] + math.sin(targeting["angle"]) * 80,
+            "hp": 1000.0, "progress": 0.5, "burn_until": 0.0,
+            "burn_damage_per_s": 0.0,
+        }
+        self.engine.enemies = {enemy["id"]: enemy}
+        self.engine._fire_towers(0.1, set())
+        self.assertAlmostEqual(enemy["burn_until"], self.engine.sim_time + 3.0)
+
+        mortar = DefenseEngine(MAP_PATH, WAVES_PATH)
+        mortar.set_virtual_play(True)
+        mortar.place(102, marker[41], source="virtual", team="purple")
+        mortar.start()
+        mortar.set_tower_aim(102, 90, 0.0)
+        near = mortar._tower_targeting(mortar.placements[102])
+        mortar.set_tower_aim(102, 90, 1.0)
+        far = mortar._tower_targeting(mortar.placements[102])
+        self.assertGreater(far["blast_radius"], near["blast_radius"])
+        self.assertLess(far["damage_multiplier"], near["damage_multiplier"])
 
     def test_orcs_advance_attack_center_and_never_exceed_cap(self):
         self.engine.start({
@@ -385,6 +495,9 @@ class LaserTagZSettingsTests(unittest.TestCase):
             second["enemy_speed_multiplier"] = 2.0
             store.update(second)
             self.assertEqual(engine.snapshot()["settings"]["enemy_speed_multiplier"], 0.5)
+            self.assertEqual(store.response()["defaults"]["force_field_hit_capacity"], 50)
+            self.assertEqual(store.response()["defaults"]["defense_unit_health_percent"], 15.0)
+            self.assertEqual(store.response()["defaults"]["flamethrower_burn_duration_s"], 3.0)
 
 
 class LaserTagZDisplayTests(unittest.TestCase):
@@ -419,6 +532,42 @@ class LaserTagZDisplayTests(unittest.TestCase):
         self.assertNotIn("function renderGame", self.game_html)
         self.assertNotIn("function renderGame", self.screen_html)
         self.assertIn("function renderGame", self.renderer_js)
+        self.assertIn("level_revision", self.screen_html)
+        self.assertIn("reloadLevel()", self.screen_html)
+
+    def test_gamemaster_can_drag_and_resize_socket_layout_only_in_setup(self):
+        self.assertIn("Edit turret positions", self.game_html)
+        self.assertIn("/api/defence/layout", self.game_html)
+        self.assertIn("const step=event.shiftKey?8:1", self.game_html)
+        self.assertIn("Math.round(dx/step)*step", self.game_html)
+        self.assertIn("id=\"socketX\"", self.game_html)
+        self.assertIn("id=\"socketY\"", self.game_html)
+        self.assertIn("id=\"socketSize\"", self.game_html)
+        self.assertIn("runtime.state?.phase!=='setup'", self.game_html)
+        self.assertIn('@bp.route("/api/defence/layout", methods=["POST"])', self.prototype_py)
+        self.assertIn('if "gamemaster" not in _roles()', self.prototype_py)
+        self.assertIn('_defence.phase != "setup"', self.prototype_py)
+
+    def test_virtual_atom_click_activation_and_aim_controls_are_role_fixed(self):
+        self.assertIn("const ATOM_ROLES={100:{name:'Machine gun'", self.game_html)
+        self.assertIn("102:{name:'Mortar'", self.game_html)
+        self.assertIn("103:{name:'Reserve / reset'", self.game_html)
+        self.assertIn("data-atom", self.game_html)
+        self.assertIn("data-marker", self.game_html)
+        self.assertIn("handleVirtualCanvasClick", self.game_html)
+        self.assertIn("id=\"aimDirection\"", self.game_html)
+        self.assertIn("id=\"aimReach\"", self.game_html)
+        self.assertIn("/api/defence/aim", self.game_html)
+        self.assertIn('@bp.route("/api/defence/aim", methods=["POST"])', self.prototype_py)
+        self.assertIn("function drawTargetingOverlay", self.renderer_js)
+        self.assertIn("tower.destroyed", self.renderer_js)
+
+    def test_renderer_uses_real_dictionary_correct_aruco_images(self):
+        self.assertIn("/api/defence/aruco/${markerId}.png", self.renderer_js)
+        self.assertIn("markerImages.get", self.renderer_js)
+        self.assertNotIn("strokeText(`#${properties.aruco_id}`", self.renderer_js)
+        self.assertIn("DICT_4X4_50", self.prototype_py)
+        self.assertIn("DICT_4X4_100", self.prototype_py)
 
     def test_arm_overlay_reuses_calibration_and_fails_closed(self):
         self.assertIn('src="camera-arm-overlay.js"', self.game_html)

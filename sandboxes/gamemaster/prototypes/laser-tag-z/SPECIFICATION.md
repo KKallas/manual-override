@@ -63,6 +63,9 @@ modular, editable TMJ/TSJ project and must pass the bundled validator plus a
 native Tiled round-trip and render.
 
 - Sixteen fixed tower sockets use ArUco IDs 40 through 55 exactly once.
+- Every authored socket starts with a 208×208 visual footprint. Its center panel
+  renders the dictionary-correct ArUco code instead of a generic grey plate and
+  text label.
 - Four movable Atom activation units use IDs 100 through 103 exactly once.
 - Green owns units 100 and 101.
 - Purple owns units 102 and 103.
@@ -73,6 +76,15 @@ native Tiled round-trip and render.
 The shared Webcam detector retains its existing DICT_4X4_50 and Atom-screen
 detection. An additive DICT_4X4_100 pass is filtered to IDs 50–55 so the full
 fixed range can be observed without changing the existing camera feed.
+
+Before a run, the authenticated Gamemaster may open **Edit turret positions**,
+drag sockets with pixel precision, hold Shift for an optional 8-pixel
+corner-alignment grid, enter exact center coordinates, and resize the selected
+square from 96 to 320 pixels. Save validates all sixteen stable socket IDs,
+updates their linked force-field hints, writes the TMJ atomically, clears setup
+placements, and reloads both the authoritative engine and connected displays.
+Cancel leaves the published TMJ unchanged. Layout editing never issues an arm
+command.
 
 ## Physical placement and arms
 
@@ -94,15 +106,22 @@ window.
 ## Virtual play
 
 The game page contains a checkbox whose exact label is **Virtual play**. When
-enabled, the Gamemaster selects Atom unit 100–103, picks up a Machine Gun,
-Flamethrower, or Mortar with the mouse, and drops it on a compatible socket.
-Virtual placement uses the same ownership, occupancy, loadout, and activation
-rules as physical play; it does not claim camera evidence and never weakens
-robot safety.
+enabled, the Gamemaster selects an Atom tag in the Camera markers panel and
+then selects a fixed camera marker on the map. Atom 100 always activates a
+Machine Gun, 101 a Flamethrower, and 102 a Mortar. Atom 103 is the reserve
+reset unit: placing it on a destroyed defence unit restores that unit without
+creating a fourth gun. Re-placing a destroyed unit's original Atom tag also
+restores it. Virtual placement uses the same occupancy and activation rules as
+physical play; it does not claim camera evidence and never weakens robot
+safety.
 
-Active placements are linked in activation order. Two or more endpoints form a
-damaging slowing force field, and four endpoints close the ring. Every force
-field endpoint is an active placed tower.
+Force fields are absent during setup. After Start, each newly activated unit
+may link to the previously activated unit when the segment has clean line of
+sight. Any inactive socket whose 208-pixel footprint crosses the segment blocks
+that link. Every field endpoint is an active, living defence unit. Each field
+counts one impact per unique orc, turns the orc back toward an alternate path,
+and breaks after its configured impact capacity. Destroying an endpoint also
+removes its field.
 
 ## Run behavior
 
@@ -110,7 +129,17 @@ The Gamemaster can Start, Pause, Resume, and Reset. Start immediately launches
 wave 1. Orcs spawn from the authored left-side lanes, advance along the path
 graph, and continuously attack the central point after reaching it. Machine
 Guns provide fast single-target damage, Flamethrowers provide short-range area
-damage, and Mortars provide long-range splash damage.
+damage plus a three-second burn, and Mortars provide aimed splash damage. Each
+defence unit starts with health equal to 15 percent of the run's central-point
+integrity by default. Orcs close enough to a unit damage it until it becomes
+inactive and requires an Atom-tag reset.
+
+The Gamemaster may select any active gun and adjust its direction and reach.
+Machine Guns and Flamethrowers interpolate between narrow/long and wide/short
+targeting cones. Mortars use an aimed target circle that grows and loses damage
+intensity as it moves farther away. Fine line overlays show all automatic
+targeting areas, with the selected unit highlighted on the Gamemaster view and
+mirrored on the external display.
 
 The server is authoritative and pushes snapshots with Server-Sent Events. The
 browser renders those snapshots. There are never more than 1,000 living active
@@ -124,8 +153,10 @@ The Gamemaster-only Tower Defense settings page controls:
 - orc release rate and count per wave;
 - active-orc cap, never above 1,000;
 - orc health, movement speed, and central-point attack damage;
-- central-point integrity; and
-- force-field damage and slow factor.
+- central-point integrity;
+- defence-unit health as a percentage of central-point integrity;
+- Machine Gun, Flamethrower direct/burn, and Mortar near/far damage; and
+- force-field impact capacity, impact damage, and turnaround factor.
 
 All fields use finite bounded validation with field-level errors. Balanced,
 Training, and Onslaught presets plus Reset to defaults are available. Start

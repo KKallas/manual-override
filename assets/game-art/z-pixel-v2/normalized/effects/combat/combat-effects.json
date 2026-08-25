@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "purpose": "Generated combat feedback sprites for Laser Tag Z virtual play.",
+  "style": "Top-down industrial sci-fi pixel art with transparent backgrounds.",
+  "assets": [
+    {
+      "file": "machine-gun-impact-v1.png",
+      "use": "Machine-gun muzzle/target impact flash"
+    },
+    {
+      "file": "flame-burn-v1.png",
+      "use": "Flamethrower jet and three-second enemy burn overlay"
+    },
+    {
+      "file": "mortar-impact-v1.png",
+      "use": "Mortar target-circle impact blast"
+    },
+    {
+      "file": "force-field-impact-v1.png",
+      "use": "Force-field contact and break feedback"
+    }
+  ]
+}
