@@ -1,0 +1,367 @@
+{
+  "version": 7,
+  "source_sheets": [
+    "assets/game-art/z-pixel-v2/source-sheets/runtime-effects/turret-layers-source-v1.png",
+    "assets/game-art/z-pixel-v2/source-sheets/runtime-effects/combat-projectiles-source-v1.png",
+    "assets/game-art/z-pixel-v2/source-sheets/runtime-effects/tower-health-effects-source-v1.png",
+    "assets/game-art/z-pixel-v2/source-sheets/runtime-effects/flame-ribbon-source-v2.png",
+    "assets/game-art/z-pixel-v2/source-sheets/runtime-effects/flame-gasoline-source-v3.png",
+    "assets/game-art/z-pixel-v2/source-sheets/runtime-effects/tesla-coil-head-source-v2.png",
+    "assets/game-art/z-pixel-v2/source-sheets/runtime-effects/tower-stress-cracks-source-v1.png",
+    "assets/game-art/z-pixel-v2/source-sheets/runtime-effects/tower-destruction-blast-source-v1.png",
+    "assets/game-art/z-pixel-v2/source-sheets/runtime-effects/tower-debris-source-v1.png"
+  ],
+  "assets": [
+    {
+      "asset_id": "runtime/machine-gun-base",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/runtime/machine-gun-base-v1.png",
+      "category": "runtime_tower_layer",
+      "normalized_size": [
+        320,
+        320
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "rotates": false
+    },
+    {
+      "asset_id": "runtime/machine-gun-head",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/runtime/machine-gun-head-v1.png",
+      "category": "runtime_tower_layer",
+      "normalized_size": [
+        320,
+        320
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "rotates": true
+    },
+    {
+      "asset_id": "runtime/flamethrower-base",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/runtime/flamethrower-base-v1.png",
+      "category": "runtime_tower_layer",
+      "normalized_size": [
+        320,
+        320
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "rotates": false
+    },
+    {
+      "asset_id": "runtime/flamethrower-head",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/runtime/flamethrower-head-v1.png",
+      "category": "runtime_tower_layer",
+      "normalized_size": [
+        320,
+        320
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "rotates": true
+    },
+    {
+      "asset_id": "runtime/mortar-base",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/runtime/mortar-base-v1.png",
+      "category": "runtime_tower_layer",
+      "normalized_size": [
+        320,
+        320
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "rotates": false
+    },
+    {
+      "asset_id": "runtime/mortar-head",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/runtime/mortar-head-v1.png",
+      "category": "runtime_tower_layer",
+      "normalized_size": [
+        320,
+        320
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "rotates": true
+    },
+    {
+      "asset_id": "runtime/tesla-coil-base",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/runtime/tesla-coil-base-v1.png",
+      "category": "runtime_tower_layer",
+      "normalized_size": [
+        320,
+        320
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "rotates": false
+    },
+    {
+      "asset_id": "runtime/tesla-coil-head",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/runtime/tesla-coil-head-v2.png",
+      "category": "runtime_tower_layer",
+      "normalized_size": [
+        320,
+        320
+      ],
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "rotates": false
+    },
+    {
+      "asset_id": "runtime/tower-socket-cover",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/runtime/tower-socket-cover-v1.png",
+      "category": "runtime_socket_cover",
+      "normalized_size": [
+        320,
+        320
+      ],
+      "opaque": true
+    },
+    {
+      "asset_id": "runtime/machine-gun-upgrade-l2",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/upgrades/machine-gun-upgrade-l2-v1.png",
+      "category": "runtime_tower_upgrade_sprite",
+      "normalized_size": [1254, 1254],
+      "placement_footprint": [320, 320],
+      "pivot": [0.5, 0.5],
+      "rotates": false,
+      "tier": 2
+    },
+    {
+      "asset_id": "runtime/machine-gun-upgrade-l3",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/upgrades/machine-gun-upgrade-l3-v1.png",
+      "category": "runtime_tower_upgrade_sprite",
+      "normalized_size": [1254, 1254],
+      "placement_footprint": [320, 320],
+      "pivot": [0.5, 0.5],
+      "rotates": false,
+      "tier": 3
+    },
+    {
+      "asset_id": "runtime/machine-gun-upgrade-l4",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/upgrades/machine-gun-upgrade-l4-v1.png",
+      "category": "runtime_tower_upgrade_sprite",
+      "normalized_size": [1254, 1254],
+      "placement_footprint": [320, 320],
+      "pivot": [0.5, 0.5],
+      "rotates": false,
+      "tier": 4
+    },
+    {
+      "asset_id": "runtime/flamethrower-upgrade-l2",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/upgrades/flamethrower-upgrade-l2-v1.png",
+      "category": "runtime_tower_upgrade_sprite",
+      "normalized_size": [1229, 1280],
+      "placement_footprint": [320, 320],
+      "pivot": [0.5, 0.5],
+      "rotates": false,
+      "tier": 2
+    },
+    {
+      "asset_id": "runtime/flamethrower-upgrade-l3",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/upgrades/flamethrower-upgrade-l3-v1.png",
+      "category": "runtime_tower_upgrade_sprite",
+      "normalized_size": [1150, 1367],
+      "placement_footprint": [320, 320],
+      "pivot": [0.5, 0.5],
+      "rotates": false,
+      "tier": 3
+    },
+    {
+      "asset_id": "runtime/flamethrower-upgrade-l4",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/upgrades/flamethrower-upgrade-l4-v1.png",
+      "category": "runtime_tower_upgrade_sprite",
+      "normalized_size": [1199, 1312],
+      "placement_footprint": [320, 320],
+      "pivot": [0.5, 0.5],
+      "rotates": false,
+      "tier": 4
+    },
+    {
+      "asset_id": "runtime/mortar-upgrade-l2",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/upgrades/mortar-upgrade-l2-v1.png",
+      "category": "runtime_tower_upgrade_sprite",
+      "normalized_size": [1199, 1312],
+      "placement_footprint": [320, 320],
+      "pivot": [0.5, 0.5],
+      "rotates": false,
+      "tier": 2
+    },
+    {
+      "asset_id": "runtime/mortar-upgrade-l3",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/upgrades/mortar-upgrade-l3-v1.png",
+      "category": "runtime_tower_upgrade_sprite",
+      "normalized_size": [1303, 1207],
+      "placement_footprint": [320, 320],
+      "pivot": [0.5, 0.5],
+      "rotates": false,
+      "tier": 3
+    },
+    {
+      "asset_id": "runtime/mortar-upgrade-l4",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/upgrades/mortar-upgrade-l4-v1.png",
+      "category": "runtime_tower_upgrade_sprite",
+      "normalized_size": [1254, 1254],
+      "placement_footprint": [320, 320],
+      "pivot": [0.5, 0.5],
+      "rotates": false,
+      "tier": 4
+    },
+    {
+      "asset_id": "runtime/photon-detonator-upgrade-l2",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/upgrades/photon-detonator-upgrade-l2-v1.png",
+      "category": "runtime_tower_upgrade_sprite",
+      "normalized_size": [1218, 1292],
+      "placement_footprint": [320, 320],
+      "pivot": [0.5, 0.5],
+      "rotates": false,
+      "tier": 2
+    },
+    {
+      "asset_id": "runtime/photon-detonator-upgrade-l3",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/upgrades/photon-detonator-upgrade-l3-v1.png",
+      "category": "runtime_tower_upgrade_sprite",
+      "normalized_size": [1254, 1254],
+      "placement_footprint": [320, 320],
+      "pivot": [0.5, 0.5],
+      "rotates": false,
+      "tier": 3
+    },
+    {
+      "asset_id": "runtime/photon-detonator-upgrade-l4",
+      "file": "assets/game-art/z-pixel-v2/normalized/structures/upgrades/photon-detonator-upgrade-l4-v1.png",
+      "category": "runtime_tower_upgrade_sprite",
+      "normalized_size": [1170, 1344],
+      "placement_footprint": [320, 320],
+      "pivot": [0.5, 0.5],
+      "rotates": false,
+      "tier": 4
+    },
+    {
+      "asset_id": "runtime/machine-gun-bullet",
+      "file": "assets/game-art/z-pixel-v2/normalized/effects/combat/machine-gun-bullet-v1.png",
+      "category": "runtime_effect",
+      "normalized_size": [
+        200,
+        80
+      ],
+      "frames": 1
+    },
+    {
+      "asset_id": "runtime/flame-gasoline",
+      "file": "assets/game-art/z-pixel-v2/normalized/effects/combat/flame-gasoline-v3.png",
+      "category": "runtime_effect",
+      "normalized_size": [
+        384,
+        128
+      ],
+      "frames": 1,
+      "pivot": [
+        0.0,
+        0.5
+      ],
+      "centerline": "alpha_centered"
+    },
+    {
+      "asset_id": "runtime/mortar-shell",
+      "file": "assets/game-art/z-pixel-v2/normalized/effects/combat/mortar-shell-v1.png",
+      "category": "runtime_effect",
+      "normalized_size": [
+        96,
+        144
+      ],
+      "frames": 1
+    },
+    {
+      "asset_id": "runtime/tesla-spark",
+      "file": "assets/game-art/z-pixel-v2/normalized/effects/combat/tesla-spark-v1.png",
+      "category": "runtime_effect",
+      "normalized_size": [
+        180,
+        180
+      ],
+      "frames": 1
+    },
+    {
+      "asset_id": "runtime/tower-smoke",
+      "file": "assets/game-art/z-pixel-v2/normalized/effects/combat/tower-smoke-v1.png",
+      "category": "runtime_effect",
+      "normalized_size": [
+        640,
+        192
+      ],
+      "frames": 4
+    },
+    {
+      "asset_id": "runtime/tower-fire",
+      "file": "assets/game-art/z-pixel-v2/normalized/effects/combat/tower-fire-v1.png",
+      "category": "runtime_effect",
+      "normalized_size": [
+        640,
+        192
+      ],
+      "frames": 4
+    },
+    {
+      "asset_id": "runtime/tower-stress-cracks",
+      "file": "assets/game-art/z-pixel-v2/normalized/effects/combat/tower-stress-cracks-v1.png",
+      "category": "runtime_effect",
+      "normalized_size": [
+        480,
+        160
+      ],
+      "frames": 3
+    },
+    {
+      "asset_id": "runtime/tower-destruction-blast",
+      "file": "assets/game-art/z-pixel-v2/normalized/effects/combat/tower-destruction-blast-v1.png",
+      "category": "runtime_effect",
+      "normalized_size": [
+        768,
+        192
+      ],
+      "frames": 4
+    },
+    {
+      "asset_id": "runtime/tower-debris",
+      "file": "assets/game-art/z-pixel-v2/normalized/effects/combat/tower-debris-v1.png",
+      "category": "runtime_effect",
+      "normalized_size": [
+        384,
+        192
+      ],
+      "frames": 8,
+      "grid": [
+        4,
+        2
+      ]
+    },
+    {
+      "asset_id": "runtime/force-field-zap-skeleton",
+      "file": "assets/game-art/z-pixel-v2/normalized/effects/combat/force-field-zap-skeleton-v1.png",
+      "category": "runtime_effect",
+      "normalized_size": [
+        320,
+        320
+      ],
+      "frames": 1
+    }
+  ]
+}

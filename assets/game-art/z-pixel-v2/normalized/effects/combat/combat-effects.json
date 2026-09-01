@@ -1,23 +1,71 @@
 {
-  "version": 1,
+  "version": 5,
   "purpose": "Generated combat feedback sprites for Laser Tag Z virtual play.",
   "style": "Top-down industrial sci-fi pixel art with transparent backgrounds.",
   "assets": [
     {
       "file": "machine-gun-impact-v1.png",
-      "use": "Machine-gun muzzle/target impact flash"
+      "use": "Machine-gun muzzle and target impact flash"
+    },
+    {
+      "file": "machine-gun-bullet-v1.png",
+      "use": "Repeated directional machine-gun projectile stream"
     },
     {
       "file": "flame-burn-v1.png",
-      "use": "Flamethrower jet and three-second enemy burn overlay"
+      "use": "Enemy burn overlay"
+    },
+    {
+      "file": "flame-jet-v1.png",
+      "use": "Legacy rigid flamethrower jet retained for compatibility"
+    },
+    {
+      "file": "flame-ribbon-v2.png",
+      "use": "Nozzle-free segmented flamethrower ribbon for curved motion"
+    },
+    {
+      "file": "flame-gasoline-v3.png",
+      "use": "Narrow nozzle-free gasoline stream bent along the synchronized flame spline"
+    },
+    {
+      "file": "mortar-shell-v1.png",
+      "use": "Forced-perspective airborne mortar shell"
     },
     {
       "file": "mortar-impact-v1.png",
-      "use": "Mortar target-circle impact blast"
+      "use": "Staggered mortar area explosions"
+    },
+    {
+      "file": "tesla-spark-v1.png",
+      "use": "Tesla chain contact spark"
+    },
+    {
+      "file": "tower-smoke-v1.png",
+      "use": "Four-frame smoke strip below 30 percent tower health"
+    },
+    {
+      "file": "tower-fire-v1.png",
+      "use": "Four-frame fire strip below 10 percent tower health"
+    },
+    {
+      "file": "tower-stress-cracks-v1.png",
+      "use": "Three severity frames below 50, 30, and 10 percent tower health"
+    },
+    {
+      "file": "tower-destruction-blast-v1.png",
+      "use": "Four-frame universal tower destruction blast"
+    },
+    {
+      "file": "tower-debris-v1.png",
+      "use": "Four-by-two universal tower component atlas"
     },
     {
       "file": "force-field-impact-v1.png",
       "use": "Force-field contact and break feedback"
+    },
+    {
+      "file": "force-field-zap-skeleton-v1.png",
+      "use": "Half-second cyan-white skeleton overlay for an orc struck by a force field"
     }
   ]
 }

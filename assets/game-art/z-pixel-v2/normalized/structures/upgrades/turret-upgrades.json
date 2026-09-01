@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "view": "top-down-three-quarter",
+  "placement_footprint": [320, 320],
+  "tier_palette": {
+    "2": ["emerald-green"],
+    "3": ["emerald-green", "cyan-blue"],
+    "4": ["emerald-green", "cyan-blue", "amber-orange"]
+  },
+  "rules": [
+    "Upgrade colors are integrated armored chassis tiers, never rings or detached indicators.",
+    "Each tier has a unique weapon-specific sprite and preserves the L1 horizontal footprint.",
+    "Placement should scale the complete sprite into the shared 320 by 320 footprint without cropping."
+  ],
+  "sprites": [
+    {"unit": "machine-gun", "tier": 2, "file": "machine-gun-upgrade-l2-v1.png", "source_size": [1254, 1254]},
+    {"unit": "machine-gun", "tier": 3, "file": "machine-gun-upgrade-l3-v1.png", "source_size": [1254, 1254]},
+    {"unit": "machine-gun", "tier": 4, "file": "machine-gun-upgrade-l4-v1.png", "source_size": [1254, 1254]},
+    {"unit": "flamethrower", "tier": 2, "file": "flamethrower-upgrade-l2-v1.png", "source_size": [1229, 1280]},
+    {"unit": "flamethrower", "tier": 3, "file": "flamethrower-upgrade-l3-v1.png", "source_size": [1150, 1367]},
+    {"unit": "flamethrower", "tier": 4, "file": "flamethrower-upgrade-l4-v1.png", "source_size": [1199, 1312]},
+    {"unit": "mortar", "tier": 2, "file": "mortar-upgrade-l2-v1.png", "source_size": [1199, 1312]},
+    {"unit": "mortar", "tier": 3, "file": "mortar-upgrade-l3-v1.png", "source_size": [1303, 1207]},
+    {"unit": "mortar", "tier": 4, "file": "mortar-upgrade-l4-v1.png", "source_size": [1254, 1254]},
+    {"unit": "photon-detonator", "tier": 2, "file": "photon-detonator-upgrade-l2-v1.png", "source_size": [1218, 1292]},
+    {"unit": "photon-detonator", "tier": 3, "file": "photon-detonator-upgrade-l3-v1.png", "source_size": [1254, 1254]},
+    {"unit": "photon-detonator", "tier": 4, "file": "photon-detonator-upgrade-l4-v1.png", "source_size": [1170, 1344]}
+  ]
+}

@@ -25,6 +25,34 @@ TILE = 32
 ROAD_STEP = 160
 ROAD_DRAW = 160
 SOCKET_SIZE = 208
+# Optical centers of the light-neutral marker recesses measured on the 320px
+# normalized target sprites. The generated variants do not share one center.
+ARUCO_ANCHORS = {
+    "objectives/target-purple-active": (152.5 / 320, 137.0 / 320),
+    "objectives/target-purple-inactive": (160.0 / 320, 146.0 / 320),
+    "objectives/target-green-active": (156.5 / 320, 135.0 / 320),
+    "objectives/target-green-inactive": (156.0 / 320, 131.5 / 320),
+    "objectives/target-shared-inactive": (157.5 / 320, 128.5 / 320),
+    "objectives/target-shared-active": (149.0 / 320, 140.0 / 320),
+}
+RING_NEIGHBORS = {
+    40: "41,43,44",
+    41: "40,50",
+    42: "43,44",
+    43: "40,42",
+    44: "40,42,45",
+    45: "44,47,54",
+    46: "53,55",
+    47: "45,55",
+    48: "49,50",
+    49: "48,53",
+    50: "41,48,54",
+    51: "",
+    52: "",
+    53: "46,49",
+    54: "45,50",
+    55: "46,47",
+}
 
 
 def write_json(path: Path, value: Any) -> None:
@@ -486,6 +514,7 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
             socket_number += 1
             state = "active" if active_preview else "inactive"
             asset_id = f"objectives/target-{owner}-{state}"
+            aruco_anchor_u, aruco_anchor_v = ARUCO_ANCHORS[asset_id]
             socket = factory.tile_object(
                 socket_id,
                 "TowerSocket",
@@ -496,12 +525,15 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
                 gids[asset_id],
                 props(
                     prop("active_preview", active_preview),
+                    prop("aruco_anchor_u", aruco_anchor_u),
+                    prop("aruco_anchor_v", aruco_anchor_v),
                     prop("aruco_id", aruco_id),
                     prop("asset_id", asset_id),
                     prop("gate_pair_id", pair_id),
                     prop("owner", owner),
                     prop("pair_side", side),
                     prop("resource_favored", owner != "shared"),
+                    prop("ring_neighbors", RING_NEIGHBORS[aruco_id]),
                     prop("socket_id", socket_id),
                     prop("strategic_value", "standard" if owner != "shared" else "support"),
                 ),
@@ -569,6 +601,8 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
 
     # The core retains its compact 144px footprint while the editable physical-
     # tag targets use a larger 208px footprint to fill their road-corner pads.
+    core_asset_id = "objectives/target-shared-active"
+    core_aruco_anchor_u, core_aruco_anchor_v = ARUCO_ANCHORS[core_asset_id]
     mega_tower = [
         factory.tile_object(
             "central_core_square_base",
@@ -577,9 +611,11 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
             480,
             144,
             144,
-            gids["objectives/target-shared-active"],
+            gids[core_asset_id],
             props(
-                prop("asset_id", "objectives/target-shared-active"),
+                prop("asset_id", core_asset_id),
+                prop("aruco_anchor_u", core_aruco_anchor_u),
+                prop("aruco_anchor_v", core_aruco_anchor_v),
                 prop("footprint_px", 144),
                 prop("gameplay_node_ref", node_by_name["mega_tower_entry"]["id"], "object"),
                 prop("objective_role", "central_core"),
@@ -684,7 +720,7 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
                 x,
                 y,
                 props(
-                    prop("allowed_tower_types", "machine_gun,flamethrower,mortar"),
+                    prop("allowed_tower_types", "machine_gun,flamethrower,mortar,tesla_coil"),
                     prop("atom_tag_id", atom_tag_id),
                     prop("owner", owner),
                     prop("staging_zone", "activation_staging_right_grey"),
@@ -733,19 +769,22 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
             prop("active_gate_preview_count", 4),
             prop("activation_unit_count", 4),
             prop("activation_unit_tag_ids", "100,101,102,103"),
+            prop("aruco_code_footprint_px", 77),
             prop("camera_overlay_preserves_video", True),
             prop("core_access_open", True),
             prop("core_access_plaza_px", 256),
             prop("core_arrival_clearance_px", 256),
             prop("core_arrival_lane_count", 2),
+            prop("core_aruco_code_footprint_px", 116),
             prop("core_damage_zone_px", 144),
             prop("core_visual_footprint_px", 144),
             prop("direct_route_count", 2),
             prop("force_field_candidate_count", 8),
             prop("fixed_aruco_max", 55),
             prop("fixed_aruco_min", 40),
+            prop("force_field_marker_clearance_px", 20),
             prop("level_id", "z_pixel_first_map_01"),
-            prop("layout_revision", 1),
+            prop("layout_revision", 10),
             prop("left_mid_passthrough", True),
             prop("max_active_enemies", 1000),
             prop("max_structures", 8),
@@ -781,8 +820,38 @@ def validate_map(
     errors: list[str] = []
     warnings: list[str] = []
     properties = {item["name"]: item["value"] for item in map_data["properties"]}
+    if properties.get("aruco_code_footprint_px") != 77:
+        errors.append("ArUco connection footprint must remain fixed at 77 pixels")
+    if properties.get("core_aruco_code_footprint_px") != 116:
+        errors.append("core ArUco code footprint must remain fixed at 116 pixels")
+    if properties.get("force_field_marker_clearance_px") != 20:
+        errors.append("force-field marker clearance must remain fixed at 20 pixels")
     if len(sockets) != 16:
         errors.append(f"expected 16 sockets, got {len(sockets)}")
+    socket_properties = {
+        int(next(
+            item["value"] for item in socket["properties"]
+            if item["name"] == "aruco_id"
+        )): {
+            item["name"]: item.get("value")
+            for item in socket["properties"]
+        }
+        for socket in sockets
+    }
+    if {
+        marker: properties.get("ring_neighbors")
+        for marker, properties in socket_properties.items()
+    } != RING_NEIGHBORS:
+        errors.append("socket ring_neighbors must match the canonical graph")
+    for properties in socket_properties.values():
+        expected_anchor = ARUCO_ANCHORS.get(properties.get("asset_id"))
+        actual_anchor = (
+            properties.get("aruco_anchor_u"),
+            properties.get("aruco_anchor_v"),
+        )
+        if expected_anchor is None or actual_anchor != expected_anchor:
+            errors.append("socket ArUco anchors must match each target-pad recess")
+            break
     if len(gates) != 8:
         errors.append(f"expected 8 gate candidates, got {len(gates)}")
     if sum(bool(gate["active_preview"]) for gate in gates) != 4:

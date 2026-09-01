@@ -1,0 +1,945 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LTZ Score — Player Progression Mockup</title>
+<style>
+  :root {
+    --void: #05090b;
+    --deck: #0a1114;
+    --panel: #11191d;
+    --panel-2: #182227;
+    --steel: #344148;
+    --steel-dark: #202a2e;
+    --brass: #aa7134;
+    --brass-hi: #e2a94e;
+    --cyan: #39e5ff;
+    --cyan-dim: #177f92;
+    --accent: #46ed84;
+    --accent-rgb: 70, 237, 132;
+    --hot: #ffba42;
+    --danger: #ff6552;
+    --ink: #e6f0e8;
+    --muted: #84938e;
+    --reveal-speed: 900ms;
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--void); }
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    color: var(--ink);
+    background:
+      linear-gradient(rgba(57, 229, 255, .025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(57, 229, 255, .025) 1px, transparent 1px),
+      radial-gradient(circle at 50% -20%, #1a2c30 0, var(--deck) 42%, var(--void) 100%);
+    background-size: 16px 16px, 16px 16px, 100% 100%;
+    font-family: "Courier New", "Cascadia Mono", monospace;
+    image-rendering: pixelated;
+  }
+
+  button, input, select { font: inherit; }
+  button { -webkit-tap-highlight-color: transparent; }
+
+  .screen {
+    position: relative;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  .screen::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+    opacity: .12;
+    background: repeating-linear-gradient(to bottom, transparent 0 3px, #000 3px 4px);
+    mix-blend-mode: multiply;
+  }
+
+  .masthead {
+    position: relative;
+    z-index: 4;
+    display: grid;
+    grid-template-columns: minmax(230px, 1fr) auto;
+    gap: 18px;
+    align-items: center;
+    padding: 14px clamp(14px, 2.8vw, 34px);
+    border-top: 3px solid var(--brass);
+    border-bottom: 3px solid #080b0c;
+    background: linear-gradient(180deg, #1c272b, #0c1316 76%);
+    box-shadow: inset 0 -1px var(--steel), 0 5px 0 rgba(0, 0, 0, .42);
+  }
+
+  .masthead::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -3px;
+    height: 3px;
+    background: repeating-linear-gradient(90deg, var(--brass) 0 20px, #382818 20px 28px);
+  }
+
+  .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+  .brand__mark {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    flex: 0 0 auto;
+    border: 3px solid var(--brass-hi);
+    background: #071014;
+    clip-path: polygon(20% 0, 80% 0, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0 80%, 0 20%);
+    box-shadow: inset 0 0 0 5px #20282a;
+  }
+  .brand__mark::before {
+    content: "Z";
+    position: absolute;
+    inset: 6px;
+    display: grid;
+    place-items: center;
+    color: var(--cyan);
+    border: 2px solid var(--cyan-dim);
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1;
+    text-shadow: 2px 2px #06404b;
+  }
+  .eyebrow {
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .24em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 2px 0 0;
+    font-size: clamp(22px, 3.1vw, 38px);
+    line-height: .94;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    text-shadow: 3px 3px 0 #000;
+  }
+  h1 span { color: var(--brass-hi); }
+
+  .score-bank {
+    display: grid;
+    grid-template-columns: auto minmax(126px, 170px) auto;
+    gap: 8px;
+    align-items: stretch;
+    padding: 6px;
+    border: 2px solid var(--brass);
+    background: #080d0f;
+    box-shadow: inset 0 0 0 2px #263136, 3px 3px 0 #000;
+  }
+  .score-bank__readout {
+    min-width: 135px;
+    padding: 5px 11px;
+    border-right: 1px solid #364246;
+  }
+  .score-bank__label {
+    display: block;
+    color: var(--muted);
+    font-size: 9px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+  .score-bank__value {
+    display: block;
+    margin-top: 2px;
+    color: var(--cyan);
+    font-size: 24px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: .06em;
+    text-shadow: 0 0 10px rgba(57, 229, 255, .45);
+  }
+  #creditInput {
+    width: 100%;
+    min-width: 0;
+    padding: 0 10px;
+    color: var(--ink);
+    border: 2px solid #34464c;
+    border-radius: 0;
+    outline: none;
+    background: #050a0c;
+    font-size: 16px;
+    font-weight: 800;
+  }
+  #creditInput:focus { border-color: var(--cyan); box-shadow: inset 0 0 0 2px #083a44; }
+
+  .metal-button {
+    position: relative;
+    min-height: 36px;
+    padding: 8px 13px;
+    color: var(--ink);
+    border: 2px solid #536168;
+    border-radius: 0;
+    background: linear-gradient(#29353a, #131c20);
+    box-shadow: inset 0 1px #7e8b8e, 2px 2px 0 #000;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+  }
+  .metal-button:hover, .metal-button:focus-visible { color: var(--cyan); border-color: var(--cyan); outline: none; }
+  .metal-button:active { transform: translate(2px, 2px); box-shadow: inset 0 1px #7e8b8e; }
+  .metal-button--accent { color: #06100b; border-color: #96ffb7; background: var(--accent); box-shadow: inset 0 2px rgba(255,255,255,.45), 2px 2px 0 #000; }
+  .metal-button--accent:hover, .metal-button--accent:focus-visible { color: #000; filter: brightness(1.12); }
+  .metal-button--danger { color: #ffd2cb; border-color: #7c3f37; }
+  .metal-button--danger:hover, .metal-button--danger:focus-visible { color: #fff; border-color: var(--danger); }
+
+  .test-rack {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 54px;
+    padding: 8px clamp(14px, 2.8vw, 34px);
+    border-bottom: 2px solid #2e3b40;
+    background: rgba(7, 12, 14, .92);
+    box-shadow: 0 3px 0 #000;
+    overflow-x: auto;
+  }
+  .test-rack__tag {
+    flex: 0 0 auto;
+    padding: 7px 10px;
+    color: #07100a;
+    border-left: 5px solid #17652f;
+    background: var(--accent);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .test-rack__note {
+    flex: 1 1 280px;
+    min-width: 220px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.35;
+    letter-spacing: .04em;
+  }
+  .test-rack__note strong { color: var(--ink); }
+  .test-rack select {
+    min-height: 36px;
+    padding: 0 28px 0 10px;
+    color: var(--ink);
+    border: 2px solid #536168;
+    border-radius: 0;
+    background: #11191d;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  main { position: relative; z-index: 2; padding: 22px clamp(14px, 2.8vw, 34px) 54px; }
+
+  .grid-heading {
+    display: grid;
+    grid-template-columns: 190px repeat(3, minmax(210px, 1fr));
+    gap: 10px;
+    min-width: 900px;
+    margin-bottom: 8px;
+  }
+  .grid-heading__blank { color: var(--muted); font-size: 9px; letter-spacing: .15em; text-transform: uppercase; align-self: end; }
+  .tier-heading {
+    position: relative;
+    padding: 8px 10px 7px;
+    color: var(--brass-hi);
+    border-top: 2px solid var(--brass);
+    border-bottom: 1px solid #344249;
+    background: #10171a;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .17em;
+    text-transform: uppercase;
+  }
+  .tier-heading span { float: right; color: var(--muted); font-size: 9px; }
+
+  .progression-shell { overflow-x: auto; padding-bottom: 10px; }
+  #tracks { min-width: 900px; }
+  .track {
+    display: grid;
+    grid-template-columns: 190px repeat(3, minmax(210px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .track-label {
+    position: relative;
+    min-height: 240px;
+    padding: 16px 13px 14px;
+    overflow: hidden;
+    border: 2px solid var(--brass);
+    background:
+      linear-gradient(135deg, transparent 0 72%, rgba(57,229,255,.06) 72% 74%, transparent 74%),
+      linear-gradient(#1a2428, #0c1215);
+    box-shadow: inset 0 0 0 3px #080b0c, 3px 3px 0 #000;
+  }
+  .track-label::before, .track-label::after {
+    content: "";
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border: 1px solid #000;
+    background: var(--brass-hi);
+    box-shadow: inset 1px 1px #ffe5a0;
+  }
+  .track-label::before { left: 6px; top: 6px; }
+  .track-label::after { right: 6px; bottom: 6px; }
+  .track-label__index { color: var(--cyan-dim); font-size: 10px; font-weight: 900; letter-spacing: .15em; }
+  .track-label h2 { margin: 7px 0 5px; font-size: 18px; line-height: 1; letter-spacing: .08em; text-transform: uppercase; }
+  .track-label__baseline { color: var(--muted); font-size: 9px; line-height: 1.5; letter-spacing: .1em; text-transform: uppercase; }
+  .track-label__baseline strong { display: block; color: var(--ink); font-size: 11px; }
+  .track-label__level {
+    position: absolute;
+    left: 13px;
+    right: 13px;
+    bottom: 16px;
+  }
+  .level-readout { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 7px; color: var(--muted); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+  .level-readout strong { color: var(--accent); font-size: 18px; }
+  .level-pips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
+  .level-pip { height: 8px; border: 1px solid #465359; background: #070b0d; }
+  .level-pip.on { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 7px rgba(var(--accent-rgb), .48); }
+
+  .upgrade-card {
+    position: relative;
+    min-height: 240px;
+    overflow: hidden;
+    border: 2px solid #45535a;
+    background: #0d1417;
+    box-shadow: inset 0 0 0 3px #06090a, 3px 3px 0 #000;
+    clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+    transition: border-color 160ms, filter 160ms;
+  }
+  .upgrade-card::before {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    z-index: 0;
+    pointer-events: none;
+    border: 1px solid rgba(255,255,255,.04);
+    background: repeating-linear-gradient(135deg, transparent 0 16px, rgba(255,255,255,.015) 16px 18px);
+  }
+  .upgrade-card.available { border-color: var(--hot); box-shadow: inset 0 0 0 3px #06090a, 0 0 12px rgba(255,186,66,.22), 3px 3px 0 #000; }
+  .upgrade-card.unlocked { border-color: var(--accent); background: linear-gradient(#122026, #0b1416); }
+  .upgrade-card.sealed { filter: saturate(.55) brightness(.78); }
+  .upgrade-card.insufficient { animation: card-shake 300ms steps(4); border-color: var(--danger); }
+  .upgrade-card.level-4 { border-color: #647780; }
+  .upgrade-card.level-4.unlocked {
+    border-color: var(--cyan);
+    box-shadow: inset 0 0 0 3px #06090a, 0 0 15px rgba(57,229,255,.28), 3px 3px 0 #000;
+  }
+  @keyframes card-shake { 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
+
+  .card-topline {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 11px 6px;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+  }
+  .card-topline__state { color: var(--hot); }
+  .unlocked .card-topline__state { color: var(--accent); }
+  .sealed .card-topline__state { color: #667076; }
+
+  .card-visual {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    height: 112px;
+    margin: 0 9px;
+    overflow: hidden;
+    border-top: 1px solid #334249;
+    border-bottom: 1px solid #263237;
+    background:
+      radial-gradient(circle, rgba(57,229,255,.12), transparent 58%),
+      repeating-linear-gradient(0deg, transparent 0 11px, rgba(57,229,255,.035) 11px 12px),
+      #070c0e;
+  }
+  .card-visual::after {
+    content: "";
+    position: absolute;
+    inset: 7px;
+    z-index: 1;
+    pointer-events: none;
+    border: 1px solid rgba(57,229,255,.11);
+    clip-path: polygon(0 0, 20% 0, 20% 1px, 80% 1px, 80% 0, 100% 0, 100% 25%, calc(100% - 1px) 25%, calc(100% - 1px) 75%, 100% 75%, 100% 100%, 80% 100%, 80% calc(100% - 1px), 20% calc(100% - 1px), 20% 100%, 0 100%, 0 75%, 1px 75%, 1px 25%, 0 25%);
+  }
+  .upgrade-sprite {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 104px;
+    height: 104px;
+    object-fit: contain;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 4px 2px #000) drop-shadow(0 0 4px rgba(57,229,255,.22));
+    transition: transform 220ms;
+  }
+  .upgrade-card:hover .upgrade-sprite { transform: translateY(-2px) scale(1.04); }
+  .control .upgrade-sprite { width: 105px; height: 105px; }
+  .damage .weapon-stage {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 132px;
+    height: 132px;
+    transition: transform 220ms;
+  }
+  .damage .card-visual { height: 132px; }
+  .damage .weapon-stage .upgrade-sprite {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    transform: none;
+  }
+  .damage:hover .weapon-stage { transform: translateY(-2px) scale(1.035); }
+  .damage:hover .weapon-stage .upgrade-sprite { transform: none; }
+  .forcefield .upgrade-sprite { width: 138px; height: 108px; transform: scaleX(var(--field-width, .9)); filter: drop-shadow(0 0 var(--field-glow, 6px) var(--cyan)); }
+  .forcefield:hover .upgrade-sprite { transform: scaleX(calc(var(--field-width, .9) + .04)) translateY(-2px); }
+  .field-lattice {
+    position: absolute;
+    z-index: 2;
+    /* The visible barrier is offset inside the source PNG; follow its optical
+       center instead of the transparent 320px canvas center. */
+    left: calc(50% + 15px);
+    top: calc(50% - 2px);
+    width: 28px;
+    height: 72px;
+    pointer-events: none;
+    opacity: .92;
+    background: repeating-linear-gradient(135deg, transparent 0 7px, rgba(190,250,255,.92) 7px 9px, rgba(57,229,255,.22) 9px 11px, transparent 11px 16px);
+    border-left: 1px solid rgba(57,229,255,.48);
+    border-right: 1px solid rgba(57,229,255,.48);
+    transform: translate(-50%, -50%) scaleX(var(--field-width, 1));
+    filter: drop-shadow(0 0 3px var(--cyan)) drop-shadow(0 0 6px rgba(57,229,255,.6));
+    mix-blend-mode: screen;
+    animation: lattice-flow 1.1s steps(4) infinite;
+  }
+  @keyframes lattice-flow { to { background-position: 16px 0; } }
+  .level-4 .card-visual {
+    background:
+      radial-gradient(circle, rgba(57,229,255,.25), transparent 48%),
+      repeating-linear-gradient(0deg, transparent 0 7px, rgba(57,229,255,.07) 7px 8px),
+      #061116;
+  }
+  .level-4.damage .weapon-stage .upgrade-sprite {
+    filter: drop-shadow(0 5px 2px #000) drop-shadow(0 0 9px var(--cyan)) saturate(1.22) brightness(1.12);
+  }
+  .level-4.forcefield .upgrade-sprite { filter: drop-shadow(0 0 16px var(--cyan)) drop-shadow(0 0 7px #d5ff4b); }
+
+  .card-copy { position: relative; z-index: 2; padding: 9px 11px 48px; }
+  .card-copy h3 { margin: 0; color: var(--ink); font-size: 13px; line-height: 1.05; letter-spacing: .06em; text-transform: uppercase; }
+  .card-copy p { margin: 4px 0 0; color: var(--muted); font-size: 9px; line-height: 1.25; letter-spacing: .025em; }
+
+  .buy-button {
+    position: absolute;
+    z-index: 15;
+    left: 9px;
+    right: 9px;
+    bottom: 9px;
+    min-height: 32px;
+    padding: 6px 8px;
+    color: #160f04;
+    border: 2px solid #ffe0a0;
+    border-radius: 0;
+    background: var(--hot);
+    box-shadow: inset 0 2px rgba(255,255,255,.44), 2px 2px 0 #000;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+  }
+  .buy-button:hover, .buy-button:focus-visible { filter: brightness(1.13); outline: 2px solid var(--cyan); outline-offset: 1px; }
+  .buy-button:active { transform: translate(2px, 2px); box-shadow: inset 0 2px rgba(255,255,255,.44); }
+  .buy-button[disabled] { color: #738079; border-color: #354148; background: #161f22; box-shadow: none; cursor: default; filter: none; }
+  .unlocked .buy-button[disabled] { color: var(--accent); border-color: rgba(var(--accent-rgb), .42); background: #0d1c15; }
+  .cost { color: #281700; }
+
+  .shutters {
+    position: absolute;
+    z-index: 10;
+    left: 8px;
+    right: 8px;
+    top: 38px;
+    height: 112px;
+    pointer-events: none;
+    filter: drop-shadow(0 4px 3px #000);
+    isolation: isolate;
+  }
+  .shutter-half {
+    position: absolute;
+    top: 0;
+    width: 50.5%;
+    height: 100%;
+    border: 2px solid var(--brass);
+    background:
+      linear-gradient(90deg, transparent 0 91%, rgba(57,229,255,.23) 91% 93%, transparent 93%),
+      repeating-linear-gradient(0deg, #131b1f 0 12px, #0b1114 12px 15px),
+      #0e1518;
+    box-shadow: inset 0 0 0 3px #050809, inset 0 0 0 5px #313c40;
+  }
+  .shutter-half::before,
+  .shutter-half::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    height: 5px;
+    border: 1px solid #181006;
+    background: var(--brass);
+    box-shadow: inset 0 1px var(--brass-hi);
+  }
+  .shutter-half::before { top: 8px; }
+  .shutter-half::after { bottom: 8px; }
+  .shutter-half--left { left: 0; border-right-color: #5c8b94; }
+  .shutter-half--right { right: 0; border-left-color: #5c8b94; transform: scaleX(-1); }
+  .shutter-lock {
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    top: 50%;
+    width: min(58%, 220px);
+    height: auto;
+    aspect-ratio: 2 / 1;
+    object-fit: contain;
+    image-rendering: pixelated;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 4px 3px #000) drop-shadow(0 0 4px rgba(57,229,255,.3));
+  }
+  .available .shutters { animation: lock-ready 880ms steps(2) infinite; }
+  @keyframes lock-ready { 50% { filter: drop-shadow(0 0 6px var(--hot)) brightness(1.06); } }
+  .revealing .shutter-half--left { animation: shutter-left var(--reveal-speed) cubic-bezier(.2,.75,.2,1) forwards; }
+  .revealing .shutter-half--right { animation: shutter-right var(--reveal-speed) cubic-bezier(.2,.75,.2,1) forwards; }
+  .revealing .shutter-lock { animation: lock-eject var(--reveal-speed) cubic-bezier(.2,.75,.2,1) forwards; }
+  @keyframes shutter-left { 0%, 18% { transform: translateX(0); } 36% { transform: translateX(-7%) rotate(-1deg); } 100% { transform: translateX(-128%) rotate(-4deg); opacity: 0; } }
+  @keyframes shutter-right { 0%, 18% { transform: scaleX(-1) translateX(0); } 36% { transform: scaleX(-1) translateX(-7%) rotate(-1deg); } 100% { transform: scaleX(-1) translateX(-128%) rotate(-4deg); opacity: 0; } }
+  @keyframes lock-eject { 0%, 18% { transform: translate(-50%, -50%) scale(1); } 36% { transform: translate(-50%, -50%) scale(1.12); } 100% { transform: translate(-50%, -145%) scale(.7) rotate(6deg); opacity: 0; } }
+
+  .reveal-flash {
+    position: absolute;
+    z-index: 12;
+    inset: 35px 6px auto;
+    height: 118px;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(circle, #fff 0, var(--cyan) 9%, rgba(57,229,255,.28) 26%, transparent 67%);
+  }
+  .revealing .reveal-flash { animation: reveal-flash var(--reveal-speed) steps(5); }
+  @keyframes reveal-flash { 0%, 25% { opacity: 0; transform: scale(.1); } 36% { opacity: 1; transform: scale(.9); } 62% { opacity: .4; } 100% { opacity: 0; transform: scale(1.55); } }
+
+  .spark {
+    position: absolute;
+    z-index: 14;
+    left: 50%;
+    top: 86px;
+    width: 5px;
+    height: 5px;
+    opacity: 0;
+    background: var(--cyan);
+    box-shadow: 0 0 5px var(--cyan);
+  }
+  .revealing .spark { animation: spark-flight var(--reveal-speed) steps(5); }
+  .spark.s1 { --dx: -94px; --dy: -53px; animation-delay: 40ms; }
+  .spark.s2 { --dx: 88px; --dy: -38px; animation-delay: 90ms; }
+  .spark.s3 { --dx: -75px; --dy: 61px; animation-delay: 130ms; background: var(--hot); }
+  .spark.s4 { --dx: 93px; --dy: 53px; animation-delay: 170ms; background: var(--hot); }
+  @keyframes spark-flight { 30% { opacity: 1; transform: translate(0,0) scale(1.8); } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.3); } }
+
+  #toast {
+    position: fixed;
+    z-index: 80;
+    left: 50%;
+    bottom: 22px;
+    max-width: min(520px, calc(100vw - 24px));
+    padding: 10px 16px;
+    color: #07100a;
+    border: 2px solid #d5ffe2;
+    background: var(--accent);
+    box-shadow: 4px 4px 0 #000;
+    transform: translate(-50%, 160%);
+    transition: transform 180ms steps(3);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+  #toast.show { transform: translate(-50%, 0); }
+  #toast.error { color: #fff; border-color: #ffc8c0; background: var(--danger); }
+
+  @media (max-width: 900px) {
+    .masthead { grid-template-columns: 1fr; }
+    .score-bank { grid-template-columns: minmax(115px, .8fr) minmax(110px, 1fr) auto; }
+  }
+  @media (max-width: 560px) {
+    .masthead { padding: 12px; }
+    .score-bank { grid-template-columns: 1fr 1fr; }
+    .score-bank__readout { min-width: 0; border-right: 0; }
+    .score-bank .metal-button { grid-column: span 2; }
+    .test-rack { padding-inline: 12px; }
+    main { padding-inline: 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :root { --reveal-speed: 1ms; }
+    *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+  <header class="masthead">
+    <div class="brand">
+      <div class="brand__mark" aria-hidden="true"></div>
+      <div>
+        <div class="eyebrow">Laser Tag Z · Player Upgrade Console</div>
+        <h1>LTZ <span>Score</span></h1>
+      </div>
+    </div>
+    <div class="score-bank" aria-label="Test credit controls">
+      <div class="score-bank__readout">
+        <span class="score-bank__label">Available credit</span>
+        <output class="score-bank__value" id="scoreValue">0</output>
+      </div>
+      <label>
+        <span class="score-bank__label">Enter test credit</span>
+        <input id="creditInput" type="number" inputmode="numeric" min="0" max="99999999" step="100" value="5000" aria-label="Test credit amount" />
+      </label>
+      <button class="metal-button metal-button--accent" id="applyCredit" type="button">Load Credit</button>
+    </div>
+  </header>
+
+  <section class="test-rack" aria-label="Mockup test controls">
+    <span class="test-rack__tag">Visual mockup · Local state</span>
+    <span class="test-rack__note"><strong>1 orc = 1 credit.</strong> Weapon-unit upgrades cost 250 / 500 / 750 and increase damage plus health. Control and Force Field cost 1,000 / 2,000 / 3,000. Reset keeps the entered credit.</span>
+    <button class="metal-button" id="add250" type="button">+ 250</button>
+    <label>
+      <span class="score-bank__label">Reveal speed</span>
+      <select id="speedSelect" aria-label="Reveal animation speed">
+        <option value="1300">Slow</option>
+        <option value="900" selected>Normal</option>
+        <option value="560">Fast</option>
+      </select>
+    </label>
+    <button class="metal-button metal-button--danger" id="resetLevels" type="button">Reset to Level 1</button>
+  </section>
+
+  <main>
+    <div class="progression-shell">
+      <div class="grid-heading" aria-hidden="true">
+        <div class="grid-heading__blank">Independent upgrade tracks</div>
+        <div class="tier-heading">Level 2 <span>250 · SYS 1,000</span></div>
+        <div class="tier-heading">Level 3 <span>500 · SYS 2,000</span></div>
+        <div class="tier-heading">Level 4 <span>750 · SYS 3,000</span></div>
+      </div>
+      <div id="tracks"></div>
+    </div>
+  </main>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const STANDARD_COSTS = { 2: 250, 3: 500, 4: 750 };
+  const SYSTEM_COSTS = { 2: 1000, 3: 2000, 4: 3000 };
+  const TRACKS = [
+    {
+      id: "control",
+      label: "Control System",
+      baseline: "Joint-angle control",
+      baselineDetail: "Direct shoulder / elbow / wrist input",
+      upgrades: [
+        { level: 2, name: "Cartesian XYZ", detail: "Move through X / Y / Z coordinates", sprite: "assets/control-xyz-v1.png" },
+        { level: 3, name: "Image Targeting", detail: "Click the camera image to place the arm", sprite: "assets/control-click-v1.png" },
+        { level: 4, name: "Cue Autonomy", detail: "Robot follows gameplay cues automatically", sprite: "assets/control-cue-v1.png" },
+      ],
+    },
+    {
+      id: "damage-machine-gun",
+      kind: "damage",
+      weapon: "machine-gun",
+      label: "Machine Gun",
+      baseline: "Ballistic drive Mk I",
+      baselineDetail: "Independent machine-gun damage · 100% unit health",
+      upgrades: [
+        { level: 2, name: "Hot Feed", detail: "+10% MG damage · +10% unit health" },
+        { level: 3, name: "Twin Actuator", detail: "+20% MG damage · +20% unit health" },
+        { level: 4, name: "Storm Driver", detail: "+30% MG damage · +30% unit health" },
+      ],
+    },
+    {
+      id: "damage-flamethrower",
+      kind: "damage",
+      weapon: "flamethrower",
+      label: "Flamethrower",
+      baseline: "Fuel system Mk I",
+      baselineDetail: "Independent flame damage · 100% unit health",
+      upgrades: [
+        { level: 2, name: "Hotter Mix", detail: "+10% flame damage · +10% unit health" },
+        { level: 3, name: "Pressure Chamber", detail: "+20% flame damage · +20% unit health" },
+        { level: 4, name: "Inferno Manifold", detail: "+30% flame damage · +30% unit health" },
+      ],
+    },
+    {
+      id: "damage-mortar",
+      kind: "damage",
+      weapon: "mortar",
+      label: "Mortar",
+      baseline: "Siege loader Mk I",
+      baselineDetail: "Independent explosive damage · 100% unit health",
+      upgrades: [
+        { level: 2, name: "Packed Shell", detail: "+10% mortar damage · +10% unit health" },
+        { level: 3, name: "Twin Loader", detail: "+20% mortar damage · +20% unit health" },
+        { level: 4, name: "Siege Breech", detail: "+30% mortar damage · +30% unit health" },
+      ],
+    },
+    {
+      id: "damage-photon",
+      kind: "damage",
+      weapon: "photon-detonator",
+      label: "Photon Detonator",
+      baseline: "Photon lens Mk I",
+      baselineDetail: "Independent energy damage · 100% unit health",
+      upgrades: [
+        { level: 2, name: "Focused Lens", detail: "+10% photon damage · +10% unit health" },
+        { level: 3, name: "Dual Capacitor", detail: "+20% photon damage · +20% unit health" },
+        { level: 4, name: "Singularity Core", detail: "+30% photon damage · +30% unit health" },
+      ],
+    },
+    {
+      id: "forcefield",
+      label: "Force Field",
+      baseline: "Barrier emitter Mk I",
+      baselineDetail: "100% barrier health · 8 px field width",
+      upgrades: [
+        { level: 2, name: "Expanded Arc", detail: "+20% field health · 9.5 px width", sprite: "art/effects/force-wall-stable.png", width: .82 },
+        { level: 3, name: "Dual-Layer Field", detail: "+40% field health · 11 px width", sprite: "art/effects/force-wall-stable.png", width: 1.02 },
+        { level: 4, name: "Bastion Barrier", detail: "+60% field health · 12.5 px width", sprite: "art/effects/force-wall-coop.png", width: 1.2 },
+      ],
+    },
+  ];
+
+  const team = location.pathname.includes("/purple/") ? "purple" : "green";
+  if (team === "purple") {
+    document.documentElement.style.setProperty("--accent", "#b86bff");
+    document.documentElement.style.setProperty("--accent-rgb", "184, 107, 255");
+  }
+
+  const storageKey = `ltz-score-mockup:${team}:v2`;
+  const legacyStorageKey = `ltz-score-mockup:${team}:v1`;
+  const freshLevels = () => Object.fromEntries(TRACKS.map(track => [track.id, 1]));
+  const defaultState = () => ({
+    credits: 0,
+    levels: freshLevels(),
+    speed: 900,
+  });
+
+  function loadState() {
+    const fallback = defaultState();
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || localStorage.getItem(legacyStorageKey));
+      if (!saved || typeof saved !== "object") return fallback;
+      fallback.credits = clampNumber(saved.credits, 0, 99999999);
+      for (const track of TRACKS) {
+        const legacyDamageLevel = track.kind === "damage" ? saved.levels?.damage : undefined;
+        fallback.levels[track.id] = clampNumber(saved.levels?.[track.id] ?? legacyDamageLevel, 1, 4);
+      }
+      if ([560, 900, 1300].includes(Number(saved.speed))) fallback.speed = Number(saved.speed);
+    } catch (_) {}
+    return fallback;
+  }
+
+  function clampNumber(value, min, max) {
+    const number = Math.round(Number(value));
+    return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : min;
+  }
+
+  let state = loadState();
+  let revealing = null;
+  let toastTimer = 0;
+  const tracksEl = document.getElementById("tracks");
+  const scoreValue = document.getElementById("scoreValue");
+  const creditInput = document.getElementById("creditInput");
+  const speedSelect = document.getElementById("speedSelect");
+  const toast = document.getElementById("toast");
+
+  function save() {
+    try { localStorage.setItem(storageKey, JSON.stringify(state)); } catch (_) {}
+  }
+
+  function unitSprite(unit, level) {
+    return `art/structures/upgrades/${unit}-upgrade-l${level}-v1.png`;
+  }
+
+  function stateFor(trackId, targetLevel) {
+    const current = state.levels[trackId];
+    if (current >= targetLevel) return "unlocked";
+    if (current + 1 === targetLevel) return "available";
+    return "sealed";
+  }
+
+  function upgradeCost(trackId, level) {
+    const costs = trackId === "control" || trackId === "forcefield" ? SYSTEM_COSTS : STANDARD_COSTS;
+    return costs[level];
+  }
+
+  function render() {
+    document.documentElement.style.setProperty("--reveal-speed", `${state.speed}ms`);
+    scoreValue.value = state.credits.toLocaleString("en-US");
+    scoreValue.textContent = scoreValue.value;
+    speedSelect.value = String(state.speed);
+
+    tracksEl.innerHTML = TRACKS.map((track, trackIndex) => {
+      const current = state.levels[track.id];
+      const pips = [1, 2, 3, 4].map(level => `<span class="level-pip ${level <= current ? "on" : ""}"></span>`).join("");
+      const cards = track.upgrades.map(upgrade => cardMarkup(track, upgrade)).join("");
+      return `
+        <section class="track" aria-labelledby="track-${track.id}">
+          <header class="track-label">
+            <div class="track-label__index">SYS / 0${trackIndex + 1}</div>
+            <h2 id="track-${track.id}">${track.label}</h2>
+            <div class="track-label__baseline"><strong>Level 1 · ${track.baseline}</strong>${track.baselineDetail}</div>
+            <div class="track-label__level">
+              <div class="level-readout"><span>Installed tier</span><strong>L${current}</strong></div>
+              <div class="level-pips" aria-hidden="true">${pips}</div>
+            </div>
+          </header>
+          ${cards}
+        </section>`;
+    }).join("");
+
+    tracksEl.querySelectorAll(".buy-button[data-track]").forEach(button => {
+      button.addEventListener("click", () => purchase(button.dataset.track, Number(button.dataset.level)));
+    });
+  }
+
+  function cardMarkup(track, upgrade) {
+    const kind = track.kind || track.id;
+    const cardState = stateFor(track.id, upgrade.level);
+    const isRevealing = revealing === `${track.id}:${upgrade.level}`;
+    const cost = upgradeCost(track.id, upgrade.level);
+    let sprite = upgrade.sprite;
+    if (kind === "damage") sprite = unitSprite(track.weapon, upgrade.level);
+    const canBuy = cardState === "available";
+    const buttonLabel = cardState === "unlocked"
+      ? "Installed"
+      : cardState === "sealed"
+        ? `Requires Level ${upgrade.level - 1}`
+        : `Unlock · ${cost.toLocaleString("en-US")}`;
+    const stateLabel = cardState === "unlocked" ? "Online" : cardState === "available" ? "Ready" : "Path locked";
+    const visualStyle = kind === "forcefield"
+      ? `--field-width:${upgrade.width};--field-glow:${4 + upgrade.level * 2}px`
+      : "";
+    const spriteMarkup = kind === "damage"
+      ? `<span class="weapon-stage"><img class="upgrade-sprite" src="${sprite}" alt="" draggable="false" /></span>`
+      : `<img class="upgrade-sprite" src="${sprite}" alt="" draggable="false" />`;
+    const fieldLattice = kind === "forcefield" && upgrade.level === 3
+      ? `<span class="field-lattice" aria-hidden="true"></span>`
+      : "";
+    const weaponClass = track.weapon ? `weapon-${track.weapon}` : "";
+    const shutters = cardState !== "unlocked" || isRevealing
+      ? `<div class="shutters" aria-hidden="true"><i class="shutter-half shutter-half--left"></i><i class="shutter-half shutter-half--right"></i><img class="shutter-lock" src="assets/upgrade-lock-shutter-v1.png" alt="" /></div>`
+      : "";
+
+    return `
+      <article class="upgrade-card ${kind} ${weaponClass} level-${upgrade.level} ${cardState} ${isRevealing ? "revealing" : ""}" data-card="${track.id}:${upgrade.level}" style="${visualStyle}">
+        <div class="card-topline"><span>${track.label} · L${upgrade.level}</span><span class="card-topline__state">${stateLabel}</span></div>
+        <div class="card-visual">
+          ${spriteMarkup}
+          ${fieldLattice}
+        </div>
+        <div class="card-copy"><h3>${upgrade.name}</h3><p>${upgrade.detail}</p></div>
+        ${shutters}
+        <div class="reveal-flash" aria-hidden="true"></div>
+        <i class="spark s1" aria-hidden="true"></i><i class="spark s2" aria-hidden="true"></i><i class="spark s3" aria-hidden="true"></i><i class="spark s4" aria-hidden="true"></i>
+        <button class="buy-button" type="button" data-track="${track.id}" data-level="${upgrade.level}" ${canBuy ? "" : "disabled"} aria-label="${buttonLabel}: ${upgrade.name}">${buttonLabel}</button>
+      </article>`;
+  }
+
+  function purchase(trackId, level) {
+    if (revealing || stateFor(trackId, level) !== "available") return;
+    const cost = upgradeCost(trackId, level);
+    if (state.credits < cost) {
+      const card = tracksEl.querySelector(`[data-card="${trackId}:${level}"]`);
+      card?.classList.remove("insufficient");
+      void card?.offsetWidth;
+      card?.classList.add("insufficient");
+      showToast(`Need ${(cost - state.credits).toLocaleString("en-US")} more credit`, true);
+      return;
+    }
+    state.credits -= cost;
+    state.levels[trackId] = level;
+    revealing = `${trackId}:${level}`;
+    save();
+    render();
+    const track = TRACKS.find(item => item.id === trackId);
+    const upgrade = track.upgrades.find(item => item.level === level);
+    showToast(`${upgrade.name} installed · Level ${level}`);
+    window.setTimeout(() => {
+      revealing = null;
+      render();
+    }, state.speed + 120);
+  }
+
+  function setCredits(value) {
+    state.credits = clampNumber(value, 0, 99999999);
+    creditInput.value = state.credits;
+    save();
+    render();
+    showToast(`${state.credits.toLocaleString("en-US")} test credit loaded`);
+  }
+
+  function showToast(message, error = false) {
+    window.clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.classList.toggle("error", error);
+    toast.classList.add("show");
+    toastTimer = window.setTimeout(() => toast.classList.remove("show"), 1800);
+  }
+
+  document.getElementById("applyCredit").addEventListener("click", () => setCredits(creditInput.value));
+  creditInput.addEventListener("keydown", event => {
+    if (event.key === "Enter") setCredits(creditInput.value);
+  });
+  document.getElementById("add250").addEventListener("click", () => setCredits(state.credits + 250));
+  document.getElementById("resetLevels").addEventListener("click", () => {
+    state.levels = freshLevels();
+    revealing = null;
+    save();
+    render();
+    showToast("All tracks reset to Level 1 · credit retained");
+  });
+  speedSelect.addEventListener("change", () => {
+    state.speed = Number(speedSelect.value);
+    save();
+    render();
+  });
+
+  creditInput.value = state.credits || 5000;
+  render();
+})();
+</script>
+</body>
+</html>

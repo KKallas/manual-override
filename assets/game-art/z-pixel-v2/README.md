@@ -43,6 +43,35 @@ surrounding collar communicates state.
 Columns are machine gun, flamethrower, mortar, and photon detonator. Rows are
 dormant, active level 1, upgraded level 5, and damaged.
 
+## Runtime weapon animation pack
+
+The game-facing layered turrets and combat effects live outside the original
+60-sprite modular pass so existing map references remain stable. The runtime
+pack adds independently rotated bases and weapon heads for machine gun,
+flamethrower, mortar, and Tesla coil; a compact opaque socket cover; bullet, flame,
+mortar-shell, and Tesla-spark sprites; plus four-frame smoke and fire strips. It
+also includes a three-stage stress-crack overlay, a universal four-frame tower
+destruction blast, and eight forced-perspective debris components.
+Force-field contacts also use a transparent cyan-white orc skeleton overlay
+that follows the struck enemy and fades over half a second.
+The active flamethrower uses the transparent, nozzle-free
+`flame-gasoline-v3.png` source in eighteen narrow renderer slices so delayed
+angles can bend the gasoline-like jet naturally.
+The Tesla head uses the reference-inspired overhead `tesla-coil-head-v2.png`:
+a polished terminal sphere inside concentric chrome toroids, copper windings,
+and restrained cyan-violet emitters. Runtime Canvas effects animate its charge;
+the source sprite intentionally contains no baked lightning.
+
+Source sheets are preserved under `source-sheets/runtime-effects/`. Rebuild the
+normalized sprites and their `runtime-weapons.json` manifest with:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 <bundled-python> tools/build_runtime_weapon_assets.py
+```
+
+The Tesla coil also contributes four state tiles (IDs 16–19) to
+`z-pixel-v2-towers.tsj`, without changing the IDs of the original 16 towers.
+
 ## Road metadata
 
 The Tiled road tileset records visually verified `ports`, `port_profile`, a

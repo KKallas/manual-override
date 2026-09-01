@@ -573,8 +573,8 @@ def tower_defence_layout():
 
 def _aruco_marker_png(marker_id):
     marker_id = int(marker_id)
-    if not 40 <= marker_id <= 55:
-        raise ValueError("fixed ArUco marker must be between 40 and 55")
+    if marker_id != 38 and not 40 <= marker_id <= 55:
+        raise ValueError("fixed ArUco marker must be 38 or between 40 and 55")
     cached = _aruco_marker_cache.get(marker_id)
     if cached is not None:
         return cached
@@ -635,7 +635,9 @@ def tower_defence_state():
 
 @bp.route("/api/defence/events")
 def tower_defence_events():
-    return _defence_live.stream(_defence.snapshot, interval=0.1)
+    return _defence_live.stream(
+        lambda: _defence.snapshot(compact_enemies=True), interval=0.25
+    )
 
 
 @bp.route("/api/defence/operator", methods=["POST"])
@@ -717,6 +719,22 @@ def tower_defence_placement():
     return jsonify({"ok": True, "state": _defence.snapshot()})
 
 
+@bp.route("/api/defence/core-placement", methods=["POST"])
+def tower_defence_core_placement():
+    if "gamemaster" not in _roles():
+        return jsonify({"ok": False, "error": "gamemaster required"}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        _defence.activate_core_tag(
+            int(data["atom_tag_id"]), source="virtual", team=data.get("team")
+        )
+    except KeyError:
+        return jsonify({"ok": False, "error": "atom_tag_id required"}), 400
+    except (PermissionError, TypeError, ValueError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return jsonify({"ok": True, "state": _defence.snapshot()})
+
+
 @bp.route("/api/defence/loadout", methods=["POST"])
 def tower_defence_loadout():
     if "gamemaster" not in _roles():
@@ -738,16 +756,17 @@ def tower_defence_aim():
         return jsonify({"ok": False, "error": "gamemaster required"}), 403
     data = request.get_json(silent=True) or {}
     try:
-        _defence.set_tower_aim(
+        tower = _defence.set_tower_aim(
             int(data["atom_tag_id"]),
             float(data["angle_degrees"]),
             float(data["spread"]),
+            socket_id=data.get("socket_id"),
         )
     except KeyError:
         return jsonify({"ok": False, "error": "atom_tag_id, angle_degrees, and spread required"}), 400
     except (TypeError, ValueError) as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
-    return jsonify({"ok": True, "state": _defence.snapshot()})
+    return jsonify({"ok": True, "tower": tower})
 
 
 @bp.route("/api/state")

@@ -4748,7 +4748,7 @@
           "width": 6,
           "x": 1520,
           "y": 317,
-          "gid": 57,
+          "gid": 61,
           "properties": [
             {
               "name": "asset_id",
@@ -4792,7 +4792,7 @@
           "width": 6,
           "x": 1520,
           "y": 797,
-          "gid": 57,
+          "gid": 61,
           "properties": [
             {
               "name": "asset_id",
@@ -8213,6 +8213,16 @@
               "value": 40
             },
             {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4765625
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.428125
+            },
+            {
               "name": "asset_id",
               "type": "string",
               "value": "objectives/target-purple-active"
@@ -8243,6 +8253,11 @@
               "value": "socket_01"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "41,43,44"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "standard"
@@ -8270,6 +8285,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 41
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4765625
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.428125
             },
             {
               "name": "asset_id",
@@ -8302,6 +8327,11 @@
               "value": "socket_02"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "40,50"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "standard"
@@ -8329,6 +8359,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 42
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.5
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.45625
             },
             {
               "name": "asset_id",
@@ -8361,6 +8401,11 @@
               "value": "socket_03"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "43,44"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "standard"
@@ -8388,6 +8433,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 43
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.5
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.45625
             },
             {
               "name": "asset_id",
@@ -8420,6 +8475,11 @@
               "value": "socket_04"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "40,42"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "standard"
@@ -8447,6 +8507,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 44
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4765625
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.428125
             },
             {
               "name": "asset_id",
@@ -8479,6 +8549,11 @@
               "value": "socket_05"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "40,42,45"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "standard"
@@ -8506,6 +8581,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 45
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4765625
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.428125
             },
             {
               "name": "asset_id",
@@ -8538,6 +8623,11 @@
               "value": "socket_06"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "44,47,54"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "standard"
@@ -8565,6 +8655,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 46
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4921875
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.4015625
             },
             {
               "name": "asset_id",
@@ -8597,6 +8697,11 @@
               "value": "socket_07"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "53,55"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "support"
@@ -8624,6 +8729,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 47
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4921875
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.4015625
             },
             {
               "name": "asset_id",
@@ -8656,6 +8771,11 @@
               "value": "socket_08"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "45,55"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "support"
@@ -8683,6 +8803,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 48
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4890625
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.421875
             },
             {
               "name": "asset_id",
@@ -8715,6 +8845,11 @@
               "value": "socket_09"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "49,50"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "standard"
@@ -8742,6 +8877,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 49
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4890625
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.421875
             },
             {
               "name": "asset_id",
@@ -8774,6 +8919,11 @@
               "value": "socket_10"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "48,53"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "standard"
@@ -8801,6 +8951,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 50
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4875
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.4109375
             },
             {
               "name": "asset_id",
@@ -8833,6 +8993,11 @@
               "value": "socket_11"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "41,48,54"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "standard"
@@ -8860,6 +9025,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 51
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4875
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.4109375
             },
             {
               "name": "asset_id",
@@ -8892,6 +9067,11 @@
               "value": "socket_12"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": ""
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "standard"
@@ -8919,6 +9099,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 52
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4890625
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.421875
             },
             {
               "name": "asset_id",
@@ -8951,6 +9141,11 @@
               "value": "socket_13"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": ""
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "standard"
@@ -8978,6 +9173,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 53
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4890625
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.421875
             },
             {
               "name": "asset_id",
@@ -9010,6 +9215,11 @@
               "value": "socket_14"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "46,49"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "standard"
@@ -9037,6 +9247,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 54
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4921875
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.4015625
             },
             {
               "name": "asset_id",
@@ -9069,6 +9289,11 @@
               "value": "socket_15"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "45,50"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "support"
@@ -9096,6 +9321,16 @@
               "name": "aruco_id",
               "type": "int",
               "value": 55
+            },
+            {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.4921875
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.4015625
             },
             {
               "name": "asset_id",
@@ -9128,6 +9363,11 @@
               "value": "socket_16"
             },
             {
+              "name": "ring_neighbors",
+              "type": "string",
+              "value": "46,47"
+            },
+            {
               "name": "strategic_value",
               "type": "string",
               "value": "support"
@@ -9156,7 +9396,7 @@
           "width": 128,
           "x": 563.0,
           "y": 251.5,
-          "gid": 48,
+          "gid": 52,
           "properties": [
             {
               "name": "active_preview",
@@ -9215,7 +9455,7 @@
           "width": 128,
           "x": 878.0,
           "y": 240.5,
-          "gid": 48,
+          "gid": 52,
           "properties": [
             {
               "name": "active_preview",
@@ -9274,7 +9514,7 @@
           "width": 128,
           "x": 1205.0,
           "y": 248.5,
-          "gid": 48,
+          "gid": 52,
           "properties": [
             {
               "name": "active_preview",
@@ -9333,7 +9573,7 @@
           "width": 128,
           "x": 1281.5,
           "y": 655.0,
-          "gid": 50,
+          "gid": 54,
           "properties": [
             {
               "name": "active_preview",
@@ -9392,7 +9632,7 @@
           "width": 128,
           "x": 321.0,
           "y": 573.0,
-          "gid": 48,
+          "gid": 52,
           "properties": [
             {
               "name": "active_preview",
@@ -9451,7 +9691,7 @@
           "width": 128,
           "x": 725.5,
           "y": 580.5,
-          "gid": 48,
+          "gid": 52,
           "properties": [
             {
               "name": "active_preview",
@@ -9510,7 +9750,7 @@
           "width": 128,
           "x": 803.5,
           "y": 812.0,
-          "gid": 48,
+          "gid": 52,
           "properties": [
             {
               "name": "active_preview",
@@ -9569,7 +9809,7 @@
           "width": 128,
           "x": 1169.5,
           "y": 576.5,
-          "gid": 50,
+          "gid": 54,
           "properties": [
             {
               "name": "active_preview",
@@ -10085,6 +10325,16 @@
               "value": "objectives/target-shared-active"
             },
             {
+              "name": "aruco_anchor_u",
+              "type": "float",
+              "value": 0.465625
+            },
+            {
+              "name": "aruco_anchor_v",
+              "type": "float",
+              "value": 0.4375
+            },
+            {
               "name": "footprint_px",
               "type": "int",
               "value": 144
@@ -10337,7 +10587,7 @@
             {
               "name": "allowed_tower_types",
               "type": "string",
-              "value": "machine_gun,flamethrower,mortar"
+              "value": "machine_gun,flamethrower,mortar,tesla_coil"
             },
             {
               "name": "atom_tag_id",
@@ -10371,7 +10621,7 @@
             {
               "name": "allowed_tower_types",
               "type": "string",
-              "value": "machine_gun,flamethrower,mortar"
+              "value": "machine_gun,flamethrower,mortar,tesla_coil"
             },
             {
               "name": "atom_tag_id",
@@ -10405,7 +10655,7 @@
             {
               "name": "allowed_tower_types",
               "type": "string",
-              "value": "machine_gun,flamethrower,mortar"
+              "value": "machine_gun,flamethrower,mortar,tesla_coil"
             },
             {
               "name": "atom_tag_id",
@@ -10439,7 +10689,7 @@
             {
               "name": "allowed_tower_types",
               "type": "string",
-              "value": "machine_gun,flamethrower,mortar"
+              "value": "machine_gun,flamethrower,mortar,tesla_coil"
             },
             {
               "name": "atom_tag_id",
@@ -10487,6 +10737,11 @@
       "value": 4
     },
     {
+      "name": "aruco_code_footprint_px",
+      "type": "int",
+      "value": 77
+    },
+    {
       "name": "camera_overlay_preserves_video",
       "type": "bool",
       "value": true
@@ -10510,6 +10765,11 @@
       "name": "core_arrival_lane_count",
       "type": "int",
       "value": 2
+    },
+    {
+      "name": "core_aruco_code_footprint_px",
+      "type": "int",
+      "value": 116
     },
     {
       "name": "core_damage_zone_px",
@@ -10542,9 +10802,14 @@
       "value": 8
     },
     {
+      "name": "force_field_marker_clearance_px",
+      "type": "int",
+      "value": 20
+    },
+    {
       "name": "layout_revision",
       "type": "int",
-      "value": 5
+      "value": 10
     },
     {
       "name": "left_mid_passthrough",
@@ -10617,15 +10882,15 @@
       "source": "../tilesets/z-pixel-v2-towers.tsj"
     },
     {
-      "firstgid": 44,
+      "firstgid": 48,
       "source": "../tilesets/z-pixel-v2-core.tsj"
     },
     {
-      "firstgid": 48,
+      "firstgid": 52,
       "source": "../tilesets/z-pixel-v2-force-fields.tsj"
     },
     {
-      "firstgid": 52,
+      "firstgid": 56,
       "source": "../tilesets/z-pixel-v2-seam-caps.tsj"
     }
   ],
