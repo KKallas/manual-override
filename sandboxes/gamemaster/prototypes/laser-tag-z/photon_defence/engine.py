@@ -52,6 +52,8 @@ CORE_BASIN_SPEED = 40.0
 CORE_ENTRY_DISTANCE = 9.0
 ATOM_OWNERS = {100: "green", 101: "green", 102: "purple", 103: "purple"}
 TOWER_TYPES = {"machine_gun", "flamethrower", "mortar", "tesla_coil"}
+TOWER_ACTIVATION_DURATION_S = 3.0
+TOWER_REPLENISH_PULSE_S = 0.35
 DEFAULT_LOADOUT = {
     100: "machine_gun",
     101: "flamethrower",
@@ -871,6 +873,7 @@ class DefenseEngine:
             self.paused = False
             self.virtual_play = False
             self.sim_time = 0.0
+            self.runtime_time = 0.0
             self.run_started_at = None
             self.core_hp = float(DEFAULT_SETTINGS["core_hp"])
             self.core_max_hp = float(DEFAULT_SETTINGS["core_hp"])
@@ -965,6 +968,7 @@ class DefenseEngine:
     def start(self, settings: dict[str, Any] | None = None) -> None:
         with self.lock:
             virtual_play = self.virtual_play
+            runtime_time = self.runtime_time
             loadout = dict(self.loadout)
             placements = {
                 socket_id: dict(placement)
@@ -993,6 +997,7 @@ class DefenseEngine:
             ]
             self.reset()
             self.virtual_play = virtual_play
+            self.runtime_time = runtime_time
             self.loadout = loadout
             self.placements = placements
             self.activation_order = activation_order
@@ -1199,6 +1204,9 @@ class DefenseEngine:
             "last_fire_chain": [],
             "last_damage_at": None,
             "last_damage_amount": 0.0,
+            "activation_started_at": self.runtime_time,
+            "activation_complete_at": self.runtime_time + TOWER_ACTIVATION_DURATION_S,
+            "replenished_at": None,
             "source": source,
             "aim_angle": aim_angle,
             "aim_spread": 1.0 if kind == "tesla_coil" else 0.5,
@@ -1219,6 +1227,7 @@ class DefenseEngine:
         tower["cooldown"] = 0.0
         tower["last_damage_at"] = None
         tower["last_damage_amount"] = 0.0
+        tower["replenished_at"] = self.runtime_time
         self._reset_connected_fields(tower["socket_id"])
         self._sync_tower_link_bonuses()
         tower["hp"] = tower["max_hp"]
@@ -3637,6 +3646,8 @@ class DefenseEngine:
     def step(self, dt: float) -> None:
         dt = max(0.0, min(float(dt), 0.1))
         with self.lock:
+            if dt > 0:
+                self.runtime_time += dt
             if self.phase != "running" or self.paused or dt <= 0:
                 return
             self.sim_time += dt
@@ -3812,6 +3823,11 @@ class DefenseEngine:
         for tower in self.placements.values():
             if tower.get("destroyed"):
                 continue
+            activation_complete_at = float(
+                tower.get("activation_complete_at", -math.inf)
+            )
+            if self.runtime_time < activation_complete_at:
+                continue
             kind = tower["tower_type"]
             stats = TOWER_STATS[kind]
             link_multiplier = float(
@@ -3973,7 +3989,8 @@ class DefenseEngine:
                 "x", "y", "last_fire_at", "last_fire_target", "source", "hp",
                 "max_hp", "destroyed", "destroyed_at", "facing_angle",
                 "last_fire_chain", "aim_revision", "last_damage_at",
-                "last_damage_amount",
+                "last_damage_amount", "activation_started_at",
+                "activation_complete_at", "replenished_at",
             )
         }
         fire_interval = 1.0 / float(TOWER_STATS[tower["tower_type"]]["rate"])
@@ -3982,6 +3999,12 @@ class DefenseEngine:
             max(0.0, min(1.0, 1.0 - cooldown / fire_interval)), 4
         )
         public["charge_duration_s"] = round(fire_interval, 4)
+        public["operational"] = (
+            not bool(tower.get("destroyed"))
+            and self.runtime_time >= float(
+                tower.get("activation_complete_at", -math.inf)
+            )
+        )
         public["linked_turret_count"] = int(
             bonus["linked_turret_count"]
         )
@@ -4215,8 +4238,9 @@ class DefenseEngine:
     def snapshot(self, *, compact_enemies: bool = False) -> dict[str, Any]:
         with self.lock:
             if compact_enemies:
-                enemies = [
-                    {
+                enemies = []
+                for enemy in self.enemies.values():
+                    public_enemy = {
                         "id": enemy["id"],
                         "enemy_type": enemy["enemy_type"],
                         "x": round(enemy["x"], 1),
@@ -4225,19 +4249,25 @@ class DefenseEngine:
                         "vy": round(enemy["vy"], 1),
                         "facing_x": round(enemy["facing_x"], 3),
                         "facing_y": round(enemy["facing_y"], 3),
-                        "burn_until": round(enemy["burn_until"], 2),
-                        "electrocuted_until": round(
-                            float(enemy.get("electrocuted_until", 0.0)), 2
-                        ),
-                        "electrocution_depth": int(
-                            enemy.get("electrocution_depth", 0)
-                        ),
-                        "electrocution_intensity": round(
-                            float(enemy.get("electrocution_intensity", 0.0)), 4
-                        ),
                     }
-                    for enemy in self.enemies.values()
-                ]
+                    burn_until = float(enemy.get("burn_until", 0.0))
+                    if burn_until > self.sim_time:
+                        public_enemy["burn_until"] = round(burn_until, 2)
+                    electrocuted_until = float(
+                        enemy.get("electrocuted_until", 0.0)
+                    )
+                    if electrocuted_until > self.sim_time:
+                        public_enemy.update({
+                            "electrocuted_until": round(electrocuted_until, 2),
+                            "electrocution_depth": int(
+                                enemy.get("electrocution_depth", 0)
+                            ),
+                            "electrocution_intensity": round(
+                                float(enemy.get("electrocution_intensity", 0.0)),
+                                4,
+                            ),
+                        })
+                    enemies.append(public_enemy)
             else:
                 enemies = [
                     ({
@@ -4280,7 +4310,10 @@ class DefenseEngine:
                 "force_field_marker_clearance_px": (
                     self.level.force_field_marker_clearance_px
                 ),
+                "tower_activation_duration_s": TOWER_ACTIVATION_DURATION_S,
+                "tower_replenish_pulse_s": TOWER_REPLENISH_PULSE_S,
                 "sim_time": round(self.sim_time, 3),
+                "runtime_time": round(self.runtime_time, 3),
                 "wave": self.current_wave,
                 "wave_count": int(self.settings["wave_count"]),
                 "active_enemies": len(enemies),

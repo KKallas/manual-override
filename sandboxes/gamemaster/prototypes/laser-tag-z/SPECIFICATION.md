@@ -86,9 +86,19 @@ native Tiled round-trip and render.
 - Sixteen fixed tower sockets use ArUco IDs 40 through 55 exactly once.
 - The central objective uses ArUco ID 38 and is the endpoint for the completed
   ring sequence.
-- Every authored socket starts with a 208×208 visual footprint. Its center panel
-  renders the dictionary-correct ArUco code instead of a generic grey plate and
-  text label.
+- Every authored socket starts with a 208×208 visual footprint. Its dictionary-
+  correct ArUco code is side-mounted on adjacent high ground with a 2-pixel gap
+  from the pad's measured visible edge and aligned to that sprite variant's
+  optical center. Transparent margins do not add artificial separation. Tag 50
+  uses the clearance immediately left of socket 11 after the x=400 crossover
+  shift.
+- The 208×208 socket art is editor-only. It remains present in the TMJ for
+  layout work and gameplay geometry, but the runtime hides it before placement
+  and after destruction so only the ArUco activation code remains visible.
+- A living turret uses the common 112×112 runtime pod footprint. Its ArUco code
+  is re-anchored horizontally with zero gap so the code edge touches the pod.
+  The pod, weapon, labels, overlays, and weapon effects share the code's optical
+  vertical center without changing the authoritative socket or combat geometry.
 - Connectivity uses a separate immutable `aruco_code_footprint_px` map property
   of 77 pixels. This identification footprint never follows the editable visual
   or interaction size of a socket.
@@ -110,7 +120,7 @@ fixed range can be observed without changing the existing camera feed.
 Before a run, the authenticated Gamemaster may open **Edit turret positions**,
 drag sockets with pixel precision, hold Shift for an optional 8-pixel
 corner-alignment grid, enter exact center coordinates, and resize the selected
-square from 96 to 320 pixels. Save validates all sixteen stable socket IDs,
+square from 96 to 208 pixels. Save validates all sixteen stable socket IDs,
 updates their linked force-field hints, writes the TMJ atomically, clears setup
 placements, and reloads both the authoritative engine and connected displays.
 Cancel leaves the published TMJ unchanged. Layout editing never issues an arm
@@ -140,15 +150,18 @@ replenishes that unit and its connected force fields.
 
 The game page contains a checkbox whose exact label is **Virtual play**. When
 enabled, the Gamemaster selects an Atom tag in the Camera markers panel and
-then selects any number of fixed camera markers on the map. Each socket owns a
+then clicks directly inside any number of rendered fixed ArUco squares on the
+map. The larger logical socket footprint is never accepted as a virtual
+activation target. Each socket owns a
 placement, so the same Atom may seed multiple simultaneous defences. Atom 100
 always activates a Machine Gun, 101 a Flamethrower, 102 a Mortar, and 103 a
 Tesla Coil. Placing any 100-series Atom on an active, occupied defence restores
 the existing unit to full health without changing its type and resets the
 durability of every force field connected to that unit. A destroyed defence and
-its compact opaque placement pod disappear, revealing the original ArUco marker. The
-live pod is rendered at 112 pixels and its turret art at 88 pixels, while the larger
-208-pixel authored socket remains the interaction and placement area. Placing
+its compact opaque placement pod disappear, revealing the original ArUco marker.
+The live pod is rendered at 112 pixels and its turret art at 88 pixels, while
+the larger 208-pixel authored socket remains editor and authoritative geometry
+only. Placing
 any Atom on that destroyed socket replaces the old defence with the activating
 Atom's fixed weapon type, so replacement may change the tower type while
 preserving and replenishing the socket's established force-field topology. Every Atom may use
@@ -157,6 +170,17 @@ The Atom's owner still determines its visual team colour and the physical arm
 that may carry it. Virtual placement uses the same occupancy and activation
 rules as physical play; it does not claim camera evidence and never weakens
 robot safety.
+
+Newly placed and replacement turrets run a fixed 72-frame sequence at 24 fps
+and cannot fire until its exact three-second boot interval completes. Frames
+0–16 rotate the concrete slab open like a trap door while the turret rotates
+into place around its axis; frames 17–30 lock stabilizers; frames 31–47 extend
+the weapon; frames 48–64 change status lights from red through amber to cyan
+while calibrating; frames 65–71 settle into the normal active visual. The deployment
+uses a separate always-advancing runtime clock, so it completes during setup
+and remains complete if Start is pressed later. Replenishing an already-active
+turret never restarts emergence or its firing lockout; it emits a 0.35-second
+status-light pulse while restoring health and connected-field durability.
 
 ## Linked turret scaling
 
@@ -201,7 +225,7 @@ rectangle or polygon whose type/class is `ForceFieldBlocker`, or the fixed
 than its two endpoints. Marker 38 is always blocked using its 116-pixel code
 footprint plus the map-authored 20-pixel clearance, even though it is not a
 turret socket. Living occupied sockets do not block a segment. The
-editable 96–320 pixel visual/interaction size, team colour, and activation
+editable 96–208 pixel visual/interaction size, team colour, and activation
 source never affect this calculation. Diagnostics report stable authored
 `blocker_id` values plus `empty_socket:<socket_id>` or
 `protected_marker:38`, `blocker_socket_ids`, and `blocker_markers`. A new

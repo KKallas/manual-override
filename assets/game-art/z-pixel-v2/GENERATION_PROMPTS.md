@@ -1,6 +1,6 @@
 # Generation prompts
 
-All five source families were generated with the built-in image-generation
+All source families were generated with the built-in image-generation
 tool. The simplified gameplay concept was supplied as a style reference only.
 
 ## Shared direction
@@ -68,6 +68,25 @@ tall narrow footprint and is designed to span one horizontal road between two
 separately rendered active square targets. Do not include endpoint towers,
 posts, sockets, roads, or scenery. Use coarse pixel scanlines, restrained
 sparks, and readable cracks instead of glossy modern bloom.
+
+## Runtime turret activation — four MP4 conversions
+
+Four separate 1:1 Kling videos provide the twin-barrel machine gun,
+broad-nozzle flamethrower, heavy mortar, and faceted Tesla coil installations.
+Each video is decoded at 24 fps and normalized into exactly 72 chronological,
+independently sliceable 112×112 runtime frames. Exterior black is keyed to
+transparency after a stable square-silhouette crop; enclosed black silo and
+mechanism pixels remain opaque. Frame 71 is rebuilt from the current runtime
+cover, base, and head layers so every sequence ends on its exact active sprite.
+
+The shared sequence is: frames 0–16 rotate the concrete slab open like a trap
+door as the turret rises and rotates into place around its own axis; frames
+17–30 lock stabilizers; frames 31–47 extend the type-specific weapon; frames
+48–64 perform boot and calibration with status lights progressing red → amber
+→ cyan plus a compact tracking sweep; frames 65–71 settle into the active
+visual. Runtime playback is exactly 3.0 seconds. Replenishment remains a
+procedural 0.35-second status-light pulse and is intentionally excluded from
+the emergence videos.
 
 ## Transparency cleanup
 

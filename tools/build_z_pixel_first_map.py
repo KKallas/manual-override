@@ -25,15 +25,94 @@ TILE = 32
 ROAD_STEP = 160
 ROAD_DRAW = 160
 SOCKET_SIZE = 208
-# Optical centers of the light-neutral marker recesses measured on the 320px
-# normalized target sprites. The generated variants do not share one center.
-ARUCO_ANCHORS = {
-    "objectives/target-purple-active": (152.5 / 320, 137.0 / 320),
-    "objectives/target-purple-inactive": (160.0 / 320, 146.0 / 320),
-    "objectives/target-green-active": (156.5 / 320, 135.0 / 320),
-    "objectives/target-green-inactive": (156.0 / 320, 131.5 / 320),
-    "objectives/target-shared-inactive": (157.5 / 320, 128.5 / 320),
-    "objectives/target-shared-active": (149.0 / 320, 140.0 / 320),
+ARUCO_CODE_SIZE = 77
+ACTIVE_TURRET_VISUAL_SIZE = 112
+ACTIVE_TURRET_ARUCO_GAP = 0
+ACTIVE_TURRET_VERTICAL_ALIGNMENT = "aruco_optical_center"
+RUNTIME_SOCKET_ART_VISIBILITY = "editor_only"
+VIRTUAL_ACTIVATION_TARGET = "aruco_marker_bounds"
+TURRET_ACTIVATION_DURATION_MS = 3000
+TURRET_ACTIVATION_FRAMES = 72
+TURRET_ACTIVATION_FPS = 24
+TURRET_REPLENISH_PULSE_MS = 350
+NORMALIZED_TARGET_SIZE = 320
+LEFT_CROSSOVER_COLUMN = 2
+LEFT_CROSSOVER_X = 80 + LEFT_CROSSOVER_COLUMN * ROAD_STEP
+# The core marker stays in its visual recess. Fixed socket markers are mounted
+# beside their turret pads on the adjacent high ground instead. These measured
+# alpha bounds and optical center lines exclude each sprite's transparent
+# margins, which are asymmetric across the generated target variants.
+CORE_ARUCO_ANCHOR = (149.0 / 320, 140.0 / 320)
+TARGET_VISUAL_GEOMETRY = {
+    "objectives/target-purple-active": ((22, 22, 298, 297), 137.0),
+    "objectives/target-purple-inactive": ((24, 43, 295, 277), 146.0),
+    "objectives/target-green-active": ((22, 22, 298, 297), 135.0),
+    "objectives/target-green-inactive": ((22, 44, 298, 276), 131.5),
+    "objectives/target-shared-active": ((37, 23, 282, 297), 140.0),
+    "objectives/target-shared-inactive": ((59, 35, 261, 285), 128.5),
+}
+SOCKET_ASSET_IDS = {
+    40: "objectives/target-purple-active",
+    41: "objectives/target-purple-active",
+    42: "objectives/target-purple-inactive",
+    43: "objectives/target-purple-inactive",
+    44: "objectives/target-purple-active",
+    45: "objectives/target-purple-active",
+    46: "objectives/target-shared-inactive",
+    47: "objectives/target-shared-inactive",
+    48: "objectives/target-green-active",
+    49: "objectives/target-green-active",
+    50: "objectives/target-green-inactive",
+    51: "objectives/target-green-inactive",
+    52: "objectives/target-green-active",
+    53: "objectives/target-green-active",
+    54: "objectives/target-shared-inactive",
+    55: "objectives/target-shared-inactive",
+}
+ARUCO_SIDE_DIRECTIONS = {
+    40: -1, 41: 1, 42: -1, 43: 1,
+    44: 1, 45: -1, 46: 1, 47: -1,
+    48: 1, 49: 1, 50: -1, 51: 1,
+    52: -1, 53: -1, 54: 1, 55: 1,
+}
+
+
+def aruco_side_offset(marker: int) -> tuple[int, int]:
+    asset_id = SOCKET_ASSET_IDS[marker]
+    _, optical_center_y = TARGET_VISUAL_GEOMETRY[asset_id]
+    scale = SOCKET_SIZE / NORMALIZED_TARGET_SIZE
+    side = ARUCO_SIDE_DIRECTIONS[marker]
+    offset_x = side * (
+        ACTIVE_TURRET_VISUAL_SIZE / 2
+        + ARUCO_CODE_SIZE / 2
+        + ACTIVE_TURRET_ARUCO_GAP
+    )
+    offset_y = round((optical_center_y - NORMALIZED_TARGET_SIZE / 2) * scale)
+    return offset_x, offset_y
+
+
+ARUCO_SIDE_OFFSETS = {
+    marker: aruco_side_offset(marker) for marker in range(40, 56)
+}
+# Published turret centers from layout revision 10. Keeping them in the
+# deterministic builder prevents a regeneration from reverting editor work.
+SOCKET_LAYOUT = {
+    40: (643, 171),
+    41: (483, 332),
+    42: (955, 165),
+    43: (801, 316),
+    44: (1126, 170),
+    45: (1284, 327),
+    46: (1118, 815),
+    47: (1445, 495),
+    48: (162, 493),
+    49: (480, 653),
+    50: (642, 494),
+    51: (809, 667),
+    52: (964, 811),
+    53: (643, 813),
+    54: (1059, 497),
+    55: (1280, 656),
 }
 RING_NEIGHBORS = {
     40: "41,43,44",
@@ -256,14 +335,14 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
     placements[(0, 4)] = ("roads/junction-t-esw", 180, "N,E,W")
 
     # Two crossover columns let gates force a longer zig-zag route.
-    for column in (3, 6):
+    for column in (LEFT_CROSSOVER_COLUMN, 6):
         for row in (0, 1, 4, 5):
             placements[(column, row)] = ("roads/junction-cross", 0, "N,E,S,W")
 
     # Continue the first crossover column through the two direct lanes. This
     # creates a second full-height vertical passthrough left of the core.
-    placements[(3, 2)] = ("roads/junction-cross", 0, "N,E,S,W")
-    placements[(3, 3)] = ("roads/junction-cross", 0, "N,E,S,W")
+    placements[(LEFT_CROSSOVER_COLUMN, 2)] = ("roads/junction-cross", 0, "N,E,S,W")
+    placements[(LEFT_CROSSOVER_COLUMN, 3)] = ("roads/junction-cross", 0, "N,E,S,W")
 
     # Far-right pairwise merges and 180-degree returns.
     # The generated corner-es art has an off-center south port. Rotating the
@@ -392,12 +471,12 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
         ("spawn_top_inner", "spawn", 0, 240, "top_inner"),
         ("spawn_bottom_inner", "spawn", 0, 720, "bottom_inner"),
         ("spawn_bottom_outer", "spawn", 0, 880, "bottom_outer"),
-        ("top_outer_switch_a", "junction", 560, 80, ""),
-        ("top_inner_switch_a", "junction", 560, 240, ""),
+        ("top_outer_switch_a", "junction", LEFT_CROSSOVER_X, 80, ""),
+        ("top_inner_switch_a", "junction", LEFT_CROSSOVER_X, 240, ""),
         ("top_outer_switch_b", "junction", 1040, 80, ""),
         ("top_inner_switch_b", "junction", 1040, 240, ""),
-        ("bottom_inner_switch_a", "junction", 560, 720, ""),
-        ("bottom_outer_switch_a", "junction", 560, 880, ""),
+        ("bottom_inner_switch_a", "junction", LEFT_CROSSOVER_X, 720, ""),
+        ("bottom_outer_switch_a", "junction", LEFT_CROSSOVER_X, 880, ""),
         ("bottom_inner_switch_b", "junction", 1040, 720, ""),
         ("bottom_outer_switch_b", "junction", 1040, 880, ""),
         ("top_merge_right", "turnaround", 1520, 240, ""),
@@ -406,8 +485,8 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
         ("bottom_return", "junction", 1520, 560, ""),
         ("direct_top_left", "junction", 80, 400, ""),
         ("direct_bottom_left", "junction", 80, 560, ""),
-        ("direct_top_switch_a", "junction", 560, 400, ""),
-        ("direct_bottom_switch_a", "junction", 560, 560, ""),
+        ("direct_top_switch_a", "junction", LEFT_CROSSOVER_X, 400, ""),
+        ("direct_bottom_switch_a", "junction", LEFT_CROSSOVER_X, 560, ""),
         ("core_arrival_top", "arrival", 880, 400, ""),
         ("core_arrival_bottom", "arrival", 880, 560, ""),
         ("mega_tower_entry", "core", 880, 480, ""),
@@ -426,24 +505,24 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
         node_by_name[name] = node
 
     edge_specs = [
-        ("edge_top_outer_start", "spawn_top_outer", "top_outer_switch_a", "approach", [(0, 80), (560, 80)]),
-        ("edge_top_outer_mid", "top_outer_switch_a", "top_outer_switch_b", "route_segment", [(560, 80), (1040, 80)]),
+        ("edge_top_outer_start", "spawn_top_outer", "top_outer_switch_a", "approach", [(0, 80), (LEFT_CROSSOVER_X, 80)]),
+        ("edge_top_outer_mid", "top_outer_switch_a", "top_outer_switch_b", "route_segment", [(LEFT_CROSSOVER_X, 80), (1040, 80)]),
         ("edge_top_outer_tail", "top_outer_switch_b", "top_merge_right", "route_segment", [(1040, 80), (1520, 80), (1520, 240)]),
-        ("edge_top_inner_start", "spawn_top_inner", "top_inner_switch_a", "approach", [(0, 240), (560, 240)]),
-        ("edge_top_inner_mid", "top_inner_switch_a", "top_inner_switch_b", "route_segment", [(560, 240), (1040, 240)]),
+        ("edge_top_inner_start", "spawn_top_inner", "top_inner_switch_a", "approach", [(0, 240), (LEFT_CROSSOVER_X, 240)]),
+        ("edge_top_inner_mid", "top_inner_switch_a", "top_inner_switch_b", "route_segment", [(LEFT_CROSSOVER_X, 240), (1040, 240)]),
         ("edge_top_inner_tail", "top_inner_switch_b", "top_merge_right", "route_segment", [(1040, 240), (1520, 240)]),
-        ("edge_switch_top_a_down", "top_outer_switch_a", "top_inner_switch_a", "detour", [(560, 80), (560, 240)]),
-        ("edge_switch_top_a_up", "top_inner_switch_a", "top_outer_switch_a", "detour", [(560, 240), (560, 80)]),
+        ("edge_switch_top_a_down", "top_outer_switch_a", "top_inner_switch_a", "detour", [(LEFT_CROSSOVER_X, 80), (LEFT_CROSSOVER_X, 240)]),
+        ("edge_switch_top_a_up", "top_inner_switch_a", "top_outer_switch_a", "detour", [(LEFT_CROSSOVER_X, 240), (LEFT_CROSSOVER_X, 80)]),
         ("edge_switch_top_b_down", "top_outer_switch_b", "top_inner_switch_b", "detour", [(1040, 80), (1040, 240)]),
         ("edge_switch_top_b_up", "top_inner_switch_b", "top_outer_switch_b", "detour", [(1040, 240), (1040, 80)]),
-        ("edge_bottom_inner_start", "spawn_bottom_inner", "bottom_inner_switch_a", "approach", [(0, 720), (560, 720)]),
-        ("edge_bottom_inner_mid", "bottom_inner_switch_a", "bottom_inner_switch_b", "route_segment", [(560, 720), (1040, 720)]),
+        ("edge_bottom_inner_start", "spawn_bottom_inner", "bottom_inner_switch_a", "approach", [(0, 720), (LEFT_CROSSOVER_X, 720)]),
+        ("edge_bottom_inner_mid", "bottom_inner_switch_a", "bottom_inner_switch_b", "route_segment", [(LEFT_CROSSOVER_X, 720), (1040, 720)]),
         ("edge_bottom_inner_tail", "bottom_inner_switch_b", "bottom_merge_right", "route_segment", [(1040, 720), (1520, 720)]),
-        ("edge_bottom_outer_start", "spawn_bottom_outer", "bottom_outer_switch_a", "approach", [(0, 880), (560, 880)]),
-        ("edge_bottom_outer_mid", "bottom_outer_switch_a", "bottom_outer_switch_b", "route_segment", [(560, 880), (1040, 880)]),
+        ("edge_bottom_outer_start", "spawn_bottom_outer", "bottom_outer_switch_a", "approach", [(0, 880), (LEFT_CROSSOVER_X, 880)]),
+        ("edge_bottom_outer_mid", "bottom_outer_switch_a", "bottom_outer_switch_b", "route_segment", [(LEFT_CROSSOVER_X, 880), (1040, 880)]),
         ("edge_bottom_outer_tail", "bottom_outer_switch_b", "bottom_merge_right", "route_segment", [(1040, 880), (1520, 880), (1520, 720)]),
-        ("edge_switch_bottom_a_down", "bottom_inner_switch_a", "bottom_outer_switch_a", "detour", [(560, 720), (560, 880)]),
-        ("edge_switch_bottom_a_up", "bottom_outer_switch_a", "bottom_inner_switch_a", "detour", [(560, 880), (560, 720)]),
+        ("edge_switch_bottom_a_down", "bottom_inner_switch_a", "bottom_outer_switch_a", "detour", [(LEFT_CROSSOVER_X, 720), (LEFT_CROSSOVER_X, 880)]),
+        ("edge_switch_bottom_a_up", "bottom_outer_switch_a", "bottom_inner_switch_a", "detour", [(LEFT_CROSSOVER_X, 880), (LEFT_CROSSOVER_X, 720)]),
         ("edge_switch_bottom_b_down", "bottom_inner_switch_b", "bottom_outer_switch_b", "detour", [(1040, 720), (1040, 880)]),
         ("edge_switch_bottom_b_up", "bottom_outer_switch_b", "bottom_inner_switch_b", "detour", [(1040, 880), (1040, 720)]),
         ("edge_top_turnaround", "top_merge_right", "top_return", "turnaround", [(1520, 240), (1520, 400)]),
@@ -451,21 +530,21 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
         ("edge_bottom_turnaround", "bottom_merge_right", "bottom_return", "turnaround", [(1520, 720), (1520, 560)]),
         ("edge_bottom_return_to_arrival", "bottom_return", "core_arrival_bottom", "return", [(1520, 560), (880, 560)]),
         ("edge_top_direct_access", "spawn_top_inner", "direct_top_left", "direct_access", [(0, 240), (80, 240), (80, 400)]),
-        ("edge_top_direct_mid", "direct_top_left", "direct_top_switch_a", "direct", [(80, 400), (560, 400)]),
-        ("edge_top_direct_to_arrival", "direct_top_switch_a", "core_arrival_top", "direct", [(560, 400), (880, 400)]),
+        ("edge_top_direct_mid", "direct_top_left", "direct_top_switch_a", "direct", [(80, 400), (LEFT_CROSSOVER_X, 400)]),
+        ("edge_top_direct_to_arrival", "direct_top_switch_a", "core_arrival_top", "direct", [(LEFT_CROSSOVER_X, 400), (880, 400)]),
         ("edge_bottom_direct_access", "spawn_bottom_inner", "direct_bottom_left", "direct_access", [(0, 720), (80, 720), (80, 560)]),
-        ("edge_bottom_direct_mid", "direct_bottom_left", "direct_bottom_switch_a", "direct", [(80, 560), (560, 560)]),
-        ("edge_bottom_direct_to_arrival", "direct_bottom_switch_a", "core_arrival_bottom", "direct", [(560, 560), (880, 560)]),
+        ("edge_bottom_direct_mid", "direct_bottom_left", "direct_bottom_switch_a", "direct", [(80, 560), (LEFT_CROSSOVER_X, 560)]),
+        ("edge_bottom_direct_to_arrival", "direct_bottom_switch_a", "core_arrival_bottom", "direct", [(LEFT_CROSSOVER_X, 560), (880, 560)]),
         ("edge_core_approach_top", "core_arrival_top", "mega_tower_entry", "core_approach", [(880, 400), (880, 480)]),
         ("edge_core_approach_bottom", "core_arrival_bottom", "mega_tower_entry", "core_approach", [(880, 560), (880, 480)]),
         ("edge_direct_left_down", "direct_top_left", "direct_bottom_left", "direct_crossover", [(80, 400), (80, 560)]),
         ("edge_direct_left_up", "direct_bottom_left", "direct_top_left", "direct_crossover", [(80, 560), (80, 400)]),
-        ("edge_mid_passthrough_top_down", "top_inner_switch_a", "direct_top_switch_a", "mid_passthrough", [(560, 240), (560, 400)]),
-        ("edge_mid_passthrough_top_up", "direct_top_switch_a", "top_inner_switch_a", "mid_passthrough", [(560, 400), (560, 240)]),
-        ("edge_mid_passthrough_center_down", "direct_top_switch_a", "direct_bottom_switch_a", "mid_passthrough", [(560, 400), (560, 560)]),
-        ("edge_mid_passthrough_center_up", "direct_bottom_switch_a", "direct_top_switch_a", "mid_passthrough", [(560, 560), (560, 400)]),
-        ("edge_mid_passthrough_bottom_down", "direct_bottom_switch_a", "bottom_inner_switch_a", "mid_passthrough", [(560, 560), (560, 720)]),
-        ("edge_mid_passthrough_bottom_up", "bottom_inner_switch_a", "direct_bottom_switch_a", "mid_passthrough", [(560, 720), (560, 560)]),
+        ("edge_mid_passthrough_top_down", "top_inner_switch_a", "direct_top_switch_a", "mid_passthrough", [(LEFT_CROSSOVER_X, 240), (LEFT_CROSSOVER_X, 400)]),
+        ("edge_mid_passthrough_top_up", "direct_top_switch_a", "top_inner_switch_a", "mid_passthrough", [(LEFT_CROSSOVER_X, 400), (LEFT_CROSSOVER_X, 240)]),
+        ("edge_mid_passthrough_center_down", "direct_top_switch_a", "direct_bottom_switch_a", "mid_passthrough", [(LEFT_CROSSOVER_X, 400), (LEFT_CROSSOVER_X, 560)]),
+        ("edge_mid_passthrough_center_up", "direct_bottom_switch_a", "direct_top_switch_a", "mid_passthrough", [(LEFT_CROSSOVER_X, 560), (LEFT_CROSSOVER_X, 400)]),
+        ("edge_mid_passthrough_bottom_down", "direct_bottom_switch_a", "bottom_inner_switch_a", "mid_passthrough", [(LEFT_CROSSOVER_X, 560), (LEFT_CROSSOVER_X, 720)]),
+        ("edge_mid_passthrough_bottom_up", "bottom_inner_switch_a", "direct_bottom_switch_a", "mid_passthrough", [(LEFT_CROSSOVER_X, 720), (LEFT_CROSSOVER_X, 560)]),
     ]
     edges = []
     for edge_id, from_name, to_name, phase, points in edge_specs:
@@ -493,41 +572,49 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
     ]
 
     pair_specs = [
-        ("top_inner_a", 640, 240, "purple", True, "edge_top_inner_mid", "edge_switch_top_a_up", 88),
-        ("top_outer_b", 880, 80, "purple", False, "edge_top_outer_mid", "edge_switch_top_a_down", 72),
-        ("top_outer_c", 1120, 80, "purple", True, "edge_top_outer_tail", "edge_switch_top_b_down", 72),
-        ("top_inner_d", 1360, 240, "shared", False, "edge_top_inner_tail", "edge_switch_top_b_up", 88),
-        ("bottom_inner_a", 640, 720, "green", True, "edge_bottom_inner_mid", "edge_switch_bottom_a_down", 88),
-        ("bottom_outer_b", 880, 880, "green", False, "edge_bottom_outer_mid", "edge_switch_bottom_a_up", 72),
-        ("bottom_outer_c", 1120, 880, "green", True, "edge_bottom_outer_tail", "edge_switch_bottom_b_up", 72),
-        ("bottom_inner_d", 1360, 720, "shared", False, "edge_bottom_inner_tail", "edge_switch_bottom_b_down", 88),
+        ("top_inner_a", "purple", True, "edge_top_inner_mid", "edge_switch_top_a_up"),
+        ("top_outer_b", "purple", False, "edge_top_outer_mid", "edge_switch_top_a_down"),
+        ("top_outer_c", "purple", True, "edge_top_outer_tail", "edge_switch_top_b_down"),
+        ("top_inner_d", "shared", False, "edge_top_inner_tail", "edge_switch_top_b_up"),
+        ("bottom_inner_a", "green", True, "edge_bottom_inner_mid", "edge_switch_bottom_a_down"),
+        ("bottom_outer_b", "green", False, "edge_bottom_outer_mid", "edge_switch_bottom_a_up"),
+        ("bottom_outer_c", "green", True, "edge_bottom_outer_tail", "edge_switch_bottom_b_up"),
+        ("bottom_inner_d", "shared", False, "edge_bottom_inner_tail", "edge_switch_bottom_b_down"),
     ]
     sockets = []
     socket_by_name: dict[str, dict[str, Any]] = {}
     gate_specs: list[dict[str, Any]] = []
     socket_number = 1
-    for pair_id, x, lane_y, owner, active_preview, blocked_edge, detour_edge, socket_offset in pair_specs:
+    for pair_id, owner, active_preview, blocked_edge, detour_edge in pair_specs:
         pair_sockets = []
-        for side, y in (("north", lane_y - socket_offset), ("south", lane_y + socket_offset)):
+        for side in ("north", "south"):
             socket_id = f"socket_{socket_number:02d}"
             aruco_id = 39 + socket_number
             socket_number += 1
             state = "active" if active_preview else "inactive"
             asset_id = f"objectives/target-{owner}-{state}"
-            aruco_anchor_u, aruco_anchor_v = ARUCO_ANCHORS[asset_id]
+            visual_bounds, optical_center_y = TARGET_VISUAL_GEOMETRY[asset_id]
+            socket_x, socket_y = SOCKET_LAYOUT[aruco_id]
+            aruco_offset_x, aruco_offset_y = ARUCO_SIDE_OFFSETS[aruco_id]
             socket = factory.tile_object(
                 socket_id,
                 "TowerSocket",
-                x,
-                y,
+                socket_x,
+                socket_y,
                 SOCKET_SIZE,
                 SOCKET_SIZE,
                 gids[asset_id],
                 props(
                     prop("active_preview", active_preview),
-                    prop("aruco_anchor_u", aruco_anchor_u),
-                    prop("aruco_anchor_v", aruco_anchor_v),
                     prop("aruco_id", aruco_id),
+                    prop("aruco_optical_center_v", optical_center_y / NORMALIZED_TARGET_SIZE),
+                    prop("aruco_offset_x", aruco_offset_x),
+                    prop("aruco_offset_y", aruco_offset_y),
+                    prop("aruco_pad_bottom_v", visual_bounds[3] / NORMALIZED_TARGET_SIZE),
+                    prop("aruco_pad_left_u", visual_bounds[0] / NORMALIZED_TARGET_SIZE),
+                    prop("aruco_pad_right_u", visual_bounds[2] / NORMALIZED_TARGET_SIZE),
+                    prop("aruco_pad_top_v", visual_bounds[1] / NORMALIZED_TARGET_SIZE),
+                    prop("aruco_side", ARUCO_SIDE_DIRECTIONS[aruco_id]),
                     prop("asset_id", asset_id),
                     prop("gate_pair_id", pair_id),
                     prop("owner", owner),
@@ -544,8 +631,6 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
         gate_specs.append(
             {
                 "pair_id": pair_id,
-                "x": x,
-                "y": lane_y,
                 "owner": owner,
                 "active_preview": active_preview,
                 "blocked_edge": blocked_edge,
@@ -560,14 +645,21 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
     for index, gate in enumerate(gate_specs, start=1):
         effect_name = "force-wall-coop" if gate["owner"] == "shared" else "force-wall-stable"
         asset_id = f"effects/{effect_name}"
+        socket_a, socket_b = gate["socket_a"], gate["socket_b"]
+        dx = float(socket_b["x"]) - float(socket_a["x"])
+        dy = float(socket_b["y"]) - float(socket_a["y"])
+        gate_x = (float(socket_a["x"]) + float(socket_b["x"])) / 2.0
+        gate_y = (float(socket_a["y"]) + float(socket_b["y"])) / 2.0
+        gate_height = max(32.0, math.hypot(dx, dy) + 14.0)
+        gate_rotation = math.degrees(math.atan2(dy, dx)) - 90.0
         gate_visuals.append(
             factory.tile_object(
                 f"gate_visual_{index:02d}_{gate['pair_id']}",
                 "ForceFieldWall",
-                gate["x"],
-                gate["y"],
+                gate_x,
+                gate_y,
                 128,
-                190,
+                gate_height,
                 gids[asset_id],
                 props(
                     prop("active_preview", gate["active_preview"]),
@@ -580,6 +672,7 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
                     prop("socket_b", gate["socket_b"]["id"], "object"),
                     prop("wear_seconds", 18.0, "float"),
                 ),
+                rotation=gate_rotation,
                 visible=False,
             )
         )
@@ -602,7 +695,7 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
     # The core retains its compact 144px footprint while the editable physical-
     # tag targets use a larger 208px footprint to fill their road-corner pads.
     core_asset_id = "objectives/target-shared-active"
-    core_aruco_anchor_u, core_aruco_anchor_v = ARUCO_ANCHORS[core_asset_id]
+    core_aruco_anchor_u, core_aruco_anchor_v = CORE_ARUCO_ANCHOR
     mega_tower = [
         factory.tile_object(
             "central_core_square_base",
@@ -766,10 +859,13 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
         "nextobjectid": factory.next_id,
         "orientation": "orthogonal",
         "properties": props(
+            prop("active_turret_aruco_gap_px", ACTIVE_TURRET_ARUCO_GAP),
+            prop("active_turret_visual_size_px", ACTIVE_TURRET_VISUAL_SIZE),
+            prop("active_turret_vertical_alignment", ACTIVE_TURRET_VERTICAL_ALIGNMENT),
             prop("active_gate_preview_count", 4),
             prop("activation_unit_count", 4),
             prop("activation_unit_tag_ids", "100,101,102,103"),
-            prop("aruco_code_footprint_px", 77),
+            prop("aruco_code_footprint_px", ARUCO_CODE_SIZE),
             prop("camera_overlay_preserves_video", True),
             prop("core_access_open", True),
             prop("core_access_plaza_px", 256),
@@ -782,16 +878,25 @@ def build_map() -> tuple[dict[str, Any], dict[str, Any]]:
             prop("force_field_candidate_count", 8),
             prop("fixed_aruco_max", 55),
             prop("fixed_aruco_min", 40),
+            prop("fixed_aruco_alignment", "permanent_active_turret_touch_center"),
             prop("force_field_marker_clearance_px", 20),
+            prop("fixed_aruco_mount", "side_high_ground"),
             prop("level_id", "z_pixel_first_map_01"),
-            prop("layout_revision", 10),
+            prop("layout_revision", 17),
+            prop("left_crossover_x", LEFT_CROSSOVER_X),
             prop("left_mid_passthrough", True),
             prop("max_active_enemies", 1000),
             prop("max_structures", 8),
             prop("route_direction", "four_long_left_to_right_180_returns_plus_two_direct_left_to_center"),
+            prop("runtime_socket_art_visibility", RUNTIME_SOCKET_ART_VISIBILITY),
             prop("seam_safe_roads", True),
             prop("socket_count", 16),
+            prop("turret_activation_duration_ms", TURRET_ACTIVATION_DURATION_MS),
+            prop("turret_activation_fps", TURRET_ACTIVATION_FPS),
+            prop("turret_activation_frames", TURRET_ACTIVATION_FRAMES),
+            prop("turret_replenish_pulse_ms", TURRET_REPLENISH_PULSE_MS),
             prop("vertical_passthrough_count", 2),
+            prop("virtual_activation_target", VIRTUAL_ACTIVATION_TARGET),
             prop("wave_file", WAVE_PATH.name, "file"),
         ),
         "renderorder": "right-down",
@@ -820,8 +925,26 @@ def validate_map(
     errors: list[str] = []
     warnings: list[str] = []
     properties = {item["name"]: item["value"] for item in map_data["properties"]}
-    if properties.get("aruco_code_footprint_px") != 77:
-        errors.append("ArUco connection footprint must remain fixed at 77 pixels")
+    if properties.get("aruco_code_footprint_px") != ARUCO_CODE_SIZE:
+        errors.append(f"ArUco connection footprint must remain fixed at {ARUCO_CODE_SIZE} pixels")
+    if properties.get("active_turret_visual_size_px") != ACTIVE_TURRET_VISUAL_SIZE:
+        errors.append(f"active turret visual size must remain {ACTIVE_TURRET_VISUAL_SIZE} pixels")
+    if properties.get("active_turret_aruco_gap_px") != ACTIVE_TURRET_ARUCO_GAP:
+        errors.append("active turret ArUco markers must touch the turret pod edge")
+    if properties.get("active_turret_vertical_alignment") != ACTIVE_TURRET_VERTICAL_ALIGNMENT:
+        errors.append("active turret visuals must share the ArUco optical vertical center")
+    if properties.get("runtime_socket_art_visibility") != RUNTIME_SOCKET_ART_VISIBILITY:
+        errors.append("authored turret pads must remain editor-only at runtime")
+    if properties.get("virtual_activation_target") != VIRTUAL_ACTIVATION_TARGET:
+        errors.append("virtual turret activation must use rendered ArUco marker bounds")
+    if properties.get("turret_activation_duration_ms") != TURRET_ACTIVATION_DURATION_MS:
+        errors.append("turret activation must complete in exactly 3000 ms")
+    if properties.get("turret_activation_frames") != TURRET_ACTIVATION_FRAMES:
+        errors.append("turret activation must use exactly 72 frames")
+    if properties.get("turret_activation_fps") != TURRET_ACTIVATION_FPS:
+        errors.append("turret activation must play at exactly 24 fps")
+    if properties.get("turret_replenish_pulse_ms") != TURRET_REPLENISH_PULSE_MS:
+        errors.append("active-turret replenishment pulse must last exactly 350 ms")
     if properties.get("core_aruco_code_footprint_px") != 116:
         errors.append("core ArUco code footprint must remain fixed at 116 pixels")
     if properties.get("force_field_marker_clearance_px") != 20:
@@ -843,14 +966,81 @@ def validate_map(
         for marker, properties in socket_properties.items()
     } != RING_NEIGHBORS:
         errors.append("socket ring_neighbors must match the canonical graph")
-    for properties in socket_properties.values():
-        expected_anchor = ARUCO_ANCHORS.get(properties.get("asset_id"))
-        actual_anchor = (
-            properties.get("aruco_anchor_u"),
-            properties.get("aruco_anchor_v"),
+    if properties.get("fixed_aruco_mount") != "side_high_ground":
+        errors.append("fixed ArUco markers must use side-mounted high-ground anchors")
+    if properties.get("fixed_aruco_alignment") != "permanent_active_turret_touch_center":
+        errors.append("fixed ArUco markers must stay at the active-turret touch position")
+    if properties.get("left_crossover_x") != LEFT_CROSSOVER_X:
+        errors.append(f"left crossover must remain at x={LEFT_CROSSOVER_X}")
+    marker_half = float(properties.get("aruco_code_footprint_px", 0)) / 2.0
+    marker_centers: dict[int, tuple[float, float]] = {}
+    sockets_by_marker = {
+        int(next(prop["value"] for prop in socket["properties"] if prop["name"] == "aruco_id")): socket
+        for socket in sockets
+    }
+
+    for marker, socket_properties_for_marker in socket_properties.items():
+        actual_offset = (
+            socket_properties_for_marker.get("aruco_offset_x"),
+            socket_properties_for_marker.get("aruco_offset_y"),
         )
-        if expected_anchor is None or actual_anchor != expected_anchor:
-            errors.append("socket ArUco anchors must match each target-pad recess")
+        if actual_offset != ARUCO_SIDE_OFFSETS.get(marker):
+            errors.append(f"socket {marker} ArUco marker must retain its side offset")
+            break
+        socket = sockets_by_marker[marker]
+        marker_x = float(socket["x"]) + float(actual_offset[0])
+        marker_y = float(socket["y"]) + float(actual_offset[1])
+        marker_centers[marker] = (marker_x, marker_y)
+        optical_y = float(socket["y"]) + (
+            float(socket_properties_for_marker["aruco_optical_center_v"]) - 0.5
+        ) * float(socket["height"])
+        if abs(marker_y - optical_y) > 0.55:
+            errors.append(f"socket {marker} ArUco marker misses the visible pad's optical center")
+            break
+        if not (
+            marker_half <= marker_x <= MAP_W - marker_half
+            and marker_half <= marker_y <= MAP_H - marker_half
+        ):
+            errors.append(f"socket {marker} side-mounted ArUco marker leaves the playfield")
+            break
+        side = int(socket_properties_for_marker["aruco_side"])
+        turret_left = float(socket["x"]) - ACTIVE_TURRET_VISUAL_SIZE / 2
+        turret_right = float(socket["x"]) + ACTIVE_TURRET_VISUAL_SIZE / 2
+        actual_gap = (
+            turret_left - (marker_x + marker_half)
+            if side < 0
+            else (marker_x - marker_half) - turret_right
+        )
+        if abs(actual_gap - ACTIVE_TURRET_ARUCO_GAP) > 0.01:
+            errors.append(f"socket {marker} ArUco marker must touch its active turret edge")
+            break
+    for marker, (marker_x, marker_y) in marker_centers.items():
+        for other_marker in sockets_by_marker:
+            if marker == other_marker:
+                continue
+            other_socket = sockets_by_marker[other_marker]
+            other_center_y = marker_centers[other_marker][1]
+            pad_left = float(other_socket["x"]) - ACTIVE_TURRET_VISUAL_SIZE / 2
+            pad_right = float(other_socket["x"]) + ACTIVE_TURRET_VISUAL_SIZE / 2
+            pad_top = other_center_y - ACTIVE_TURRET_VISUAL_SIZE / 2
+            pad_bottom = other_center_y + ACTIVE_TURRET_VISUAL_SIZE / 2
+            if (
+                marker_x + marker_half > pad_left
+                and marker_x - marker_half < pad_right
+                and marker_y + marker_half > pad_top
+                and marker_y - marker_half < pad_bottom
+            ):
+                errors.append(f"socket {marker} ArUco marker overlaps active turret {other_marker}")
+                break
+        if errors:
+            break
+    marker_items = sorted(marker_centers.items())
+    for index, (marker, (marker_x, marker_y)) in enumerate(marker_items):
+        for other_marker, (other_x, other_y) in marker_items[index + 1:]:
+            if abs(marker_x - other_x) < 2 * marker_half and abs(marker_y - other_y) < 2 * marker_half:
+                errors.append(f"ArUco markers {marker} and {other_marker} overlap")
+                break
+        if errors:
             break
     if len(gates) != 8:
         errors.append(f"expected 8 gate candidates, got {len(gates)}")
@@ -1020,13 +1210,11 @@ def validate_map(
     if arrival_clearance is None or arrival_clearance["width"] < 256 or arrival_clearance["height"] < 256:
         errors.append("central core requires a 256x256 enemy-arrival clearance zone")
     elif any(
-        socket["x"] - socket["width"] / 2 < arrival_clearance["x"] + arrival_clearance["width"]
-        and socket["x"] + socket["width"] / 2 > arrival_clearance["x"]
-        and socket["y"] - socket["height"] / 2 < arrival_clearance["y"] + arrival_clearance["height"]
-        and socket["y"] + socket["height"] / 2 > arrival_clearance["y"]
+        arrival_clearance["x"] <= socket["x"] <= arrival_clearance["x"] + arrival_clearance["width"]
+        and arrival_clearance["y"] <= socket["y"] <= arrival_clearance["y"] + arrival_clearance["height"]
         for socket in sockets
     ):
-        errors.append("a placement target overlaps the protected central arrival clearance")
+        errors.append("a turret center enters the protected central arrival clearance")
 
     damage_zone = next((item for item in gameplay_zones if item["name"] == "mega_tower_damage_zone"), None)
     damage_properties = {

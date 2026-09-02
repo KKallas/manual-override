@@ -21,7 +21,7 @@
     <div id="status" class="status" role="status" aria-live="polite">Loading Tower Defense game feed…</div>
   </section>
 </main>
-<script src="tower-defence-view.js"></script>
+<script src="tower-defence-view.js?v=17"></script>
 <script>
 const ROOT=location.pathname.split('/p/')[0],SELF=`${ROOT}/p/laser-tag-z`,status=document.getElementById('status');
 async function json(url){const response=await fetch(url),text=await response.text();let data={};try{data=text?JSON.parse(text):{}}catch(_){}if(!response.ok)throw Error(data.error||text||`HTTP ${response.status}`);return data}

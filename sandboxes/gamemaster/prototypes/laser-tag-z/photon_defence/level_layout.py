@@ -14,7 +14,7 @@ from typing import Any, Callable
 SOCKET_LAYER_NAME = "09 Square Placement Spots (16)"
 SOCKET_COUNT = 16
 SOCKET_MIN_SIZE = 96
-SOCKET_MAX_SIZE = 320
+SOCKET_MAX_SIZE = 208
 SOCKET_MIN_CENTER_DISTANCE = 32
 
 
@@ -87,6 +87,11 @@ def _finite_integer(value: Any, label: str) -> int:
 
 def _submitted_layout(level: dict[str, Any], submitted: Any) -> dict[str, dict[str, int]]:
     existing = {item["socket_id"]: item for item in socket_records(level)}
+    socket_properties = {
+        str(_properties(obj).get("socket_id", obj.get("name", ""))): _properties(obj)
+        for obj in _socket_layer(level).get("objects", [])
+        if obj.get("type") == "TowerSocket"
+    }
     if not isinstance(submitted, list) or len(submitted) != SOCKET_COUNT:
         raise SocketLayoutError(f"layout must contain exactly {SOCKET_COUNT} sockets")
 
@@ -107,12 +112,60 @@ def _submitted_layout(level: dict[str, Any], submitted: Any) -> dict[str, dict[s
 
     width = int(level["width"] * level["tilewidth"])
     height = int(level["height"] * level["tileheight"])
+    level_properties = _properties(level)
+    marker_half = float(level_properties.get("aruco_code_footprint_px", 77)) / 2.0
+    marker_gap = float(level_properties.get("active_turret_aruco_gap_px", 0))
+    active_turret_size = float(level_properties.get("active_turret_visual_size_px", 112))
+
+    def marker_center(
+        item: dict[str, int], properties: dict[str, Any]
+    ) -> tuple[float, float]:
+        side = int(properties["aruco_side"])
+        marker_x = item["x"] + side * (
+            active_turret_size / 2 + marker_half + marker_gap
+        )
+        marker_y = item["y"] + (
+            float(properties["aruco_optical_center_v"]) - 0.5
+        ) * item["size"]
+        return marker_x, marker_y
+
+    def active_turret_rect(
+        item: dict[str, int], properties: dict[str, Any]
+    ) -> tuple[float, float, float, float]:
+        _, center_y = marker_center(item, properties)
+        half = active_turret_size / 2
+        return (
+            item["x"] - half,
+            center_y - half,
+            item["x"] + half,
+            center_y + half,
+        )
+
     for socket_id, item in parsed.items():
         if not (0 <= item["x"] <= width and 0 <= item["y"] <= height):
             raise SocketLayoutError(f"{socket_id} center must remain inside the {width}x{height} playfield")
         if not SOCKET_MIN_SIZE <= item["size"] <= SOCKET_MAX_SIZE:
             raise SocketLayoutError(
                 f"{socket_id} size must be between {SOCKET_MIN_SIZE} and {SOCKET_MAX_SIZE}px"
+            )
+        properties = socket_properties[socket_id]
+        marker_x, marker_y = marker_center(item, properties)
+        if not (
+            marker_half <= marker_x <= width - marker_half
+            and marker_half <= marker_y <= height - marker_half
+        ):
+            raise SocketLayoutError(
+                f"{socket_id} side-mounted ArUco marker must remain inside the playfield"
+            )
+        pad_left, pad_top, pad_right, pad_bottom = active_turret_rect(item, properties)
+        if (
+            marker_x + marker_half > pad_left
+            and marker_x - marker_half < pad_right
+            and marker_y + marker_half > pad_top
+            and marker_y - marker_half < pad_bottom
+        ):
+            raise SocketLayoutError(
+                f"{socket_id} side-mounted ArUco marker overlaps its active turret position"
             )
 
     values = list(parsed.items())
@@ -121,6 +174,37 @@ def _submitted_layout(level: dict[str, Any], submitted: Any) -> dict[str, dict[s
             distance = math.hypot(item["x"] - other["x"], item["y"] - other["y"])
             if distance < SOCKET_MIN_CENTER_DISTANCE:
                 raise SocketLayoutError(f"{socket_id} and {other_id} are too close together")
+
+    markers = {
+        socket_id: marker_center(item, socket_properties[socket_id])
+        for socket_id, item in parsed.items()
+    }
+    for socket_id, (marker_x, marker_y) in markers.items():
+        for other_id, other in parsed.items():
+            if socket_id == other_id:
+                continue
+            pad_left, pad_top, pad_right, pad_bottom = active_turret_rect(
+                other, socket_properties[other_id]
+            )
+            if (
+                marker_x + marker_half > pad_left
+                and marker_x - marker_half < pad_right
+                and marker_y + marker_half > pad_top
+                and marker_y - marker_half < pad_bottom
+            ):
+                raise SocketLayoutError(
+                    f"{socket_id} ArUco marker overlaps {other_id} active turret position"
+                )
+    marker_items = list(markers.items())
+    for index, (socket_id, (marker_x, marker_y)) in enumerate(marker_items):
+        for other_id, (other_x, other_y) in marker_items[index + 1:]:
+            if (
+                abs(marker_x - other_x) < marker_half * 2
+                and abs(marker_y - other_y) < marker_half * 2
+            ):
+                raise SocketLayoutError(
+                    f"{socket_id} and {other_id} ArUco markers overlap"
+                )
     return parsed
 
 

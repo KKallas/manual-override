@@ -1,0 +1,166 @@
+{
+  "schema_version": 2,
+  "generated_with": "AVFoundation MP4 decode plus deterministic exterior-black keying and frame normalization",
+  "frame_count": 72,
+  "frame_size_px": 112,
+  "fps": 24,
+  "duration_s": 3.0,
+  "replenish_pulse_s": 0.35,
+  "black_key": {
+    "method": "outer_silhouette_crop_plus_border_connected_black_key",
+    "source_threshold": 8,
+    "runtime_threshold": 24,
+    "preserves_enclosed_black_pixels": true
+  },
+  "timeline": [
+    {
+      "frames": [
+        0,
+        16
+      ],
+      "time_s": [
+        0.0,
+        0.7
+      ],
+      "stage": "trap_door_emergence"
+    },
+    {
+      "frames": [
+        17,
+        30
+      ],
+      "time_s": [
+        0.7,
+        1.3
+      ],
+      "stage": "stabilizer_lock"
+    },
+    {
+      "frames": [
+        31,
+        47
+      ],
+      "time_s": [
+        1.3,
+        2.0
+      ],
+      "stage": "weapon_extension"
+    },
+    {
+      "frames": [
+        48,
+        64
+      ],
+      "time_s": [
+        2.0,
+        2.7
+      ],
+      "stage": "boot_calibration"
+    },
+    {
+      "frames": [
+        65,
+        71
+      ],
+      "time_s": [
+        2.7,
+        3.0
+      ],
+      "stage": "active_settle"
+    }
+  ],
+  "assets": [
+    {
+      "tower_type": "machine_gun",
+      "source_video": "assets/game-art/z-pixel-v2/source-videos/runtime-activation/machine-gun-activation-source-v2.mp4",
+      "decoded_frame_count": 73,
+      "video_frames_used": [
+        0,
+        70
+      ],
+      "runtime_sheet": "assets/game-art/z-pixel-v2/normalized/structures/runtime/activation/machine-gun-activation-v2.png",
+      "preview_sheet": "assets/game-art/z-pixel-v2/normalized/structures/runtime/activation/machine-gun-activation-preview-v2.png",
+      "frame_count": 72,
+      "frame_size": [
+        112,
+        112
+      ],
+      "fps": 24,
+      "duration_s": 3.0,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "sha256": "d352701159b548e45a0f86cd2bc044ace15dd5017cf2e86b3394e403415cef13"
+    },
+    {
+      "tower_type": "flamethrower",
+      "source_video": "assets/game-art/z-pixel-v2/source-videos/runtime-activation/flamethrower-activation-source-v2.mp4",
+      "decoded_frame_count": 73,
+      "video_frames_used": [
+        0,
+        70
+      ],
+      "runtime_sheet": "assets/game-art/z-pixel-v2/normalized/structures/runtime/activation/flamethrower-activation-v2.png",
+      "preview_sheet": "assets/game-art/z-pixel-v2/normalized/structures/runtime/activation/flamethrower-activation-preview-v2.png",
+      "frame_count": 72,
+      "frame_size": [
+        112,
+        112
+      ],
+      "fps": 24,
+      "duration_s": 3.0,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "sha256": "c89bd423b9989c55f95d657aa713994c12e5cfd8f511d44217a17359c0ce6acb"
+    },
+    {
+      "tower_type": "mortar",
+      "source_video": "assets/game-art/z-pixel-v2/source-videos/runtime-activation/mortar-activation-source-v2.mp4",
+      "decoded_frame_count": 73,
+      "video_frames_used": [
+        0,
+        70
+      ],
+      "runtime_sheet": "assets/game-art/z-pixel-v2/normalized/structures/runtime/activation/mortar-activation-v2.png",
+      "preview_sheet": "assets/game-art/z-pixel-v2/normalized/structures/runtime/activation/mortar-activation-preview-v2.png",
+      "frame_count": 72,
+      "frame_size": [
+        112,
+        112
+      ],
+      "fps": 24,
+      "duration_s": 3.0,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "sha256": "45945d539bfb06a63ce7c27adb1ac19f9f4153889cfccca7abde8cdbc48a942f"
+    },
+    {
+      "tower_type": "tesla_coil",
+      "source_video": "assets/game-art/z-pixel-v2/source-videos/runtime-activation/tesla-coil-activation-source-v2.mp4",
+      "decoded_frame_count": 73,
+      "video_frames_used": [
+        0,
+        70
+      ],
+      "runtime_sheet": "assets/game-art/z-pixel-v2/normalized/structures/runtime/activation/tesla-coil-activation-v2.png",
+      "preview_sheet": "assets/game-art/z-pixel-v2/normalized/structures/runtime/activation/tesla-coil-activation-preview-v2.png",
+      "frame_count": 72,
+      "frame_size": [
+        112,
+        112
+      ],
+      "fps": 24,
+      "duration_s": 3.0,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "sha256": "dd2e22359a64dd37ab4b8e6706e18f50a945f30e0ae8f967f569863fbee40320"
+    }
+  ]
+}

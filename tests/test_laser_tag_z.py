@@ -7,6 +7,7 @@ import json
 import math
 import copy
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -73,6 +74,30 @@ class LaserTagZEngineTests(unittest.TestCase):
 
     def test_all_socket_visuals_use_the_large_default_footprint(self):
         level = json.loads(MAP_PATH.read_text(encoding="utf-8"))
+        level_properties = {
+            item["name"]: item["value"] for item in level["properties"]
+        }
+        self.assertEqual(level_properties["active_turret_visual_size_px"], 112)
+        self.assertEqual(level_properties["active_turret_aruco_gap_px"], 0)
+        self.assertEqual(
+            level_properties["fixed_aruco_alignment"],
+            "permanent_active_turret_touch_center",
+        )
+        self.assertEqual(
+            level_properties["active_turret_vertical_alignment"],
+            "aruco_optical_center",
+        )
+        self.assertEqual(
+            level_properties["active_turret_visual_size_px"] / 2
+            + level_properties["aruco_code_footprint_px"] / 2,
+            94.5,
+        )
+        self.assertEqual(level_properties["runtime_socket_art_visibility"], "editor_only")
+        self.assertEqual(level_properties["virtual_activation_target"], "aruco_marker_bounds")
+        self.assertEqual(level_properties["turret_activation_duration_ms"], 3000)
+        self.assertEqual(level_properties["turret_activation_frames"], 72)
+        self.assertEqual(level_properties["turret_activation_fps"], 24)
+        self.assertEqual(level_properties["turret_replenish_pulse_ms"], 350)
         sockets = socket_records(level)
         self.assertEqual({item["size"] for item in sockets}, {208.0})
         self.assertGreaterEqual(layout_revision(level), 8)
@@ -386,12 +411,12 @@ class LaserTagZEngineTests(unittest.TestCase):
     def test_layout_edit_preserves_identity_and_updates_linked_gate(self):
         level = json.loads(MAP_PATH.read_text(encoding="utf-8"))
         submitted = socket_records(level)
-        submitted[0].update({"x": 672, "y": 184, "size": 240})
+        submitted[0].update({"x": 620, "y": 184, "size": 208})
         updated = apply_socket_layout(level, submitted)
         records = socket_records(updated)
         self.assertEqual(records[0]["aruco_id"], 40)
         self.assertEqual(records[0]["owner"], "purple")
-        self.assertEqual((records[0]["x"], records[0]["y"], records[0]["size"]), (672.0, 184.0, 240.0))
+        self.assertEqual((records[0]["x"], records[0]["y"], records[0]["size"]), (620.0, 184.0, 208.0))
         self.assertEqual(layout_revision(updated), layout_revision(level) + 1)
         gate_layer = next(layer for layer in updated["layers"] if layer["name"] == "10 Force Field Walls")
         first_gate = gate_layer["objects"][0]
@@ -411,15 +436,21 @@ class LaserTagZEngineTests(unittest.TestCase):
         with self.assertRaises(SocketLayoutError):
             apply_socket_layout(level, submitted)
 
-    def test_tiled_center_alignment_is_used_by_map_and_gameplay(self):
+    def test_layout_edit_rejects_overlapping_aruco_markers(self):
         level = json.loads(MAP_PATH.read_text(encoding="utf-8"))
-        expected_anchors = {
-            "objectives/target-purple-active": (152.5 / 320, 137.0 / 320),
-            "objectives/target-purple-inactive": (160.0 / 320, 146.0 / 320),
-            "objectives/target-green-active": (156.5 / 320, 135.0 / 320),
-            "objectives/target-green-inactive": (156.0 / 320, 131.5 / 320),
-            "objectives/target-shared-inactive": (157.5 / 320, 128.5 / 320),
-            "objectives/target-shared-active": (149.0 / 320, 140.0 / 320),
+        submitted = socket_records(level)
+        socket_54 = next(item for item in submitted if item["aruco_id"] == 54)
+        socket_54.update({"x": 1233, "y": 495})
+        with self.assertRaisesRegex(SocketLayoutError, "ArUco markers overlap"):
+            apply_socket_layout(level, submitted)
+
+    def test_tiled_alignment_and_side_markers_are_used_by_map_and_gameplay(self):
+        level = json.loads(MAP_PATH.read_text(encoding="utf-8"))
+        expected_offsets = {
+            40: (-94.5, -15), 41: (94.5, -15), 42: (-94.5, -9), 43: (94.5, -9),
+            44: (94.5, -15), 45: (-94.5, -15), 46: (94.5, -20), 47: (-94.5, -20),
+            48: (94.5, -16), 49: (94.5, -16), 50: (-94.5, -19), 51: (94.5, -19),
+            52: (-94.5, -16), 53: (-94.5, -16), 54: (94.5, -20), 55: (94.5, -20),
         }
         alignments = []
         for reference in level["tilesets"]:
@@ -436,9 +467,23 @@ class LaserTagZEngineTests(unittest.TestCase):
             socket = self.engine.level.sockets[self.engine.level.socket_by_marker[marker]]
             self.assertEqual((socket["x"], socket["y"]), (float(obj["x"]), float(obj["y"])))
             self.assertEqual(
-                (properties["aruco_anchor_u"], properties["aruco_anchor_v"]),
-                expected_anchors[properties["asset_id"]],
+                (properties["aruco_offset_x"], properties["aruco_offset_y"]),
+                expected_offsets[marker],
             )
+            optical_y = obj["y"] + (properties["aruco_optical_center_v"] - 0.5) * obj["height"]
+            self.assertAlmostEqual(
+                obj["y"] + properties["aruco_offset_y"], optical_y, delta=0.55,
+            )
+            marker_half = self.engine.level.aruco_code_footprint_px / 2
+            if properties["aruco_side"] < 0:
+                pad_edge = obj["x"] - 112 / 2
+                marker_edge = obj["x"] + properties["aruco_offset_x"] + marker_half
+                gap = pad_edge - marker_edge
+            else:
+                pad_edge = obj["x"] + 112 / 2
+                marker_edge = obj["x"] + properties["aruco_offset_x"] - marker_half
+                gap = marker_edge - pad_edge
+            self.assertAlmostEqual(gap, 0, delta=0.01)
 
         core_layer = next(
             layer for layer in level["layers"]
@@ -453,19 +498,76 @@ class LaserTagZEngineTests(unittest.TestCase):
         }
         self.assertEqual(
             (core_properties["aruco_anchor_u"], core_properties["aruco_anchor_v"]),
-            expected_anchors[core_properties["asset_id"]],
+            (149.0 / 320, 140.0 / 320),
         )
 
         game_html = (PROTOTYPE / "game.html").read_text(encoding="utf-8")
         renderer_js = (PROTOTYPE / "tower-defence-view.js").read_text(encoding="utf-8")
-        self.assertIn('src="tower-defence-view.js"', game_html)
+        self.assertIn('src="tower-defence-view.js?v=17"', game_html)
         self.assertIn("selected.source.objectalignment", renderer_js)
         self.assertIn("function arucoMarkerCenter", renderer_js)
-        self.assertIn("const center = arucoMarkerCenter(socket)", renderer_js)
+        self.assertIn("properties.aruco_offset_x", renderer_js)
+        self.assertIn("properties.aruco_optical_center_v", renderer_js)
+        self.assertIn("permanentTurretMarkerOffset", renderer_js)
+        self.assertNotIn("function activeTurretMarkerCenter", renderer_js)
+        self.assertIn("function drawSocketMarkers", renderer_js)
+        self.assertIn("function towerVisualRecord", renderer_js)
+        self.assertIn("function towerVisualState", renderer_js)
+        self.assertIn('alignment !== "aruco_optical_center"', renderer_js)
+        self.assertIn("y: opticalY", renderer_js)
+        self.assertIn("const visualState = towerVisualState(state, socketsById)", renderer_js)
+        self.assertIn("drawSocketMarkers(context, state)", renderer_js)
+        self.assertIn("const markerCenter = arucoMarkerCenter(object)", renderer_js)
+        self.assertIn("for (const socket of socketRecords())", renderer_js)
+        self.assertNotIn("const active = liveSocketIds.has", renderer_js)
         self.assertIn("marker_x: markerCenter.x", renderer_js)
         self.assertIn("marker_y: markerCenter.y", renderer_js)
-        self.assertIn("marker_size: socketMarkerVisualSize()", renderer_js)
+        self.assertIn("const markerSize = socketMarkerVisualSize()", renderer_js)
+        self.assertIn("marker_size: markerSize", renderer_js)
+        self.assertIn('runtime_socket_art_visibility === "editor_only"', renderer_js)
+        self.assertIn("function markerAtPoint", renderer_js)
         self.assertNotIn("socket.x+socket.width/2", renderer_js)
+
+    def test_generated_turret_activation_assets_follow_the_three_second_contract(self):
+        manifest_path = ROOT / "assets/game-art/z-pixel-v2/runtime-activation.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["frame_count"], 72)
+        self.assertEqual(manifest["frame_size_px"], 112)
+        self.assertEqual(manifest["fps"], 24)
+        self.assertEqual(manifest["duration_s"], 3.0)
+        self.assertEqual(manifest["replenish_pulse_s"], 0.35)
+        self.assertEqual(
+            [stage["stage"] for stage in manifest["timeline"]],
+            [
+                "trap_door_emergence",
+                "stabilizer_lock",
+                "weapon_extension",
+                "boot_calibration",
+                "active_settle",
+            ],
+        )
+        self.assertEqual(
+            {asset["tower_type"] for asset in manifest["assets"]},
+            {"machine_gun", "flamethrower", "mortar", "tesla_coil"},
+        )
+        for asset in manifest["assets"]:
+            source_path = ROOT / asset["source_video"]
+            runtime_path = ROOT / asset["runtime_sheet"]
+            preview_path = ROOT / asset["preview_sheet"]
+            source_data = source_path.read_bytes()
+            self.assertEqual(source_data[4:8], b"ftyp")
+            self.assertEqual(asset["decoded_frame_count"], 73)
+            self.assertEqual(asset["video_frames_used"], [0, 70])
+            for path in (runtime_path, preview_path):
+                data = path.read_bytes()
+                self.assertEqual(data[:8], b"\x89PNG\r\n\x1a\n")
+                self.assertEqual(data[25], 6, f"{path} must be RGBA")
+            width, height = struct.unpack(">II", runtime_path.read_bytes()[16:24])
+            self.assertEqual((width, height), (72 * 112, 112))
+            preview_width, preview_height = struct.unpack(
+                ">II", preview_path.read_bytes()[16:24]
+            )
+            self.assertEqual((preview_width, preview_height), (12 * 112, 6 * 112))
 
     def test_completed_core_ring_repaints_marker_above_runtime_effects(self):
         renderer_js = (PROTOTYPE / "tower-defence-view.js").read_text(
@@ -764,6 +866,7 @@ class LaserTagZEngineTests(unittest.TestCase):
             sockets = [marker[marker_id] for marker_id in (41, 48, 49)]
             for socket_id in sockets[:count]:
                 engine.place(100, socket_id, source="virtual")
+            engine.runtime_time = 3.0
             engine.settings["machine_gun_damage"] = 100.0
             firing_tower = engine.placements[sockets[0]]
             targeting = engine._tower_targeting(firing_tower)
@@ -801,6 +904,7 @@ class LaserTagZEngineTests(unittest.TestCase):
             "tower_link_start_multiplier": 0.75,
             "tower_link_step": 0.2,
         })
+        self.engine.runtime_time = 3.0
 
         state = self.engine.snapshot()
         self.assertEqual(state["settings"]["tower_link_start_multiplier"], 0.75)
@@ -910,6 +1014,26 @@ class LaserTagZEngineTests(unittest.TestCase):
         self.assertNotIn("lane", compact["enemies"][0])
         self.assertLess(len(json.dumps(compact)), len(json.dumps(full)) * 0.55)
 
+    def test_compact_enemy_status_fields_are_sparse(self):
+        self.assertTrue(self.engine._spawn_enemy("grunt", {}))
+        enemy = next(iter(self.engine.enemies.values()))
+
+        inactive = self.engine.snapshot(compact_enemies=True)["enemies"][0]
+        self.assertNotIn("burn_until", inactive)
+        self.assertNotIn("electrocuted_until", inactive)
+        self.assertNotIn("electrocution_depth", inactive)
+        self.assertNotIn("electrocution_intensity", inactive)
+
+        enemy["burn_until"] = self.engine.sim_time + 1.25
+        enemy["electrocuted_until"] = self.engine.sim_time + 0.4
+        enemy["electrocution_depth"] = 3
+        enemy["electrocution_intensity"] = 0.625
+        active = self.engine.snapshot(compact_enemies=True)["enemies"][0]
+        self.assertEqual(active["burn_until"], 1.25)
+        self.assertEqual(active["electrocuted_until"], 0.4)
+        self.assertEqual(active["electrocution_depth"], 3)
+        self.assertEqual(active["electrocution_intensity"], 0.625)
+
     def test_force_field_counts_unique_impacts_breaks_and_reroutes(self):
         self.engine.set_virtual_play(True)
         marker = self.engine.level.socket_by_marker
@@ -987,10 +1111,10 @@ class LaserTagZEngineTests(unittest.TestCase):
         self.assertTrue(self.engine._reroute_enemy(enemy))
 
         self.assertEqual(enemy["current_edge_id"], "edge_top_inner_mid")
-        self.assertAlmostEqual(enemy["current_edge_progress"], 0.5)
+        self.assertAlmostEqual(enemy["current_edge_progress"], 0.625)
         self.assertEqual(
             enemy["path"][:3],
-            [(800.0, 240.0), (560.0, 240.0), (560.0, 400.0)],
+            [(800.0, 240.0), (400.0, 240.0), (400.0, 400.0)],
         )
         event = self.engine.events[-1]
         self.assertEqual(event["kind"], "orc_rerouted")
@@ -2069,6 +2193,9 @@ class LaserTagZEngineTests(unittest.TestCase):
         tower["hp"] = tower["max_hp"] / 3
         field.update({"hits": 49, "broken": True, "last_hit_at": 4.0, "broken_at": 4.0})
         field["impacted_enemy_ids"].update({1, 2, 3})
+        activation_started_at = tower["activation_started_at"]
+        activation_complete_at = tower["activation_complete_at"]
+        self.engine.runtime_time = activation_complete_at + 1.0
 
         self.engine.place(102, first_socket, source="virtual", team="purple")
 
@@ -2077,6 +2204,10 @@ class LaserTagZEngineTests(unittest.TestCase):
         self.assertEqual(tower["atom_tag_id"], 100)
         self.assertEqual(tower["tower_type"], "machine_gun")
         self.assertEqual(tower["hp"], tower["max_hp"])
+        self.assertEqual(tower["activation_started_at"], activation_started_at)
+        self.assertEqual(tower["activation_complete_at"], activation_complete_at)
+        self.assertEqual(tower["replenished_at"], self.engine.runtime_time)
+        self.assertTrue(self.engine._public_tower(tower)["operational"])
         replenished = next(iter(self.engine.force_fields.values()))
         self.assertEqual(replenished["hits"], 0)
         self.assertFalse(replenished["broken"])
@@ -2084,11 +2215,69 @@ class LaserTagZEngineTests(unittest.TestCase):
         self.assertIsNone(replenished["broken_at"])
         self.assertEqual(replenished["impacted_enemy_ids"], set())
 
+    def test_new_and_replacement_turrets_cannot_fire_until_boot_finishes(self):
+        self.engine.set_virtual_play(True)
+        socket_id = self.engine.level.socket_by_marker[48]
+        self.engine.place(100, socket_id, source="virtual", team="green")
+        tower = self.engine.placements[socket_id]
+        targeting = self.engine._tower_targeting(tower)
+        enemy = {
+            "id": 9901,
+            "x": tower["x"] + math.cos(targeting["angle"]) * 80.0,
+            "y": tower["y"] + math.sin(targeting["angle"]) * 80.0,
+            "hp": 1000.0,
+            "progress": 0.5,
+            "burn_until": 0.0,
+            "burn_damage_per_s": 0.0,
+        }
+        self.engine.enemies = {enemy["id"]: enemy}
+
+        self.assertFalse(self.engine._public_tower(tower)["operational"])
+        self.engine.runtime_time = tower["activation_complete_at"] - 0.001
+        self.engine._fire_towers(0.1, set())
+        self.assertEqual(enemy["hp"], 1000.0)
+        self.assertIsNone(tower["last_fire_at"])
+
+        self.engine.runtime_time = tower["activation_complete_at"]
+        self.engine._fire_towers(0.1, set())
+        self.assertLess(enemy["hp"], 1000.0)
+        self.assertTrue(self.engine._public_tower(tower)["operational"])
+
+        tower["hp"] = 0.0
+        tower["destroyed"] = True
+        tower["destroyed_at"] = self.engine.sim_time
+        self.engine.place(103, socket_id, source="virtual", team="purple")
+        replacement = self.engine.placements[socket_id]
+        self.assertEqual(replacement["tower_type"], "tesla_coil")
+        self.assertEqual(
+            replacement["activation_complete_at"]
+            - replacement["activation_started_at"],
+            3.0,
+        )
+        self.assertFalse(self.engine._public_tower(replacement)["operational"])
+
+    def test_turret_boot_clock_advances_during_setup_and_survives_start(self):
+        self.engine.set_virtual_play(True)
+        socket_id = self.engine.level.socket_by_marker[48]
+        self.engine.place(100, socket_id, source="virtual", team="green")
+        tower = self.engine.placements[socket_id]
+        for _ in range(29):
+            self.engine.step(0.1)
+        self.assertEqual(self.engine.sim_time, 0.0)
+        self.assertFalse(self.engine._public_tower(tower)["operational"])
+        self.engine.step(0.1)
+        self.assertTrue(self.engine._public_tower(tower)["operational"])
+        runtime_time = self.engine.runtime_time
+        self.engine.start()
+        self.assertEqual(self.engine.runtime_time, runtime_time)
+        self.assertTrue(self.engine._public_tower(tower)["operational"])
+
     def test_weapon_aiming_burn_duration_and_mortar_falloff(self):
         self.engine.set_virtual_play(True)
         marker = self.engine.level.socket_by_marker
         self.engine.place(101, marker[48], source="virtual", team="green")
         self.engine.start({"flamethrower_burn_duration_s": 3.0})
+        self.engine.runtime_time = 3.0
         tower = self.engine.placements[marker[48]]
         targeting = self.engine._tower_targeting(tower)
         enemy = {
@@ -2120,6 +2309,7 @@ class LaserTagZEngineTests(unittest.TestCase):
         socket_id = self.engine.level.socket_by_marker[48]
         self.engine.place(100, socket_id, source="virtual", team="green")
         self.engine.start({"machine_gun_damage": 31.0})
+        self.engine.runtime_time = 3.0
         tower = self.engine.placements[socket_id]
         targeting = self.engine._tower_targeting(tower)
         enemy = {
@@ -2146,6 +2336,7 @@ class LaserTagZEngineTests(unittest.TestCase):
         socket_id = self.engine.level.socket_by_marker[41]
         self.engine.place(102, socket_id, source="virtual", team="purple")
         self.engine.start()
+        self.engine.runtime_time = 3.0
         tower = self.engine.placements[socket_id]
         targeting = self.engine._tower_targeting(tower)
         enemy = {
@@ -2184,6 +2375,7 @@ class LaserTagZEngineTests(unittest.TestCase):
             "tesla_link_distance": 45.0,
             "tesla_max_links": 3,
         })
+        self.engine.runtime_time = 3.0
         tower = self.engine.placements[socket_id]
         enemies = {}
         for index, offset in enumerate((40.0, 80.0, 120.0, 190.0), start=1):
@@ -2226,6 +2418,7 @@ class LaserTagZEngineTests(unittest.TestCase):
 
         self.engine.settings["tesla_damage"] = 100.0
         self.engine.settings["tesla_max_links"] = 1
+        self.engine.runtime_time = 3.0
         enemy = {
             "id": 1,
             "x": tower["x"] + 60.0,
@@ -2574,6 +2767,9 @@ class LaserTagZDisplayTests(unittest.TestCase):
         cls.runtime_weapons = json.loads((
             ROOT / "assets/game-art/z-pixel-v2/normalized/runtime-weapons.json"
         ).read_text(encoding="utf-8"))
+        cls.runtime_activation = json.loads((
+            ROOT / "assets/game-art/z-pixel-v2/runtime-activation.json"
+        ).read_text(encoding="utf-8"))
 
     def test_physical_and_virtual_modes_use_mutually_exclusive_feeds(self):
         self.assertIn(".stage>img{object-fit:contain}", self.game_html)
@@ -2689,6 +2885,8 @@ if (fireLines.length !== 2) process.exit(5);
 if (fireLines[0].ax === fireLines[1].ax && fireLines[0].ay === fireLines[1].ay) process.exit(6);
 if (fireLines.some((line) => line.bx !== 200 || line.by !== 150)) process.exit(7);
 if (Math.abs((fireLines[0].ay + fireLines[1].ay) / 2 - 100) > 1e-9) process.exit(8);
+if (geometry.permanentTurretMarkerOffset(-1, 112, 77, 0) !== -94.5) process.exit(9);
+if (geometry.permanentTurretMarkerOffset(1, 112, 77, 0) !== 94.5) process.exit(10);
 """
         completed = subprocess.run(
             [node, "-e", script],
@@ -2718,6 +2916,7 @@ if (Math.abs((fireLines[0].ay + fireLines[1].ay) / 2 - 100) > 1e-9) process.exit
         self.assertIn("data-atom", self.game_html)
         self.assertIn("data-marker", self.game_html)
         self.assertIn("handleVirtualCanvasClick", self.game_html)
+        self.assertIn("defenceView.markerAtPoint(point.x,point.y)", self.game_html)
         self.assertIn("id=\"aimDirection\"", self.game_html)
         self.assertIn("id=\"aimReach\"", self.game_html)
         self.assertIn('id="hudCenter" class="hud-center"', self.game_html)
@@ -2725,7 +2924,7 @@ if (Math.abs((fireLines[0].ay + fireLines[1].ay) / 2 - 100) > 1e-9) process.exit
         self.assertLess(self.game_html.index('id="modeBadge"'), self.game_html.index('id="aimControls"'))
         self.assertIn(".aim-controls.hud-aim", self.game_html)
         self.assertIn("/api/defence/aim", self.game_html)
-        self.assertIn("click as many camera markers as needed", self.game_html)
+        self.assertIn("click directly on each ArUco code", self.game_html)
         self.assertIn("function chip(container,dataName,id)", self.game_html)
         self.assertIn("setTimeout(saveAim,90)", self.game_html)
         self.assertIn("runtime.aimDraft", self.game_html)
@@ -2733,6 +2932,22 @@ if (Math.abs((fireLines[0].ay + fireLines[1].ay) / 2 - 100) > 1e-9) process.exit
         self.assertIn("repeat to place more", self.game_html)
         self.assertIn("response.tower", self.game_html)
         self.assertNotIn("team:role.owner", self.game_html)
+
+    def test_turret_activation_and_replenishment_have_distinct_runtime_visuals(self):
+        self.assertIn("TOWER_ACTIVATION_FRAMES = 72", self.renderer_js)
+        self.assertIn("TOWER_ACTIVATION_FPS = 24", self.renderer_js)
+        self.assertIn("function visualRuntimeTime", self.renderer_js)
+        self.assertIn("function drawTowerActivation", self.renderer_js)
+        self.assertIn("function drawTowerReplenishPulse", self.renderer_js)
+        self.assertIn("tower.activation_started_at", self.renderer_js)
+        self.assertIn("tower.replenished_at", self.renderer_js)
+        self.assertIn("tower:${type}:activation", self.renderer_js)
+        self.assertIn("if (drawTowerActivation(context, tower", self.renderer_js)
+        self.assertIn("drawTowerReplenishPulse(", self.renderer_js)
+        self.assertEqual(self.runtime_activation["duration_s"], 3.0)
+        self.assertEqual(self.runtime_activation["frame_count"], 72)
+        self.assertEqual(self.runtime_activation["fps"], 24)
+        self.assertEqual(self.runtime_activation["replenish_pulse_s"], 0.35)
 
     def test_directional_weapons_damage_effects_and_destroyed_marker_reveal_are_rendered(self):
         self.assertIn("towerRenderAngles", self.renderer_js)
@@ -2900,9 +3115,36 @@ if (expired.damageAlpha !== 0 || expired.damageNotchWidth !== 0) process.exit(5)
     def test_dense_renderer_uses_cached_sprites_and_adaptive_frame_rate(self):
         self.assertIn("function cachedEnemySprite", self.renderer_js)
         self.assertIn("enemySpriteCache", self.renderer_js)
-        self.assertIn("enemyCount >= 800 ? 18", self.renderer_js)
+        self.assertIn("function effectQualityForEnemyCount", self.renderer_js)
+        self.assertIn("effectQualityForEnemyCount(enemyCount).targetFps", self.renderer_js)
         self.assertIn("extrapolationAge", self.renderer_js)
         self.assertIn("compact_enemies=True", self.prototype_py)
+        self.assertIn("const enemiesById = new Map();", self.renderer_js)
+        self.assertNotIn("currentEnemies = new Map", self.renderer_js)
+        self.assertIn("enemyTrailHistory.delete(enemyId)", self.renderer_js)
+        self.assertIn("socketRecordCache", self.renderer_js)
+        self.assertIn("staticFieldKeepOutCache", self.renderer_js)
+
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("Node.js is unavailable for renderer profile verification")
+        renderer_path = json.dumps(str(PROTOTYPE / "tower-defence-view.js"))
+        script = f"""
+require({renderer_path});
+const profile = globalThis.TowerDefenceView.geometry.effectQualityForEnemyCount;
+if (profile(0).name !== 'full' || profile(0).targetFps !== 30) process.exit(1);
+if (profile(400).name !== 'reduced' || profile(400).targetFps !== 24) process.exit(2);
+if (profile(800).name !== 'dense' || profile(800).targetFps !== 18) process.exit(3);
+if (!(profile(800).trailSamples < profile(0).trailSamples)) process.exit(4);
+if (!(profile(800).flameSegments < profile(0).flameSegments)) process.exit(5);
+"""
+        completed = subprocess.run(
+            [node, "-e", script],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_renderer_uses_real_dictionary_correct_aruco_images(self):
         self.assertIn("/api/defence/aruco/${markerId}.png", self.renderer_js)

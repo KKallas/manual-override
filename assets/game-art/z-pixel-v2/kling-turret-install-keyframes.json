@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "aspect_ratio": "1:1",
+  "duration_s": 3.0,
+  "canvas_size": [
+    1024,
+    1024
+  ],
+  "prompt_file": "assets/game-art/z-pixel-v2/KLING_TURRET_INSTALL_PROMPTS.md",
+  "assets": [
+    {
+      "tower_type": "machine_gun",
+      "first_source": "assets/game-art/z-pixel-v2/source-sheets/kling-keyframes/machine-gun-install-first-source-v1.png",
+      "first_frame": "assets/game-art/z-pixel-v2/normalized/structures/runtime/kling-keyframes/machine-gun-install-first-v1.png",
+      "last_frame": "assets/game-art/z-pixel-v2/normalized/structures/runtime/kling-keyframes/machine-gun-install-last-v1.png",
+      "canvas_size": [
+        1024,
+        1024
+      ],
+      "content_size_px": 896,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "duration_s": 3.0
+    },
+    {
+      "tower_type": "flamethrower",
+      "first_source": "assets/game-art/z-pixel-v2/source-sheets/kling-keyframes/flamethrower-install-first-source-v1.png",
+      "first_frame": "assets/game-art/z-pixel-v2/normalized/structures/runtime/kling-keyframes/flamethrower-install-first-v1.png",
+      "last_frame": "assets/game-art/z-pixel-v2/normalized/structures/runtime/kling-keyframes/flamethrower-install-last-v1.png",
+      "canvas_size": [
+        1024,
+        1024
+      ],
+      "content_size_px": 896,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "duration_s": 3.0
+    },
+    {
+      "tower_type": "mortar",
+      "first_source": "assets/game-art/z-pixel-v2/source-sheets/kling-keyframes/mortar-install-first-source-v1.png",
+      "first_frame": "assets/game-art/z-pixel-v2/normalized/structures/runtime/kling-keyframes/mortar-install-first-v1.png",
+      "last_frame": "assets/game-art/z-pixel-v2/normalized/structures/runtime/kling-keyframes/mortar-install-last-v1.png",
+      "canvas_size": [
+        1024,
+        1024
+      ],
+      "content_size_px": 896,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "duration_s": 3.0
+    },
+    {
+      "tower_type": "tesla_coil",
+      "first_source": "assets/game-art/z-pixel-v2/source-sheets/kling-keyframes/tesla-coil-install-first-source-v1.png",
+      "first_frame": "assets/game-art/z-pixel-v2/normalized/structures/runtime/kling-keyframes/tesla-coil-install-first-v1.png",
+      "last_frame": "assets/game-art/z-pixel-v2/normalized/structures/runtime/kling-keyframes/tesla-coil-install-last-v1.png",
+      "canvas_size": [
+        1024,
+        1024
+      ],
+      "content_size_px": 896,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "duration_s": 3.0
+    }
+  ]
+}

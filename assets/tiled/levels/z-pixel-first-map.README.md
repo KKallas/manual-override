@@ -6,7 +6,7 @@ Open `../photon-crane.tiled-project` in Tiled 1.12.2, then open
 ## Route layout
 
 Four enemies lanes enter from the left: two upper and two lower. Each lane pair
-has crossovers at x=560 and x=1040. A force wall can close the following lane
+has crossovers at x=400 and x=1040. A force wall can close the following lane
 segment and make enemies use the vertical crossover, travel along the paired
 lane, and optionally switch back at the second crossover.
 
@@ -50,23 +50,39 @@ At x=80, the existing upper and lower vertical branches now continue through
 the middle as one bidirectional passthrough. Enemies can switch between the two
 direct lines before committing to the central approach.
 
-A second bidirectional passthrough at x=560 extends the existing upper and
-lower crossover junctions through both direct lanes. This gives the players a
-second left-of-center column for redirecting enemies between top and bottom.
+A second bidirectional passthrough at x=400 extends the existing upper and
+lower crossover junctions through both direct lanes. Moving this full modular
+column 160 pixels left preserves the routing topology while opening a high-
+ground strip beside the tag-50 turret placement.
 
 ## Placement and gates
 
-- Exactly 16 square physical-tag placement spots, displayed at 144×144 pixels.
+- Exactly 16 logical square turret sockets remain authored at 208×208 pixels
+  and visible in Tiled for editing. The gameplay renderer hides this placement
+  art while a socket is empty or destroyed, leaving only its ArUco code visible.
+- Fixed ArUco IDs 40–55 are permanently rendered immediately to the left or
+  right of the 112×112 active-turret position on adjacent high ground. Their
+  inner edge touches the turret pod position and their vertical center uses the
+  authored optical alignment. Activating, destroying, or replacing a turret
+  never moves its marker; marker identity remains bound to the same stable
+  socket and force-field endpoint.
+- Virtual activation accepts clicks only inside the rendered ArUco square; the
+  larger editor socket is not a gameplay hit target. Physical activation keeps
+  the same direct fixed-code/Atom overlap requirement.
+- A newly placed or replacement turret plays a 72-frame, 24-fps, three-second
+  deployment before it can fire: the concrete slab rotates open like a trap
+  door, the turret rotates into place around its axis, stabilizers lock, the
+  weapon extends, and red/amber/cyan calibration lights settle to active.
+  Replenishing an already-active turret preserves its position and uses a
+  0.35-second status-light pulse without replaying deployment.
+- Tag 50 is side-mounted to the left of socket 11 in the clearance created by
+  the x=400 crossover column.
 - Six Purple, six Green, and four shared spots.
 - Eight legal force-wall endpoint pairs.
-- The inactive middle Purple pair at x=880 now straddles the top outer lane,
-  while its Green counterpart straddles the bottom outer lane. Their outer
-  endpoints sit at the map edge so those two outermost routes can be blocked.
-- The active player-owned pairs at x=1120 on the right side now use the same
-  edge placement. Their force fields block the outer route tails and redirect
-  enemies through the second crossover at x=1040.
-- The spots are distributed across four columns near and beyond the two
-  vertical crossover junctions, rather than being compressed into two columns.
+- The published turret centers are part of the deterministic revision-17
+  builder, so regeneration preserves the operator-edited layout.
+- Layout editing prevents code/code and code/pad overlaps, keeps side-mounted
+  markers inside the playfield, and limits turret-pad size to 96–208 pixels.
 - Four visible preview walls consume eight active endpoints, matching the
   maximum of eight active defense structures.
 - Runtime walls are legal only while both referenced endpoint tags/towers are
@@ -122,6 +138,8 @@ second left-of-center column for redirecting enemies between top and bottom.
 
 - `z-pixel-first-map.tmj` — editable Tiled map.
 - `z-pixel-first-map.waves.json` — initial twelve-wave configuration.
+- `../../game-art/z-pixel-v2/runtime-activation.json` — activation timing and
+  four-turret sprite-sheet contract.
 - `../tilesets/z-pixel-v2-seam-safe-roads.tsj` — all production road modules,
   with opaque open-port edges.
 - `../tilesets/z-pixel-v2-core-plaza.tsj` — the open center-access road module.
@@ -145,6 +163,7 @@ second left-of-center column for redirecting enemies between top and bottom.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 <bundled-python> tools/build_core_access_plaza.py
+PYTHONDONTWRITEBYTECODE=1 <bundled-python> tools/build_turret_activation_assets.py
 PYTHONDONTWRITEBYTECODE=1 <bundled-python> tools/build_z_pixel_first_map.py
 PYTHONDONTWRITEBYTECODE=1 <bundled-python> \
   .agents/skills/tiled-modular-map-builder/scripts/validate_modular_map.py \
